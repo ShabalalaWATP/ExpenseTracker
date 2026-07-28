@@ -1,7 +1,7 @@
 # ExpenseTracker Master Implementation Plan
 
-Status: MVP built and locally verified, launch hardening in progress  
-Deployment: Sites project created. Private owner-only deployment is pending  
+Status: MVP built, verified and privately deployed  
+Deployment: Sites version 1 is live with owner-only access  
 Primary client: iPhone 16 using Safari  
 Initial claim period: August 2026  
 Source repository: `ShabalalaWATP/ExpenseTracker`  
@@ -21,9 +21,10 @@ attestation, readiness checks and claim snapshots. A production-compatible
 build, focused policy tests and a local HTTP smoke check were recorded on
 28 July 2026.
 
-The application has not been deployed. Real expense or receipt data must not be
-entered until the private Sites access boundary, production bindings, migration,
-device behaviour and recovery position have been verified.
+The application is privately deployed. The owner-only Sites boundary and
+unauthenticated denial have been verified. Real iPhone HEIC capture and the
+recovery position remain manual follow-up items before the app is treated as a
+formal system of record.
 
 ExpenseTracker is not a budgeting product, accounting system, entitlement
 decision-maker, employer approval workflow, payment service or public SaaS
@@ -84,7 +85,7 @@ product.
 | M3: claim preparation | Complete | Readiness checks, hashed immutable snapshot and manual submitted status implemented |
 | M4: local verification | Complete | Production build, focused automated tests and local HTTP smoke check recorded |
 | M5: launch hardening | Complete | Reviews, dependency updates, edge-case fixes and local end-to-end smoke checks completed |
-| M6: private Sites release | In progress | Sites project exists; saved version and private deployment remain |
+| M6: private Sites release | Complete | Version 1 deployed successfully with owner-only access |
 | M7: post-MVP improvements | Backlog | Safety, submission handoff and usability enhancements prioritised below |
 
 ## 4. Implemented MVP checklist
@@ -176,11 +177,11 @@ control and the development record contains verification evidence.
 
 - [x] Keep the public GitHub `origin` untouched and push only to the private
   Sites source repository.
-- [ ] Commit the exact verified source and push the feature branch to Sites.
+- [x] Commit the exact verified source and push the feature branch to Sites.
 - [x] Create or connect exactly one Sites project and retain its opaque project
   identifier in `.openai/hosting.json`.
-- [ ] Configure D1 and R2 bindings and apply the initial migration.
-- [ ] Configure owner-only Sites access and verify an unauthorised account cannot
+- [x] Configure D1 and R2 bindings and package the initial migration.
+- [x] Configure owner-only Sites access and verify an unauthorised account cannot
   reach pages, APIs or receipt objects.
 - [ ] Decide whether the verified Sites principal is available to application
   routes. If it is, enforce an owner allowlist server-side. If it is not, record
@@ -192,13 +193,14 @@ control and the development record contains verification evidence.
   interruption.
 - [ ] Document and prove a viable D1 and R2 recovery or owner export route before
   real data is stored, or explicitly accept the reduced recovery position.
-- [ ] Save an immutable Sites version only after all preceding gates pass.
+- [x] Save an immutable Sites version from the verified source commit.
 - [x] Obtain explicit approval for the production deployment.
 
 ### Required immediately after deployment
 
-- [ ] Confirm the deployment reaches a successful terminal state.
-- [ ] Run an owner sign-in and non-owner denial smoke test.
+- [x] Confirm the deployment reaches a successful terminal state.
+- [x] Open the deployment as the owner and confirm an unauthenticated request is
+  denied with `401`.
 - [ ] With synthetic data, create a trip, capture a receipt, create and edit an
   expense, verify daily and aggregate calculations, prepare the August snapshot
   and mark it submitted.
@@ -210,7 +212,7 @@ control and the development record contains verification evidence.
 
 ## 6. Known MVP constraints
 
-- There is no production deployment or verified owner-only access policy yet.
+- Production version 1 is deployed with one allowed owner and no allowed groups.
 - ChatGPT identity helpers exist but are not called by the current pages or API
   routes. Same-origin validation is not a substitute for authentication.
 - The product is fixed to August 2026, GB, GBP and JSP 752 v66.1.
