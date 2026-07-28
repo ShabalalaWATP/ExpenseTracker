@@ -14,3 +14,18 @@ This document records meaningful implementation milestones, decisions and verifi
 - Upgraded the React, Next.js and Sites build dependencies, applied safe transitive updates and confirmed that the production dependency audit reports no known vulnerabilities.
 - Verified the Vinext production build and automated tests, then completed a local HTTP smoke check of the application. No production deployment was performed at this milestone.
 - Created the ExpenseTracker Sites project, saved version 1 from commit `299c708`, and deployed it successfully to production with a custom owner-only policy. An unauthenticated request received `401`, confirming that the private gateway denies direct public access.
+- Added a mobile receipt inbox that accepts up to 20 camera or Photo Library
+  images and processes two at a time. Originals are secured before any
+  extraction, and a normalised JPEG derivative is used for AI review.
+- Added structured receipt extraction using the current OpenAI receipt model,
+  with uncertainty, line-item and suspected-alcohol review. AI suggestions
+  remain separate from the deterministic JSP 752 calculation and require owner
+  confirmation before an expense is created.
+- Added opt-in Realtime voice clarification for unresolved questions. The
+  standard API key remains server-side, and Safari receives only a short-lived
+  client credential after an explicit microphone action.
+- Enforced the Sites identity against a single configured owner on every API,
+  owner-scoped all database and receipt-object access, and recorded safe audit
+  events for financial mutations.
+- Added protected JSON and CSV exports, Sites runtime model configuration,
+  graceful manual operation without an OpenAI key, and focused extraction tests.

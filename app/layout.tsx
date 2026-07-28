@@ -6,6 +6,7 @@ import "./styles/forms.css";
 import "./styles/views.css";
 import "./styles/ledgers.css";
 import "./styles/claims-settings.css";
+import "./styles/intake.css";
 import "./styles/responsive.css";
 
 export async function generateMetadata(): Promise<Metadata> {

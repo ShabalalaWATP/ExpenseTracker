@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ExpenseEditor } from "./ExpenseEditor";
 import { formatDate, formatMoney } from "./format";
+import { ReceiptAttachment } from "./ReceiptAttachment";
 import type { DashboardData, Expense, ViewName } from "./types";
 import { EmptyState, ViewHeader } from "./ui";
 
@@ -90,6 +91,12 @@ export function ExpensesView({
                 <div className="money-stack"><strong>{formatMoney(expense.eligibleAmountPence)}</strong>{expense.receiptTotalPence !== expense.eligibleAmountPence ? <small>of {formatMoney(expense.receiptTotalPence)}</small> : null}</div>
                 <div className="row-actions">
                   {expense.receiptStatus === "stored" ? <a className="round-button" href={expense.receiptUrl ?? `/api/expenses/${encodeURIComponent(expense.id)}/receipt`} target="_blank" rel="noreferrer" aria-label={`View receipt for ${expense.merchant}`}>↗</a> : null}
+                  {expense.receiptStatus !== "stored" ? (
+                    <ReceiptAttachment
+                      expense={expense}
+                      onChanged={onChanged}
+                    />
+                  ) : null}
                   <button className="round-button" type="button" onClick={() => setSelected(expense)} aria-label={`Edit ${expense.merchant}`}>•••</button>
                 </div>
               </li>

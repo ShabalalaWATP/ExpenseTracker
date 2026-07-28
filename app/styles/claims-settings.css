@@ -142,3 +142,27 @@
 .plain-list span {
   color: var(--muted);
 }
+
+.compact-details {
+  margin-bottom: 0;
+}
+
+.compact-details dd {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.84rem;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.settings-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}

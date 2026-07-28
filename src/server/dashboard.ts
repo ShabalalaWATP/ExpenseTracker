@@ -4,17 +4,19 @@ import {
   type PolicyExpense,
   type PolicyTrip,
 } from "@/src/domain/jsp752";
+import { ukCalendarDate } from "@/src/domain/calendar";
 import { listClaims } from "./claim-repository";
 import { listExpenses } from "./expense-repository";
 import { listTrips } from "./trip-repository";
+import type { Principal } from "./principal";
 
 export const CLAIM_PERIOD = "2026-08";
 
-export async function dashboard() {
+export async function dashboard(principal: Principal) {
   const [expenses, trips, claims] = await Promise.all([
-    listExpenses(),
-    listTrips(),
-    listClaims(),
+    listExpenses(principal),
+    listTrips(principal),
+    listClaims(principal),
   ]);
   const periodExpenses = expenses.filter((expense) =>
     expense.serviceDate.startsWith(`${CLAIM_PERIOD}-`),
@@ -74,7 +76,7 @@ export async function dashboard() {
       message: "There is no claimable actual spend in August.",
     });
   }
-  const todayDate = new Date().toISOString().slice(0, 10);
+  const todayDate = ukCalendarDate();
   const todayExpenses = periodExpenses.filter(
     (expense) => expense.serviceDate === todayDate,
   );

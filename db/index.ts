@@ -5,6 +5,13 @@ import * as schema from "./schema";
 type ExpenseTrackerEnv = {
   DB?: D1Database;
   RECEIPTS?: R2Bucket;
+  EXPENSETRACKER_OWNER_EMAIL?: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_CHAT_MODEL?: string;
+  OPENAI_RECEIPT_MODEL?: string;
+  OPENAI_REALTIME_MODEL?: string;
+  OPENAI_TRANSCRIPTION_MODEL?: string;
+  OPENAI_REALTIME_VOICE?: string;
 };
 
 function bindings(): ExpenseTrackerEnv {
@@ -29,4 +36,8 @@ export function getReceiptsBucket(): R2Bucket {
 
 export function getDb() {
   return drizzle(getD1(), { schema });
+}
+
+export function getRuntimeEnv(): ExpenseTrackerEnv {
+  return bindings();
 }

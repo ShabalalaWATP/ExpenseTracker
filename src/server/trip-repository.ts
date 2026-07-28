@@ -2,6 +2,8 @@ import { ApiError } from "./http";
 import { assertRangeUnlocked } from "./claim-locks";
 import { database, ensureSchema } from "./db";
 import { mapTrip, type DayRow, type TripRow } from "./models";
+import type { Principal } from "./principal";
+import { auditStatement } from "./audit-repository";
 import type { DayWrite, TripWrite } from "./validation";
 
 function dateRange(startDate: string, endDate: string): string[] {
@@ -65,38 +67,61 @@ function validateElection(
   }
 }
 
-async function rowsFor(id?: string) {
+async function rowsFor(principal: Principal, id?: string) {
   const tripsQuery = id
     ? database()
-        .prepare("SELECT * FROM trips WHERE id = ? ORDER BY start_date DESC")
-        .bind(id)
-    : database().prepare("SELECT * FROM trips ORDER BY start_date DESC");
+        .prepare(
+          `SELECT * FROM trips
+           WHERE owner_id = ? AND id = ?
+           ORDER BY start_date DESC`,
+        )
+        .bind(principal.ownerId, id)
+    : database()
+        .prepare(
+          `SELECT * FROM trips
+           WHERE owner_id = ?
+           ORDER BY start_date DESC`,
+        )
+        .bind(principal.ownerId);
   const tripResult = await tripsQuery.all<TripRow>();
   if (tripResult.results.length === 0) return [];
   const dayResult = id
     ? await database()
-        .prepare("SELECT * FROM trip_days WHERE trip_id = ? ORDER BY date")
-        .bind(id)
+        .prepare(
+          `SELECT * FROM trip_days
+           WHERE owner_id = ? AND trip_id = ?
+           ORDER BY date`,
+        )
+        .bind(principal.ownerId, id)
         .all<DayRow>()
     : await database()
-        .prepare("SELECT * FROM trip_days ORDER BY date")
+        .prepare(
+          `SELECT * FROM trip_days
+           WHERE owner_id = ?
+           ORDER BY date`,
+        )
+        .bind(principal.ownerId)
         .all<DayRow>();
   return tripResult.results.map((trip) => mapTrip(trip, dayResult.results));
 }
 
-export async function listTrips() {
+export async function listTrips(principal: Principal) {
   await ensureSchema();
-  return rowsFor();
+  return rowsFor(principal);
 }
 
-export async function findTrip(id: string) {
+export async function findTrip(principal: Principal, id: string) {
   await ensureSchema();
-  return (await rowsFor(id))[0] ?? null;
+  return (await rowsFor(principal, id))[0] ?? null;
 }
 
-export async function createTrip(input: TripWrite) {
+export async function createTrip(principal: Principal, input: TripWrite) {
   await ensureSchema();
-  await assertRangeUnlocked(input.startDate!, input.endDate!);
+  await assertRangeUnlocked(
+    principal.ownerId,
+    input.startDate!,
+    input.endDate!,
+  );
   validateElection(
     input.startDate!,
     input.endDate!,
@@ -109,11 +134,13 @@ export async function createTrip(input: TripWrite) {
     db
       .prepare(
         `INSERT INTO trips (
-          id, name, purpose, country, start_date, end_date, aggregate_election
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          id, owner_id, name, purpose, country, start_date, end_date,
+          aggregate_election
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
+        principal.ownerId,
         input.name,
         input.purpose,
         input.country,
@@ -125,11 +152,12 @@ export async function createTrip(input: TripWrite) {
       db
         .prepare(
           `INSERT INTO trip_days
-           (id, trip_id, date, eligible, confirmed, note)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+           (id, owner_id, trip_id, date, eligible, confirmed, note)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           crypto.randomUUID(),
+          principal.ownerId,
           id,
           day.date,
           day.eligible ? 1 : 0,
@@ -137,8 +165,13 @@ export async function createTrip(input: TripWrite) {
           day.note,
         ),
     ),
+    auditStatement(principal, {
+      action: "trip.created",
+      entityType: "trip",
+      entityId: id,
+    }),
   ]);
-  return (await findTrip(id))!;
+  return (await findTrip(principal, id))!;
 }
 
 const tripColumns: Record<Exclude<keyof TripWrite, "days">, string> = {
@@ -150,16 +183,24 @@ const tripColumns: Record<Exclude<keyof TripWrite, "days">, string> = {
   aggregateElection: "aggregate_election",
 };
 
-export async function updateTrip(id: string, input: TripWrite) {
+export async function updateTrip(
+  principal: Principal,
+  id: string,
+  input: TripWrite,
+) {
   await ensureSchema();
-  const existing = await findTrip(id);
+  const existing = await findTrip(principal, id);
   if (!existing) {
     throw new ApiError(404, "not_found", "The trip was not found.");
   }
-  await assertRangeUnlocked(existing.startDate, existing.endDate);
+  await assertRangeUnlocked(
+    principal.ownerId,
+    existing.startDate,
+    existing.endDate,
+  );
   const startDate = input.startDate ?? existing.startDate;
   const endDate = input.endDate ?? existing.endDate;
-  await assertRangeUnlocked(startDate, endDate);
+  await assertRangeUnlocked(principal.ownerId, startDate, endDate);
   if (endDate < startDate) {
     throw new ApiError(400, "validation_failed", "endDate cannot precede startDate.");
   }
@@ -181,12 +222,13 @@ export async function updateTrip(id: string, input: TripWrite) {
             .map(([key]) => `${tripColumns[key]} = ?`)
             .join(", ")},
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-           WHERE id = ?`,
+           WHERE owner_id = ? AND id = ?`,
         )
         .bind(
           ...entries.map(([key, value]) =>
-            key === "aggregateElection" ? (value ? 1 : 0) : value,
+              key === "aggregateElection" ? (value ? 1 : 0) : value,
           ),
+          principal.ownerId,
           id,
         ),
     );
@@ -198,22 +240,29 @@ export async function updateTrip(id: string, input: TripWrite) {
           .prepare(
             `UPDATE trips
              SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-             WHERE id = ?`,
+             WHERE owner_id = ? AND id = ?`,
           )
-          .bind(id),
+          .bind(principal.ownerId, id),
       );
     }
-    statements.push(db.prepare("DELETE FROM trip_days WHERE trip_id = ?").bind(id));
+    statements.push(
+      db
+        .prepare(
+          "DELETE FROM trip_days WHERE owner_id = ? AND trip_id = ?",
+        )
+        .bind(principal.ownerId, id),
+    );
     statements.push(
       ...days.map((day) =>
         db
           .prepare(
             `INSERT INTO trip_days
-             (id, trip_id, date, eligible, confirmed, note)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+             (id, owner_id, trip_id, date, eligible, confirmed, note)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
           )
           .bind(
             crypto.randomUUID(),
+            principal.ownerId,
             id,
             day.date,
             day.eligible ? 1 : 0,
@@ -223,6 +272,13 @@ export async function updateTrip(id: string, input: TripWrite) {
       ),
     );
   }
+  statements.push(
+    auditStatement(principal, {
+      action: "trip.updated",
+      entityType: "trip",
+      entityId: id,
+    }),
+  );
   await db.batch(statements);
-  return (await findTrip(id))!;
+  return (await findTrip(principal, id))!;
 }

@@ -9,7 +9,8 @@ import {
   readJson,
   requireSameOrigin,
 } from "@/src/server/http";
-import { removeReceiptObject } from "@/src/server/receipt-repository";
+import { requirePrincipal } from "@/src/server/principal";
+import { removeReceiptObjects } from "@/src/server/receipt-repository";
 import { assertId, parseExpense } from "@/src/server/validation";
 
 type Context = { params: Promise<{ id: string }> };
@@ -20,9 +21,10 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     requireSameOrigin(request);
+    const principal = await requirePrincipal();
     const id = assertId((await context.params).id);
     const input = parseExpense(await readJson(request), true);
-    return json({ expense: await updateExpense(id, input) });
+    return json({ expense: await updateExpense(principal, id, input) });
   } catch (error) {
     return errorResponse(error);
   }
@@ -34,9 +36,10 @@ export async function DELETE(
 ): Promise<Response> {
   try {
     requireSameOrigin(request);
+    const principal = await requirePrincipal();
     const id = assertId((await context.params).id);
-    const objectKey = await deleteExpense(id);
-    await removeReceiptObject(objectKey);
+    const objectKeys = await deleteExpense(principal, id);
+    await removeReceiptObjects(objectKeys);
     return empty();
   } catch (error) {
     return errorResponse(error);

@@ -2,11 +2,14 @@ import { getReceiptsBucket } from "@/db";
 import { database, ensureSchema } from "./db";
 import { ApiError } from "./http";
 import { assertDateUnlocked } from "./claim-locks";
+import type { Principal } from "./principal";
+import { auditStatement } from "./audit-repository";
 
 export const MAX_RECEIPT_BYTES = 20 * 1024 * 1024;
 
 type ReceiptRecord = {
   id: string;
+  owner_id: string;
   expense_id: string;
   object_key: string;
   content_type: string;
@@ -78,6 +81,7 @@ async function sha256(bytes: Uint8Array): Promise<string> {
 }
 
 export async function attachReceipt(
+  principal: Principal,
   expenseId: string,
   bytes: Uint8Array,
   declaredType: string | null,
@@ -102,8 +106,10 @@ export async function attachReceipt(
   const contentType = validateImageType(bytes, declaredType);
   const db = database();
   const prior = await db
-    .prepare("SELECT * FROM receipts WHERE idempotency_key = ?")
-    .bind(idempotencyKey)
+    .prepare(
+      "SELECT * FROM receipts WHERE owner_id = ? AND idempotency_key = ?",
+    )
+    .bind(principal.ownerId, idempotencyKey)
     .first<ReceiptRecord>();
   if (prior) {
     if (prior.expense_id !== expenseId) {
@@ -112,24 +118,28 @@ export async function attachReceipt(
     return { receipt: publicReceipt(prior), created: false };
   }
   const expense = await db
-    .prepare("SELECT id, service_date FROM expenses WHERE id = ?")
-    .bind(expenseId)
+    .prepare(
+      "SELECT id, service_date FROM expenses WHERE owner_id = ? AND id = ?",
+    )
+    .bind(principal.ownerId, expenseId)
     .first<{ id: string; service_date: string }>();
   if (!expense) {
     throw new ApiError(404, "not_found", "The expense was not found.");
   }
-  await assertDateUnlocked(expense.service_date);
+  await assertDateUnlocked(principal.ownerId, expense.service_date);
   const existing = await db
-    .prepare("SELECT id FROM receipts WHERE expense_id = ?")
-    .bind(expenseId)
+    .prepare(
+      "SELECT id FROM receipts WHERE owner_id = ? AND expense_id = ?",
+    )
+    .bind(principal.ownerId, expenseId)
     .first<{ id: string }>();
   if (existing) {
     throw new ApiError(409, "receipt_exists", "This expense already has a receipt.");
   }
   const hash = await sha256(bytes);
   const duplicate = await db
-    .prepare("SELECT id FROM receipts WHERE sha256 = ?")
-    .bind(hash)
+    .prepare("SELECT id FROM receipts WHERE owner_id = ? AND sha256 = ?")
+    .bind(principal.ownerId, hash)
     .first<{ id: string }>();
   if (duplicate) {
     throw new ApiError(409, "receipt_duplicate", "This receipt image has already been uploaded.");
@@ -137,37 +147,53 @@ export async function attachReceipt(
   const id = crypto.randomUUID();
   const extension =
     contentType === "image/jpeg" ? "jpg" : contentType === "image/png" ? "png" : "heic";
-  const objectKey = `receipts/${crypto.randomUUID()}.${extension}`;
+  const objectKey = `receipts/${principal.ownerId}/${crypto.randomUUID()}.${extension}`;
   const bucket = getReceiptsBucket();
   await bucket.put(objectKey, bytes, {
     httpMetadata: { contentType },
     customMetadata: { sha256: hash },
   });
   try {
-    await db
-      .prepare(
-        `INSERT INTO receipts (
-          id, expense_id, object_key, content_type, byte_size, sha256, idempotency_key
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(id, expenseId, objectKey, contentType, bytes.length, hash, idempotencyKey)
-      .run();
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO receipts (
+            id, owner_id, expense_id, object_key, content_type, byte_size,
+            sha256, idempotency_key
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          id,
+          principal.ownerId,
+          expenseId,
+          objectKey,
+          contentType,
+          bytes.length,
+          hash,
+          idempotencyKey,
+        ),
+      auditStatement(principal, {
+        action: "receipt.attached",
+        entityType: "receipt",
+        entityId: id,
+      }),
+    ]);
   } catch (error) {
     await bucket.delete(objectKey);
     throw error;
   }
   const row = await db
-    .prepare("SELECT * FROM receipts WHERE id = ?")
-    .bind(id)
+    .prepare("SELECT * FROM receipts WHERE owner_id = ? AND id = ?")
+    .bind(principal.ownerId, id)
     .first<ReceiptRecord>();
   return { receipt: publicReceipt(row!), created: true };
 }
 
-export async function receiptObject(id: string) {
+export async function receiptObject(principal: Principal, id: string) {
   await ensureSchema();
   const row = await database()
-    .prepare("SELECT * FROM receipts WHERE id = ?")
-    .bind(id)
+    .prepare("SELECT * FROM receipts WHERE owner_id = ? AND id = ?")
+    .bind(principal.ownerId, id)
     .first<ReceiptRecord>();
   if (!row) {
     throw new ApiError(404, "not_found", "The receipt was not found.");
@@ -179,6 +205,12 @@ export async function receiptObject(id: string) {
   return { row, object };
 }
 
-export async function removeReceiptObject(objectKey: string | null): Promise<void> {
-  if (objectKey) await getReceiptsBucket().delete(objectKey);
+export async function removeReceiptObjects(
+  objectKeys: readonly string[],
+): Promise<void> {
+  await Promise.all(
+    [...new Set(objectKeys)].map((objectKey) =>
+      getReceiptsBucket().delete(objectKey),
+    ),
+  );
 }

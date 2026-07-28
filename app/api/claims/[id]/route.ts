@@ -6,6 +6,7 @@ import {
   readJson,
   requireSameOrigin,
 } from "@/src/server/http";
+import { requirePrincipal } from "@/src/server/principal";
 import { assertId } from "@/src/server/validation";
 
 type RouteContext = {
@@ -18,6 +19,7 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     requireSameOrigin(request);
+    const principal = await requirePrincipal();
     const body = await readJson(request);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       throw new ApiError(400, "validation_failed", "The request body is invalid.");
@@ -30,7 +32,7 @@ export async function PATCH(
       );
     }
     const id = assertId((await context.params).id);
-    return json({ claim: await submitClaim(id) });
+    return json({ claim: await submitClaim(principal, id) });
   } catch (error) {
     return errorResponse(error);
   }

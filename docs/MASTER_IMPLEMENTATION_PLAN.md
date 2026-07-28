@@ -1,11 +1,11 @@
 # ExpenseTracker Master Implementation Plan
 
-Status: MVP built, verified and privately deployed  
-Deployment: Sites version 1 is live with owner-only access  
-Primary client: iPhone 16 using Safari  
-Initial claim period: August 2026  
-Source repository: `ShabalalaWATP/ExpenseTracker`  
-Policy baseline: JSP 752 v66.1, May 2026  
+Status: AI-assisted receipt inbox implemented, release verification in progress
+Deployment: Sites version 1 is live privately; version 2 is the current release candidate
+Primary client: iPhone 16 using Safari
+Initial claim period: August 2026
+Source repository: `ShabalalaWATP/ExpenseTracker`
+Policy baseline: JSP 752 v66.1, May 2026
 Last updated: 28 July 2026
 
 ## 1. Vision and current position
@@ -39,7 +39,8 @@ product.
 - August 2026 is the only supported claim period.
 - Online-first capture. An upload is saved only after the server acknowledges it.
 - iPhone 16 Safari is the launch target. Desktop browsers support review.
-- AI may suggest values later, but it must never decide eligibility or allowance.
+- AI may suggest receipt facts, but it never decides eligibility or allowance.
+  Every staged receipt requires owner confirmation before it becomes an expense.
 
 ### Policy behaviour
 
@@ -69,11 +70,14 @@ product.
 - R2 is authoritative for receipt originals.
 - Browser storage is used only for the local appearance preference.
 - Private Sites access is the mandatory outer security boundary.
-- Dispatcher-owned Sign in with ChatGPT remains the intended identity mechanism.
-  The existing helper is not yet wired into the page or API routes, so the MVP
-  currently depends on the Sites owner-only policy rather than application-level
-  owner authorisation.
+- Dispatcher-owned Sign in with ChatGPT supplies the authenticated identity.
+  Every page-backed API validates the identity against the single configured
+  owner as a second boundary behind the private Sites access policy.
 - No secret, owner identity or runtime credential belongs in source control.
+- Receipt originals remain in private R2. A browser-normalised JPEG derivative
+  is sent to OpenAI only when the owner requests analysis.
+- The permanent OpenAI key is server-only. Safari voice clarification receives
+  only a short-lived Realtime client secret.
 
 ## 3. Milestones
 
@@ -86,7 +90,9 @@ product.
 | M4: local verification | Complete | Production build, focused automated tests and local HTTP smoke check recorded |
 | M5: launch hardening | Complete | Reviews, dependency updates, edge-case fixes and local end-to-end smoke checks completed |
 | M6: private Sites release | Complete | Version 1 deployed successfully with owner-only access |
-| M7: post-MVP improvements | Backlog | Safety, submission handoff and usability enhancements prioritised below |
+| M7: protected receipt inbox and AI review | Complete | Batch capture, human-reviewed extraction, scoped voice clarification, audit and export implemented |
+| M8: release validation and private Sites version 2 | In progress | Full checks, migration rehearsal, private deployment and owner smoke test |
+| M9: real-device acceptance | Backlog | iPhone 16 HEIC, microphone permission and Safari backgrounding tests |
 
 ## 4. Implemented MVP checklist
 
@@ -106,6 +112,12 @@ product.
 - [x] Today summary, August totals, attention list and claim-readiness display.
 - [x] Read-only policy information and system, light or dark appearance choice.
 - [x] Branded application icon, logo, manifest and Open Graph asset.
+- [x] Up to 20 receipt photos per selection with two concurrent uploads.
+- [x] Per-receipt queue states, retry-safe staging and manual review fallback.
+- [x] Browser-side orientation-aware JPEG analysis derivative capped at 2400 px.
+- [x] Structured receipt extraction with merchant, date, totals, line items,
+  uncertainty and suspected-alcohol review.
+- [x] Typed clarification and explicit opt-in Realtime voice clarification.
 
 ### Persistence and server boundaries
 
@@ -121,6 +133,11 @@ product.
   keys.
 - [x] R2 cleanup when receipt metadata persistence fails.
 - [x] `no-store`, private receipt responses with `nosniff`.
+- [x] Owner validation on every API and owner-scoped D1 and R2 access.
+- [x] Append-only safe audit events for financial mutations and receipt review.
+- [x] Protected JSON and formula-injection-safe CSV exports.
+- [x] Server-only OpenAI key use, ephemeral Realtime browser credentials and
+  graceful manual operation when AI is not configured.
 
 ### Calculation and claims
 
@@ -183,9 +200,7 @@ control and the development record contains verification evidence.
 - [x] Configure D1 and R2 bindings and package the initial migration.
 - [x] Configure owner-only Sites access and verify an unauthorised account cannot
   reach pages, APIs or receipt objects.
-- [ ] Decide whether the verified Sites principal is available to application
-  routes. If it is, enforce an owner allowlist server-side. If it is not, record
-  the owner-only Sites policy as the accepted singleton boundary.
+- [x] Enforce the verified Sites principal against a server-side owner allowlist.
 - [ ] Confirm the applicable JSP 752 release immediately before launch.
 - [ ] Test camera capture, Photo Library selection, JPEG and a real iPhone HEIC
   receipt on iPhone 16 Safari.
@@ -213,8 +228,8 @@ control and the development record contains verification evidence.
 ## 6. Known MVP constraints
 
 - Production version 1 is deployed with one allowed owner and no allowed groups.
-- ChatGPT identity helpers exist but are not called by the current pages or API
-  routes. Same-origin validation is not a substitute for authentication.
+- The app remains deliberately single-owner. There is no invitation,
+  organisation or delegated reviewer workflow.
 - The product is fixed to August 2026, GB, GBP and JSP 752 v66.1.
 - Standalone day claims are supported. Aggregated trips that cross the August
   boundary are deliberately blocked for manual review.
@@ -222,9 +237,9 @@ control and the development record contains verification evidence.
   update route exists.
 - The custom eligible amount supports mixed receipts, but there is no line-item
   allocation or separate gratuity control in the interface.
-- Receipt originals are stored as uploaded. The MVP does not strip metadata,
-  normalise orientation, validate pixel dimensions, generate safe previews or
-  perform malware scanning.
+- Receipt originals are stored as uploaded for evidence. The analysis copy is
+  normalised in Safari, but the original is not metadata-stripped and no malware
+  scanner is currently available.
 - HEIC and HEIF signatures are accepted, but real-device display and end-to-end
   behaviour have not been verified.
 - Expense deletion is immediate rather than soft-deleted and recoverable.
@@ -234,10 +249,10 @@ control and the development record contains verification evidence.
   replaced through the current product.
 - The claims view has no dedicated `Share receipt`, `Download receipt` or
   `Copy description` handoff actions.
-- There is no full data export, delete-all operation, backup job, restore tool or
-  recovery drill.
-- There is no AI extraction, OCR, offline queue, background upload, notification
-  or automated monitoring.
+- JSON and CSV exports are available, but receipt-image archives, delete-all,
+  scheduled backups, restore tooling and a recovery drill remain outstanding.
+- There is no offline queue, background upload, notification or automated
+  monitoring.
 - Automated coverage is focused rather than comprehensive. API authorisation,
   browser accessibility, migration recovery and iPhone tests remain open.
 

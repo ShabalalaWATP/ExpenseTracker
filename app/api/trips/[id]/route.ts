@@ -4,6 +4,7 @@ import {
   readJson,
   requireSameOrigin,
 } from "@/src/server/http";
+import { requirePrincipal } from "@/src/server/principal";
 import { updateTrip } from "@/src/server/trip-repository";
 import { assertId, parseTrip } from "@/src/server/validation";
 
@@ -15,8 +16,15 @@ export async function PATCH(
 ): Promise<Response> {
   try {
     requireSameOrigin(request);
+    const principal = await requirePrincipal();
     const id = assertId((await context.params).id);
-    return json({ trip: await updateTrip(id, parseTrip(await readJson(request), true)) });
+    return json({
+      trip: await updateTrip(
+        principal,
+        id,
+        parseTrip(await readJson(request), true),
+      ),
+    });
   } catch (error) {
     return errorResponse(error);
   }

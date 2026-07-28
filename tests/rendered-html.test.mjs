@@ -14,12 +14,20 @@ test("builds the ExpenseTracker worker and branded client assets", async () => {
 
   assert.match(serverBundle, /ExpenseTracker/);
   assert.match(serverBundle, /\/api\/dashboard/);
+  assert.match(serverBundle, /\/api\/receipt-intakes/);
+  assert.match(serverBundle, /gpt-realtime-2\.1/);
   assert.match(manifest, /ExpenseApp/);
   assert.ok(clientFiles.includes("expensetracker-logo.png"));
   assert.ok(clientFiles.includes("og.png"));
   await access(
     new URL(
       "../dist/.openai/drizzle/0000_clear_big_bertha.sql",
+      import.meta.url,
+    ),
+  );
+  await access(
+    new URL(
+      "../dist/.openai/drizzle/0001_good_zzzax.sql",
       import.meta.url,
     ),
   );

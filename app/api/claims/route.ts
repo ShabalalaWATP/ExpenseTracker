@@ -7,17 +7,19 @@ import {
   readJson,
   requireSameOrigin,
 } from "@/src/server/http";
+import { requirePrincipal } from "@/src/server/principal";
 import { parsePeriod } from "@/src/server/validation";
 
 export async function POST(request: Request): Promise<Response> {
   try {
     requireSameOrigin(request);
+    const principal = await requirePrincipal();
     const body = await readJson(request);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       throw new ApiError(400, "validation_failed", "The request body is invalid.");
     }
     const period = parsePeriod((body as Record<string, unknown>).period);
-    const state = await dashboard();
+    const state = await dashboard(principal);
     if (!state.readiness.ready) {
       throw new ApiError(
         409,
@@ -26,7 +28,7 @@ export async function POST(request: Request): Promise<Response> {
         state.readiness.issues,
       );
     }
-    const claim = await createClaimSnapshot({
+    const claim = await createClaimSnapshot(principal, {
       period,
       expenses: state.expenses.filter((expense) =>
         expense.serviceDate.startsWith(`${period}-`),
