@@ -1,0 +1,105 @@
+@media (max-width: 980px) {
+  .ledger-columns,
+  .claims-columns,
+  .trips-layout.with-form {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-form-panel,
+  .claim-handoff {
+    padding: 30px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .table-head {
+    display: none;
+  }
+
+  .expense-list.full li {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    padding: 12px 0;
+  }
+
+  .expense-list.full .state-label {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .allowance-copy,
+  .ledger-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .allowance-copy {
+    display: block;
+  }
+
+  .inline-stats,
+  .claim-totals dl {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-stats div,
+  .inline-stats div + div,
+  .claim-totals dl div,
+  .claim-totals dl div:first-child {
+    padding: 10px 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .capture-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .photo-well {
+    position: static;
+  }
+
+  .camera-prompt,
+  .receipt-preview {
+    max-height: 48vh;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .expense-list.full li {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+
+  .expense-list.full .money-stack {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .expense-list.full .row-actions {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+
+  .trip-list li {
+    grid-template-columns: 54px minmax(0, 1fr);
+    padding: 14px 0;
+  }
+
+  .trip-state {
+    grid-column: 2;
+    justify-items: start;
+  }
+
+  .settings-ledger > section {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .policy-details div,
+  .plain-list li {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}

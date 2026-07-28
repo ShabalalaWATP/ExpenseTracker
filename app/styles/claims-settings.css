@@ -1,0 +1,144 @@
+.claim-totals {
+  padding: 36px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.claim-totals dl div {
+  padding: 12px 26px;
+  border-left: 1px solid var(--line);
+}
+
+.claim-totals dl div:first-child {
+  padding-left: 0;
+  border: 0;
+}
+
+.claim-totals dd {
+  margin: 4px 0 0;
+  font: 500 clamp(1.8rem, 3vw, 2.8rem) Georgia, serif;
+}
+
+.claim-totals .claimable dd {
+  color: var(--teal-dark);
+}
+
+.claim-totals > p:last-child,
+.handoff-copy {
+  max-width: 620px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.readiness-list li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+
+.readiness-list > li > span {
+  color: var(--amber);
+  font-family: Georgia, serif;
+}
+
+.readiness-list p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.claim-handoff {
+  padding-left: clamp(24px, 4vw, 48px);
+  border-left: 1px solid var(--line);
+}
+
+.claim-stamp {
+  display: grid;
+  justify-items: center;
+  border: 1px solid var(--line);
+  padding: 35px 20px;
+  background: var(--paper-raised);
+}
+
+.claim-stamp span {
+  color: var(--teal-dark);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.claim-stamp strong {
+  margin: 12px 0 5px;
+  font: 500 3rem Georgia, serif;
+}
+
+.claim-stamp small,
+.claim-handoff > small {
+  color: var(--muted);
+}
+
+.full-button {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.settings-ledger > section {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: clamp(20px, 5vw, 70px);
+  padding: 40px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.setting-number {
+  color: var(--teal);
+  font-family: Georgia, serif;
+  font-size: 1.5rem;
+}
+
+.setting-content {
+  max-width: 760px;
+}
+
+.policy-details {
+  margin: 24px 0;
+}
+
+.policy-details div {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 20px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+
+.policy-details dt,
+.policy-details dd {
+  margin: 0;
+}
+
+.policy-details dt {
+  color: var(--muted);
+}
+
+.external-link {
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.plain-list li {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 20px;
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+}
+
+.plain-list span {
+  color: var(--muted);
+}

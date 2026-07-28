@@ -1,0 +1,261 @@
+.allowance-strip {
+  padding: 38px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.allowance-copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.allowance-copy strong {
+  font-family: Georgia, serif;
+  font-size: clamp(1.7rem, 3vw, 2.6rem);
+  font-weight: 500;
+}
+
+.allowance-copy strong span {
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.progress-track {
+  height: 7px;
+  margin: 16px 0 22px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--teal);
+  transition: width 500ms ease;
+}
+
+.inline-stats,
+.claim-totals dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 0;
+}
+
+.inline-stats div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 26px;
+  border-right: 1px solid var(--line);
+}
+
+.inline-stats div + div {
+  padding-left: 26px;
+}
+
+.inline-stats div:last-child {
+  border: 0;
+}
+
+.inline-stats dt,
+.claim-totals dt {
+  color: var(--muted);
+}
+
+.inline-stats dd {
+  margin: 0;
+  font-weight: 750;
+}
+
+.policy-note {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.ledger-columns,
+.claims-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: clamp(34px, 6vw, 80px);
+  padding-top: 44px;
+}
+
+.section-heading {
+  display: flex;
+  min-height: 52px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.section-heading h2 {
+  margin-bottom: 0;
+}
+
+.count-badge {
+  display: grid;
+  min-width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-weight: 800;
+}
+
+.attention-list,
+.expense-list,
+.trip-list,
+.readiness-list,
+.plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attention-list li,
+.calm-state {
+  display: flex;
+  min-height: 74px;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+}
+
+.attention-list p,
+.calm-state p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.attention-mark,
+.calm-state > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-weight: 850;
+}
+
+.calm-state > span {
+  background: var(--teal-soft);
+  color: var(--teal-dark);
+}
+
+.expense-list li {
+  display: grid;
+  min-height: 76px;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.expense-list.compact li {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+}
+
+.date-stamp {
+  display: grid;
+  width: 42px;
+  height: 48px;
+  place-content: center;
+  border: 1px solid var(--line);
+  font-family: Georgia, serif;
+  font-size: 1.15rem;
+  line-height: 1;
+  text-align: center;
+}
+
+.date-stamp small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+}
+
+.expense-main {
+  display: grid;
+  min-width: 0;
+}
+
+.expense-main span,
+.expense-main small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state {
+  display: grid;
+  min-height: 220px;
+  max-width: 450px;
+  align-content: center;
+  justify-items: start;
+  padding: 30px 0;
+}
+
+.empty-state > span {
+  color: var(--teal);
+  font-size: 2.5rem;
+}
+
+.empty-state p {
+  color: var(--muted);
+}
+
+.capture-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(34px, 6vw, 76px);
+  padding-top: 36px;
+}
+
+.photo-well {
+  position: sticky;
+  top: 32px;
+  align-self: start;
+}
+
+.camera-prompt,
+.receipt-preview {
+  position: relative;
+  display: grid;
+  aspect-ratio: 3 / 4;
+  max-height: 58vh;
+  margin-bottom: 12px;
+  overflow: hidden;
+  place-content: center;
+  border: 1px dashed var(--line);
+  background: var(--paper-raised);
+  text-align: center;
+}
+
+.camera-prompt > span {
+  margin-bottom: 4px;
+  color: var(--teal);
+  font-family: Georgia, serif;
+  font-size: 4rem;
+  font-weight: 300;
+}
+
+.camera-prompt p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.receipt-preview img {
+  object-fit: contain;
+}
