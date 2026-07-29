@@ -30,6 +30,7 @@
 
 .brand img {
   border-radius: 13px;
+  filter: hue-rotate(44deg) saturate(1.2);
 }
 
 .desktop-rail nav {
@@ -114,6 +115,10 @@
   border-radius: 20px 0 0 20px;
   background: var(--paper);
   box-shadow: var(--shadow);
+}
+
+.paper-workspace:focus {
+  outline: none;
 }
 
 .workspace-context {
