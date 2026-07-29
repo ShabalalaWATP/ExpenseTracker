@@ -24,6 +24,7 @@ async function openAiRequest(
   path: string,
   body: unknown,
   principal: Principal,
+  purpose: "receipt" | "voice",
 ): Promise<unknown> {
   const config = runtimeConfig();
   if (!config.openAiApiKey) {
@@ -49,7 +50,9 @@ async function openAiRequest(
     throw new ApiError(
       503,
       "openai_unavailable",
-      "AI processing is temporarily unavailable. Review the receipt manually or retry.",
+      purpose === "voice"
+        ? "Voice is temporarily unavailable. Type the receipt detail instead."
+        : "AI processing is temporarily unavailable. Review the receipt manually or retry.",
     );
   }
   if (!response.ok) {
@@ -59,7 +62,9 @@ async function openAiRequest(
       response.status === 429 ? "openai_rate_limited" : "openai_failed",
       response.status === 429
         ? "AI is busy. Wait briefly, then retry this receipt."
-        : "AI could not analyse this receipt. Review it manually or retry.",
+        : purpose === "voice"
+          ? "Voice could not start. Type the receipt detail instead."
+          : "AI could not analyse this receipt. Review it manually or retry.",
       requestId ? { requestId } : undefined,
     );
   }
@@ -131,6 +136,7 @@ export async function extractReceipt(
       safety_identifier: principal.actorHash,
     },
     principal,
+    "receipt",
   );
   const text = outputText(response);
   if (!text) {
@@ -210,6 +216,7 @@ export async function createRealtimeClientSecret(
       },
     },
     principal,
+    "voice",
   );
   if (!response || typeof response !== "object") {
     throw new ApiError(502, "realtime_invalid", "Voice could not be started.");

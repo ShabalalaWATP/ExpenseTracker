@@ -276,7 +276,7 @@
 }
 
 .theme-swatch i:last-child {
-  background: #152a2b;
+  background: #07101f;
 }
 
 .theme-swatch.light i {
@@ -284,7 +284,7 @@
 }
 
 .theme-swatch.dark i {
-  background: #152a2b;
+  background: #070b13;
 }
 
 @media (max-width: 600px) {

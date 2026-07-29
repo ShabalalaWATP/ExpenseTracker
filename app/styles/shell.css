@@ -40,6 +40,7 @@
 
 .desktop-rail nav button,
 .settings-link {
+  position: relative;
   display: flex;
   min-height: 52px;
   align-items: center;
@@ -49,14 +50,29 @@
   background: transparent;
   color: #aebbb8;
   text-align: left;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .desktop-rail nav button:hover,
-.desktop-rail nav button.active,
 .settings-link:hover,
-.settings-link.active {
-  background: rgba(255, 255, 255, 0.07);
+.settings-link.active,
+.desktop-rail nav button.active {
+  background: rgba(63, 124, 255, 0.14);
   color: white;
+}
+
+.desktop-rail nav button.active::before,
+.settings-link.active::before {
+  position: absolute;
+  inset: 11px auto 11px 0;
+  width: 3px;
+  border-radius: 4px;
+  background: #4d86ff;
+  content: "";
+}
+
+.desktop-rail nav button.active {
+  transform: translateX(3px);
 }
 
 .desktop-rail .nav-mark {
@@ -71,13 +87,13 @@
 
 .desktop-rail .nav-capture {
   margin: 15px 0;
-  background: var(--teal);
+  background: var(--action);
   color: white;
 }
 
 .desktop-rail .nav-capture:hover,
 .desktop-rail .nav-capture.active {
-  background: #367f7b;
+  background: var(--action-hover);
 }
 
 .settings-link {
@@ -100,11 +116,43 @@
   box-shadow: var(--shadow);
 }
 
+.workspace-context {
+  position: sticky;
+  z-index: 12;
+  top: 0;
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 0 clamp(30px, 6vw, 84px);
+  background: color-mix(in srgb, var(--paper) 91%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.workspace-context > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 4px var(--teal-soft);
+}
+
+.workspace-context strong {
+  font-size: 0.84rem;
+}
+
+.workspace-context small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .view {
   width: min(1240px, 100%);
   min-height: 100svh;
   margin: 0 auto;
-  padding: clamp(48px, 7vw, 92px) clamp(30px, 6vw, 84px) 80px;
+  padding: clamp(38px, 5vw, 68px) clamp(30px, 6vw, 84px) 80px;
 }
 
 .view-header {
@@ -174,122 +222,5 @@
 @keyframes shimmer {
   to {
     background-position: -220% 0;
-  }
-}
-
-@media (max-width: 800px) {
-  .app-frame {
-    padding: calc(62px + env(safe-area-inset-top)) 0 calc(76px + env(safe-area-inset-bottom));
-    background: var(--paper);
-  }
-
-  .desktop-rail {
-    display: none;
-  }
-
-  .paper-workspace {
-    min-height: calc(100svh - 138px);
-    margin-left: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .mobile-mast {
-    position: fixed;
-    z-index: 30;
-    inset: 0 0 auto;
-    display: flex;
-    height: calc(62px + env(safe-area-inset-top));
-    align-items: flex-end;
-    justify-content: space-between;
-    padding: 8px 16px 8px;
-    background: var(--ink);
-    color: white;
-  }
-
-  .mobile-mast .brand {
-    font-size: 1rem;
-  }
-
-  .mobile-mast .brand img {
-    width: 38px;
-    height: 38px;
-  }
-
-  .mobile-mast .round-button {
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-
-  .mobile-nav {
-    position: fixed;
-    z-index: 30;
-    inset: auto 0 0;
-    display: grid;
-    height: calc(76px + env(safe-area-inset-bottom));
-    grid-template-columns: repeat(5, 1fr);
-    align-items: start;
-    padding: 7px 6px env(safe-area-inset-bottom);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: var(--ink-deep);
-    color: #a8b5b3;
-  }
-
-  .mobile-nav button {
-    display: flex;
-    min-width: 0;
-    min-height: 58px;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    justify-content: center;
-    background: transparent;
-    color: inherit;
-    font-size: 0.67rem;
-  }
-
-  .mobile-nav .nav-mark {
-    font-size: 0.65rem;
-    font-weight: 800;
-  }
-
-  .mobile-nav button.active {
-    color: white;
-  }
-
-  .mobile-nav .nav-capture {
-    position: relative;
-    top: -23px;
-    color: white;
-  }
-
-  .mobile-nav .nav-capture .nav-mark {
-    display: grid;
-    width: 54px;
-    height: 54px;
-    margin-bottom: 2px;
-    place-items: center;
-    border: 5px solid var(--ink-deep);
-    border-radius: 50%;
-    background: var(--teal);
-    box-shadow: 0 7px 18px rgba(0, 0, 0, 0.3);
-    font-size: 1.8rem;
-    line-height: 1;
-  }
-
-  .view {
-    min-height: auto;
-    padding: 32px 18px 42px;
-  }
-
-  .view-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 22px;
-    padding-bottom: 26px;
-  }
-
-  .header-action,
-  .header-action .primary-button {
-    width: 100%;
   }
 }

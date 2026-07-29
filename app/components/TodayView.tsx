@@ -22,8 +22,8 @@ export function TodayView({
     <div className="view page-enter">
       <ViewHeader
         eyebrow={formatDate(data.date ?? new Date().toISOString().slice(0, 10))}
-        title={`${formatMoney(data.remainingTodayPence)} available`}
-        detail="Your remaining UK Day Subsistence allowance for today."
+        title="Today’s receipts"
+        detail={`${recent.length} recent ${recent.length === 1 ? "entry" : "entries"} · ${formatMoney(data.remainingTodayPence)} remains within today’s limit.`}
         action={
           <button className="primary-button" type="button" onClick={() => navigate("capture")}>
             Add receipt
@@ -33,7 +33,7 @@ export function TodayView({
 
       <section className="allowance-strip" aria-labelledby="allowance-heading">
         <div className="allowance-copy">
-          <p className="eyebrow" id="allowance-heading">Today’s position</p>
+          <p className="eyebrow" id="allowance-heading">Daily summary</p>
           <strong>
             {formatMoney(data.claimableTodayPence)}
             <span> claimable of {formatMoney(data.dailyCapPence)}</span>
@@ -47,9 +47,6 @@ export function TodayView({
           <div><dt>Remaining</dt><dd>{formatMoney(data.remainingTodayPence)}</dd></div>
           <div><dt>Daily limit</dt><dd>{formatMoney(data.dailyCapPence)}</dd></div>
         </dl>
-        <p className="policy-note">
-          JSP 752 v66.1 · UK Day Subsistence · effective 1 April 2026
-        </p>
       </section>
 
       <div className="ledger-columns">
@@ -78,8 +75,8 @@ export function TodayView({
         <section aria-labelledby="recent-heading">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Ledger</p>
-              <h2 id="recent-heading">Recent expenses</h2>
+              <p className="eyebrow">Confirmed receipts</p>
+              <h2 id="recent-heading">Recent entries</h2>
             </div>
             <button className="text-button" type="button" onClick={() => navigate("expenses")}>View all</button>
           </div>

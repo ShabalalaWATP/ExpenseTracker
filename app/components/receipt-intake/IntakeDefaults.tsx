@@ -30,6 +30,14 @@ export function IntakeDefaults({
       </summary>
       <div className="intake-default-fields">
         <label>
+          <span>Claim date</span>
+          <input
+            type="date"
+            value={value.serviceDate}
+            onChange={(event) => update("serviceDate", event.target.value)}
+          />
+        </label>
+        <label>
           <span>Location</span>
           <input
             autoComplete="address-level2"

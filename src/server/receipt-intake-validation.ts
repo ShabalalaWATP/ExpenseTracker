@@ -1,9 +1,11 @@
 import { ApiError } from "./http";
+import { isIsoCalendarDate } from "../domain/calendar";
 import { validDate } from "./validation";
 
 export type IntakeDefaults = {
   batchId: string;
   originalName: string;
+  serviceDate: string | null;
   location: string | null;
   businessReason: string | null;
   tripId: string | null;
@@ -42,9 +44,18 @@ export function parseIntakeHeaders(headers: Headers): IntakeDefaults {
   if (tripId && !/^[a-zA-Z0-9-]{1,100}$/.test(tripId)) {
     throw new ApiError(400, "trip_invalid", "The selected trip is invalid.");
   }
+  const serviceDate = headers.get("X-Default-Service-Date");
+  if (serviceDate && !isIsoCalendarDate(serviceDate)) {
+    throw new ApiError(
+      400,
+      "validation_failed",
+      "serviceDate must be a real date using YYYY-MM-DD.",
+    );
+  }
   return {
     batchId,
     originalName,
+    serviceDate: serviceDate || null,
     location: decoded(headers.get("X-Default-Location"), 160),
     businessReason: decoded(headers.get("X-Default-Reason"), 300),
     tripId,

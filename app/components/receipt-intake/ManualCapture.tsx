@@ -11,14 +11,16 @@ type SaveStage = "idle" | "creating" | "uploading" | "saved" | "failed";
 
 export function ManualCapture({
   data,
+  initialDate,
   onSaved,
 }: {
   data: DashboardData;
+  initialDate?: string;
   onSaved: () => Promise<void>;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
-  const [date, setDate] = useState(localDate());
+  const [date, setDate] = useState(initialDate ?? localDate());
   const [merchant, setMerchant] = useState("");
   const [receiptTotal, setReceiptTotal] = useState("");
   const [eligibleAmount, setEligibleAmount] = useState("");
@@ -124,7 +126,7 @@ export function ManualCapture({
 
   function reset() {
     selectFile(null);
-    setDate(localDate());
+    setDate(initialDate ?? localDate());
     setMerchant("");
     setReceiptTotal("");
     setEligibleAmount("");

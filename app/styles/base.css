@@ -1,56 +1,68 @@
 :root {
-  --ink: #152a2b;
-  --ink-deep: #0d1d1f;
+  --ink: #07101f;
+  --ink-deep: #020611;
   --paper: #f3eee3;
   --paper-raised: #fbf8f0;
   --text: #1d2928;
   --muted: #68716d;
   --line: #d8d0c1;
-  --teal: #2c716e;
-  --teal-dark: #205b59;
-  --teal-soft: #d8e4df;
+  --teal: #2868e8;
+  --teal-dark: #174fb9;
+  --teal-soft: #dce7fb;
+  --action: #2868e8;
+  --action-hover: #174fb9;
   --amber: #bd7a27;
   --amber-soft: #f3e3c9;
   --coral: #b9574c;
   --coral-soft: #f2d9d3;
   --white: #fffdf7;
-  --shadow: 0 18px 54px rgba(8, 24, 25, 0.12);
+  --shadow: 0 18px 54px rgba(2, 8, 20, 0.18);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #182526;
-    --paper-raised: #1d2d2e;
-    --text: #eef0e9;
-    --muted: #a9b0a9;
-    --line: #394746;
-    --teal: #77aaa4;
-    --teal-dark: #9dc7c1;
-    --teal-soft: #294441;
-    --amber: #daa65a;
-    --amber-soft: #4b3924;
-    --coral: #e3877d;
-    --coral-soft: #4d302e;
-    --white: #223233;
+    --ink: #02050d;
+    --ink-deep: #01030a;
+    --paper: #070b13;
+    --paper-raised: #0d1422;
+    --text: #f2f6ff;
+    --muted: #96a4b9;
+    --line: #1d2a3d;
+    --teal: #3f7cff;
+    --teal-dark: #82adff;
+    --teal-soft: #12213d;
+    --action: #245bc9;
+    --action-hover: #19479f;
+    --amber: #e5ae5b;
+    --amber-soft: #352815;
+    --coral: #f08b83;
+    --coral-soft: #351d21;
+    --white: #0d1422;
+    --shadow: 0 22px 70px rgba(0, 0, 0, 0.46);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #182526;
-  --paper-raised: #1d2d2e;
-  --text: #eef0e9;
-  --muted: #a9b0a9;
-  --line: #394746;
-  --teal: #77aaa4;
-  --teal-dark: #9dc7c1;
-  --teal-soft: #294441;
-  --amber: #daa65a;
-  --amber-soft: #4b3924;
-  --coral: #e3877d;
-  --coral-soft: #4d302e;
-  --white: #223233;
+  --ink: #02050d;
+  --ink-deep: #01030a;
+  --paper: #070b13;
+  --paper-raised: #0d1422;
+  --text: #f2f6ff;
+  --muted: #96a4b9;
+  --line: #1d2a3d;
+  --teal: #3f7cff;
+  --teal-dark: #82adff;
+  --teal-soft: #12213d;
+  --action: #245bc9;
+  --action-hover: #19479f;
+  --amber: #e5ae5b;
+  --amber-soft: #352815;
+  --coral: #f08b83;
+  --coral-soft: #351d21;
+  --white: #0d1422;
+  --shadow: 0 22px 70px rgba(0, 0, 0, 0.46);
   color-scheme: dark;
 }
 
@@ -186,13 +198,13 @@ h2 {
 }
 
 .primary-button {
-  background: var(--teal);
+  background: var(--action);
   color: #fff;
   box-shadow: 0 6px 18px rgba(32, 91, 89, 0.16);
 }
 
 .primary-button:hover:not(:disabled) {
-  background: var(--teal-dark);
+  background: var(--action-hover);
   transform: translateY(-1px);
 }
 

@@ -6,6 +6,7 @@ import type {
   Trip,
   TripDraft,
 } from "./types";
+import { claimableAmountIndex } from "../../src/domain/calendar";
 import { daysBetween } from "./format";
 
 type RecordValue = Record<string, unknown>;
@@ -25,6 +26,7 @@ function text(value: unknown, fallback = ""): string {
 function normaliseExpense(value: unknown): Expense {
   const item = record(value);
   const receipt = record(item.receipt);
+  const claimable = item.claimableAmountPence ?? item.claimablePence;
   return {
     id: text(item.id),
     date: text(item.date ?? item.serviceDate ?? item.expenseDate),
@@ -36,9 +38,9 @@ function normaliseExpense(value: unknown): Expense {
     eligibleAmountPence: integer(
       item.eligibleAmountPence ?? item.eligiblePence ?? item.amountPence,
     ),
-    claimableAmountPence: integer(
-      item.claimableAmountPence ?? item.claimablePence,
-    ),
+    claimableAmountPence: Number.isSafeInteger(claimable)
+      ? (claimable as number)
+      : undefined,
     country: text(item.country, "GB"),
     location: text(item.location),
     reason: text(item.reason ?? item.businessReason),
@@ -117,6 +119,8 @@ export function normaliseDashboard(value: unknown): DashboardData {
   const expenses = Array.isArray(root.expenses) ? root.expenses : [];
   const trips = Array.isArray(root.trips) ? root.trips : [];
   const claims = Array.isArray(root.claims) ? root.claims : [];
+  const calculation = record(root.calculation);
+  const claimableByExpense = claimableAmountIndex(calculation.lines);
   const cap = integer(today.dailyCapPence ?? root.dailyCapPence, 3000);
   const todayDate = text(today.date ?? root.date) || new Date().toISOString().slice(0, 10);
   const spent = integer(
@@ -158,7 +162,11 @@ export function normaliseDashboard(value: unknown): DashboardData {
           };
         })
       : [],
-    expenses: expenses.map(normaliseExpense),
+    expenses: expenses.map(normaliseExpense).map((expense) => ({
+      ...expense,
+      claimableAmountPence:
+        claimableByExpense.get(expense.id) ?? expense.claimableAmountPence,
+    })),
     trips: trips.map(normaliseTrip),
     claims: claims.map(normaliseClaim),
   };

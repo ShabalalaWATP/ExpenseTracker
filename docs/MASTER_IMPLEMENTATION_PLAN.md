@@ -1,12 +1,12 @@
 # ExpenseTracker Master Implementation Plan
 
-Status: AI-assisted receipt inbox implemented, release verification in progress
-Deployment: Sites version 1 is live privately; version 2 is the current release candidate
+Status: Receipt-first calendar release implemented, production verification in progress
+Deployment: Sites version 2 is live privately; version 3 is the current release candidate
 Primary client: iPhone 16 using Safari
 Initial claim period: August 2026
 Source repository: `ShabalalaWATP/ExpenseTracker`
 Policy baseline: JSP 752 v66.1, May 2026
-Last updated: 28 July 2026
+Last updated: 29 July 2026
 
 ## 1. Vision and current position
 
@@ -15,7 +15,8 @@ owner. Its first purpose is to support an August 2026 UK Day Subsistence claim:
 capture a receipt, confirm the eligible amount and duty context, calculate the
 claim under JSP 752, and freeze a reviewed monthly snapshot.
 
-The local MVP is implemented. It includes the responsive application, D1 data
+The local MVP is implemented. It includes the receipt-first responsive
+application, calendar review, D1 data
 model, R2 receipt storage path, deterministic policy calculation, trip
 attestation, readiness checks and claim snapshots. A production-compatible
 build, focused policy tests and a local HTTP smoke check were recorded on
@@ -93,13 +94,18 @@ product.
 | M7: protected receipt inbox and AI review | Complete | Batch capture, human-reviewed extraction, scoped voice clarification, audit and export implemented |
 | M8: release validation and private Sites version 2 | In progress | Full checks, migration rehearsal, private deployment and owner smoke test |
 | M9: real-device acceptance | Backlog | iPhone 16 HEIC, microphone permission and Safari backgrounding tests |
+| M10: receipt-first calendar and navigation | In progress | Working-week, week and month review, date-led capture, darker theme and clearer current-view state |
 
 ## 4. Implemented MVP checklist
 
 ### Interface and workflow
 
-- [x] Responsive mobile and desktop shell with Today, Expenses, Capture, Trips,
-  Claims and Settings views.
+- [x] Responsive mobile and desktop shell with receipt Capture, Calendar,
+  Expenses, Trips, Claims and Settings views.
+- [x] Persistent current-view context and strong active navigation states,
+  including an explicit Settings label on mobile.
+- [x] Working-week, week and month calendar modes with daily claim totals,
+  receipt evidence links and date-led receipt capture.
 - [x] iPhone-oriented camera or Photo Library input with a local preview.
 - [x] Manual expense entry for date, merchant, receipt total, eligible amount,
   location, duty reason, optional meal context and optional trip.
@@ -171,6 +177,7 @@ control and the development record contains verification evidence.
 - [x] Hand-written TypeScript and TSX source files remain below the 350-line
   project target.
 - [x] TypeScript, ESLint and the complete `npm test` command passed.
+- [x] Receipt-calendar input validation and calculation mapping tests passed.
 - [x] Production dependency audit reported zero known vulnerabilities.
 - [x] Local D1/R2 smoke flow covered standalone create, receipt upload,
   idempotent upload retry, claim preparation, evidence locking and submission.
@@ -185,8 +192,9 @@ control and the development record contains verification evidence.
   bodies, duplicate hashes, idempotency conflicts and missing R2 objects.
 - [ ] Confirm the initial migration applies to a clean D1 database and that the
   packaged migration matches the schema.
-- [ ] Perform keyboard, focus, label, contrast and reduced-motion accessibility
-  checks.
+- [x] Perform code-level keyboard, focus, label and colour-contrast checks for
+  the calendar and navigation update.
+- [ ] Complete real-browser reduced-motion and mobile VoiceOver checks.
 - [x] Confirm no secrets or personal data are present in source, build output or
   logs.
 
@@ -255,6 +263,9 @@ control and the development record contains verification evidence.
   monitoring.
 - Automated coverage is focused rather than comprehensive. API authorisation,
   browser accessibility, migration recovery and iPhone tests remain open.
+- AI status confirms configuration and endpoint availability, not successful
+  end-to-end receipt understanding. One synthetic or non-sensitive receipt and
+  one iPhone Safari microphone session remain required acceptance tests.
 
 ## 7. Risks and mitigations
 
@@ -293,9 +304,9 @@ control and the development record contains verification evidence.
 
 ### Priority 2: lower-friction review
 
-- [ ] Add server-side receipt extraction for merchant, date and total as
+- [x] Add server-side receipt extraction for merchant, date and total as
   untrusted suggestions requiring confirmation.
-- [ ] Add line-item review and warnings for alcohol or other ineligible spend.
+- [x] Add line-item review and warnings for alcohol or other ineligible spend.
 - [ ] Add receipt text search, saved filters and better expense-to-trip
   suggestions.
 - [ ] Add an explicit offline capture queue with clear device-only and
@@ -313,8 +324,8 @@ decisions remain out of scope.
 
 ## 9. Current next step
 
-Complete the pre-version verification gates, starting with lint, clean build and
-test evidence, local D1 and R2 API integration checks, and the private-repository
-verification. Then create or connect the single private Sites project, configure
-owner-only access and bindings, save a verified version, and request explicit
-approval before production deployment.
+Save and privately deploy version 3 from the verified receipt-first calendar
+source. Then smoke-test Capture, Calendar, Settings, direct receipt access and
+browser history as the owner. Complete the remaining iPhone 16 HEIC and
+Realtime microphone acceptance checks before treating AI-assisted capture as
+fully proven.

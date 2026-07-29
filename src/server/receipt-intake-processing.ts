@@ -80,7 +80,7 @@ export async function analyseReceiptIntake(
       principal,
     );
     const merchant = extraction.merchant ?? existing.merchant;
-    const serviceDate = extraction.serviceDate ?? existing.service_date;
+    const serviceDate = existing.service_date ?? extraction.serviceDate;
     const receiptTotalPence =
       extraction.receiptTotalPence ?? existing.receipt_total_pence;
     let eligiblePence =

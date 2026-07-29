@@ -29,3 +29,29 @@ This document records meaningful implementation milestones, decisions and verifi
   events for financial mutations.
 - Added protected JSON and CSV exports, Sites runtime model configuration,
   graceful manual operation without an OpenAI key, and focused extraction tests.
+
+## 29 July 2026
+
+- Reframed the application around receipt capture and review. Capture is now
+  the opening view, operational receipt language replaces prominent policy
+  messaging, and the policy reference remains available in a collapsed
+  Settings disclosure.
+- Added Calendar as a first-class desktop and mobile destination. It supports
+  working-week, week and month views, daily claim totals, selected-day receipt
+  review, direct evidence links and date-led receipt capture.
+- Added a persistent current-view header, stronger selected navigation states
+  and an explicit mobile Settings label so users can always identify their
+  location in the app.
+- Reworked dark mode to near-black and navy surfaces with a separate
+  accessible blue action token, and refreshed the social preview in the same
+  receipt-first visual direction.
+- Preserved a date selected in Calendar through manual and batch capture,
+  while validating the date at the server boundary and retaining a
+  model-extracted date only when no explicit capture date exists.
+- Corrected the Realtime WebRTC call to the documented endpoint and replaced a
+  generic AI-ready status with configuration-specific wording. Receipt
+  extraction and voice are wired to the configured current models, but a real
+  receipt and iPhone Safari microphone test remain required before claiming
+  full end-to-end acceptance.
+- Completed TypeScript, ESLint and the complete 19-test build suite after the
+  calendar, navigation, capture and AI-path changes.

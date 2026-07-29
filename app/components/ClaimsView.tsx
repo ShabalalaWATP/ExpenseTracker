@@ -56,9 +56,9 @@ export function ClaimsView({
   return (
     <div className="view page-enter">
       <ViewHeader
-        eyebrow="Claim period · August 2026"
-        title={data.claimReady ? "Ready to prepare" : "Not ready yet"}
-        detail="Resolve every evidence and eligibility issue before freezing the submission figures."
+        eyebrow="August 2026"
+        title={data.claimReady ? "Ready to prepare" : "Finish these receipts first"}
+        detail="Review the receipt evidence and totals, then freeze a submission snapshot."
       />
       {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
       {message ? <StatusMessage tone="success">{message}</StatusMessage> : null}
@@ -70,7 +70,7 @@ export function ClaimsView({
           <div className="claimable"><dt>Claimable</dt><dd>{formatMoney(data.claimablePence)}</dd></div>
           <div><dt>Above allowance</dt><dd>{formatMoney(data.excessPence)}</dd></div>
         </dl>
-        <p>Calculated against JSP 752 v66.1. Prepared claims keep an immutable copy of the policy and figures used.</p>
+        <p>The configured daily limit is applied automatically. Prepared claims keep a fixed copy of the reviewed figures.</p>
       </section>
 
       <div className="claims-columns">

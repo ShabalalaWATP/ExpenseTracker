@@ -3,6 +3,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ManualCapture } from "./receipt-intake/ManualCapture";
 import { ReceiptInbox } from "./receipt-intake/ReceiptInbox";
+import { formatDate } from "./format";
 import type { DashboardData } from "./types";
 import { ViewHeader } from "./ui";
 
@@ -10,9 +11,11 @@ type CaptureMode = "inbox" | "manual";
 
 export function CaptureView({
   data,
+  initialDate,
   onSaved,
 }: {
   data: DashboardData;
+  initialDate?: string;
   onSaved: () => Promise<void>;
 }) {
   const [mode, setMode] = useState<CaptureMode>("inbox");
@@ -37,9 +40,13 @@ export function CaptureView({
   return (
     <div className="view page-enter capture-view intake-page">
       <ViewHeader
-        eyebrow="New expense"
+        eyebrow={initialDate ? `Receipt for ${formatDate(initialDate)}` : "New expense"}
         title="Capture receipts"
-        detail="Secure one receipt or a whole batch, then confirm only the details that need your attention."
+        detail={
+          initialDate
+            ? "The selected calendar date will be applied to the next receipt."
+            : "Secure one receipt or a whole batch, then confirm only the details that need your attention."
+        }
       />
       <div className="capture-mode-switch" role="tablist" aria-label="Receipt entry method">
         <button
@@ -79,9 +86,9 @@ export function CaptureView({
         }
       >
         {mode === "inbox" ? (
-          <ReceiptInbox data={data} onSaved={onSaved} />
+          <ReceiptInbox data={data} initialDate={initialDate} onSaved={onSaved} />
         ) : (
-          <ManualCapture data={data} onSaved={onSaved} />
+          <ManualCapture data={data} initialDate={initialDate} onSaved={onSaved} />
         )}
       </div>
     </div>

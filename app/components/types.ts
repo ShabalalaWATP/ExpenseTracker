@@ -1,6 +1,7 @@
 export type ViewName =
   | "today"
   | "capture"
+  | "calendar"
   | "expenses"
   | "trips"
   | "claims"

@@ -72,34 +72,14 @@ export function SettingsView() {
   return (
     <div className="view page-enter">
       <ViewHeader
-        eyebrow="Preferences and controls"
+        eyebrow="Current view"
         title="Settings"
-        detail="Review the active policy, appearance and how your private evidence is handled."
+        detail="Manage appearance, check AI setup, review privacy controls and export your data."
       />
 
       <div className="settings-ledger">
-        <section aria-labelledby="policy-heading">
-          <div className="setting-number" aria-hidden="true">01</div>
-          <div className="setting-content">
-            <p className="eyebrow">Read-only policy</p>
-            <h2 id="policy-heading">UK Day Subsistence</h2>
-            <dl className="policy-details">
-              <div><dt>Source</dt><dd>JSP 752 v66.1, May 2026</dd></div>
-              <div><dt>Daily limit</dt><dd>£30.00 from 1 April 2026</dd></div>
-              <div><dt>Currency and country</dt><dd>GBP · United Kingdom (GB)</dd></div>
-              <div><dt>Aggregation</dt><dd>Permitted for two nights or more, with an explicit method choice</dd></div>
-            </dl>
-            <a className="text-button external-link" href="https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances" target="_blank" rel="noreferrer">
-              View official publication <span aria-hidden="true">↗</span>
-            </a>
-            <StatusMessage tone="neutral">
-              ExpenseTracker is a calculation and evidence aid. It does not decide entitlement or replace the authoritative policy.
-            </StatusMessage>
-          </div>
-        </section>
-
         <section aria-labelledby="appearance-heading">
-          <div className="setting-number" aria-hidden="true">02</div>
+          <div className="setting-number" aria-hidden="true">01</div>
           <div className="setting-content">
             <p className="eyebrow">On this device</p>
             <h2 id="appearance-heading">Appearance</h2>
@@ -113,46 +93,31 @@ export function SettingsView() {
                 </label>
               ))}
             </fieldset>
-            <p className="setting-note">Only this appearance preference is stored in your browser.</p>
-          </div>
-        </section>
-
-        <section aria-labelledby="privacy-heading">
-          <div className="setting-number" aria-hidden="true">03</div>
-          <div className="setting-content">
-            <p className="eyebrow">Private by construction</p>
-            <h2 id="privacy-heading">Privacy and data control</h2>
-            <ul className="plain-list">
-              <li><strong>Private evidence</strong><span>Receipt originals and expense records are kept in owner-only storage. They are never public links.</span></li>
-              <li><strong>No browser ledger</strong><span>Financial records are server-authoritative. Closing Safari does not leave a second local financial record.</span></li>
-              <li><strong>No AI decisions</strong><span>AI can suggest receipt fields, but only you can confirm them. Allowance calculations remain deterministic.</span></li>
-              <li><strong>Voice by choice</strong><span>The microphone starts only after you choose voice clarification. The permanent API key never reaches Safari.</span></li>
-            </ul>
+            <p className="setting-note">Dark mode uses a near-black navy workspace. Only this appearance preference is stored in your browser.</p>
           </div>
         </section>
 
         <section aria-labelledby="ai-heading">
-          <div className="setting-number" aria-hidden="true">04</div>
+          <div className="setting-number" aria-hidden="true">02</div>
           <div className="setting-content">
-            <p className="eyebrow">Server-side assistance</p>
-            <h2 id="ai-heading">Receipt AI and voice</h2>
+            <p className="eyebrow">Receipt assistance</p>
+            <h2 id="ai-heading">AI and voice</h2>
             {ai ? (
               <>
                 <StatusMessage tone={ai.configured ? "neutral" : "warning"}>
                   <strong>
                     {ai.configured
-                      ? "AI receipt review is ready"
-                      : "Manual mode is active"}
+                      ? "AI is configured"
+                      : "Manual receipt entry is active"}
                   </strong>
                   <p>
                     {ai.configured
-                      ? ai.privacy
-                      : "Add OPENAI_API_KEY to the private Sites runtime environment to enable analysis and voice."}
+                      ? "The server has the required credential. A real receipt and iPhone voice check are still the final end-to-end acceptance tests."
+                      : "Add OPENAI_API_KEY to the private Sites runtime environment to enable receipt analysis and voice."}
                   </p>
                 </StatusMessage>
                 <dl className="policy-details compact-details">
                   <div><dt>Receipt extraction</dt><dd>{ai.models.receipt}</dd></div>
-                  <div><dt>Chat</dt><dd>{ai.models.chat}</dd></div>
                   <div><dt>Realtime voice</dt><dd>{ai.models.realtime} · {ai.voice}</dd></div>
                   <div><dt>Transcription</dt><dd>{ai.models.transcription}</dd></div>
                 </dl>
@@ -165,8 +130,22 @@ export function SettingsView() {
           </div>
         </section>
 
+        <section aria-labelledby="privacy-heading">
+          <div className="setting-number" aria-hidden="true">03</div>
+          <div className="setting-content">
+            <p className="eyebrow">Owner-only data</p>
+            <h2 id="privacy-heading">Privacy and control</h2>
+            <ul className="plain-list">
+              <li><strong>Private evidence</strong><span>Receipt originals and expense records are kept in owner-only storage. They are never public links.</span></li>
+              <li><strong>No browser ledger</strong><span>Financial records are stored by the server, not duplicated in Safari.</span></li>
+              <li><strong>You confirm every receipt</strong><span>AI suggests fields, but it cannot submit or make allowance decisions.</span></li>
+              <li><strong>Voice is optional</strong><span>The microphone starts only when you choose it. The permanent API key never reaches Safari.</span></li>
+            </ul>
+          </div>
+        </section>
+
         <section aria-labelledby="export-heading">
-          <div className="setting-number" aria-hidden="true">05</div>
+          <div className="setting-number" aria-hidden="true">04</div>
           <div className="setting-content">
             <p className="eyebrow">Owner-only download</p>
             <h2 id="export-heading">Export your ledger</h2>
@@ -183,6 +162,29 @@ export function SettingsView() {
                 Download CSV
               </a>
             </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="policy-heading">
+          <div className="setting-number" aria-hidden="true">05</div>
+          <div className="setting-content">
+            <p className="eyebrow">Reference</p>
+            <h2 id="policy-heading">Allowance rules</h2>
+            <p className="setting-note">
+              ExpenseTracker applies the configured £30 daily limit automatically. Open this only when you need the source details.
+            </p>
+            <details className="policy-disclosure">
+              <summary>View allowance reference</summary>
+              <dl className="policy-details">
+                <div><dt>Source</dt><dd>JSP 752 v66.1, May 2026</dd></div>
+                <div><dt>Daily limit</dt><dd>£30.00 from 1 April 2026</dd></div>
+                <div><dt>Currency and country</dt><dd>GBP · United Kingdom (GB)</dd></div>
+                <div><dt>Aggregation</dt><dd>Available for trips of two nights or more</dd></div>
+              </dl>
+              <a className="text-button external-link" href="https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances" target="_blank" rel="noreferrer">
+                View official publication <span aria-hidden="true">↗</span>
+              </a>
+            </details>
           </div>
         </section>
       </div>

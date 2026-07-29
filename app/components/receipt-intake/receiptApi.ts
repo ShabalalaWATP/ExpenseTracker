@@ -54,6 +54,7 @@ export async function uploadIntake(
         "X-Batch-Id": batchId,
         "X-File-Name": encodeURIComponent(file.name),
         "Idempotency-Key": idempotencyKey,
+        "X-Default-Service-Date": defaults.serviceDate,
         "X-Default-Location": encodeURIComponent(defaults.location.trim()),
         "X-Default-Reason": encodeURIComponent(defaults.businessReason.trim()),
         "X-Default-Trip-Id": defaults.tripId,

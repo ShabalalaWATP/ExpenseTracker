@@ -163,7 +163,7 @@ export function VoiceClarification({
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
       const response = await fetch(
-        `https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(session.model)}`,
+        "https://api.openai.com/v1/realtime/calls",
         {
           method: "POST",
           headers: {

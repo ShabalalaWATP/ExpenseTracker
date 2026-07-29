@@ -60,6 +60,7 @@ export interface AiStatus {
 }
 
 export interface BatchDefaults {
+  serviceDate: string;
   location: string;
   businessReason: string;
   tripId: string;

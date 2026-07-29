@@ -166,3 +166,26 @@
   justify-content: center;
   text-decoration: none;
 }
+
+.policy-disclosure {
+  margin-top: 20px;
+  border-block: 1px solid var(--line);
+}
+
+.policy-disclosure summary {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--teal-dark);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.policy-disclosure summary::after {
+  content: "＋";
+}
+
+.policy-disclosure[open] summary::after {
+  content: "−";
+}

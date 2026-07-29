@@ -31,9 +31,11 @@ function identifier() {
 
 export function ReceiptInbox({
   data,
+  initialDate,
   onSaved,
 }: {
   data: DashboardData;
+  initialDate?: string;
   onSaved: () => Promise<void>;
 }) {
   const [intakes, setIntakes] = useState<ReceiptIntake[]>([]);
@@ -43,6 +45,7 @@ export function ReceiptInbox({
   const analysisFiles = useRef(new Map<string, File>());
   const [selectedId, setSelectedId] = useState("");
   const [defaults, setDefaults] = useState<BatchDefaults>({
+    serviceDate: initialDate ?? "",
     location: "",
     businessReason: "",
     tripId: "",

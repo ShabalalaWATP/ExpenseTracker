@@ -42,7 +42,7 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
   ]);
 
   assert.match(layout, /lang="en-GB"/);
-  assert.match(layout, /\/og\.png/);
+  assert.match(layout, /\/og-v2\.png/);
   assert.match(page, /<ExpenseApp \/>/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   const hostingConfig = JSON.parse(hosting);

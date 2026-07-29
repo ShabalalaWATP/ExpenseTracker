@@ -54,7 +54,7 @@
   border: 1px solid var(--line); border-radius: 4px; background: var(--paper-raised);
   padding: 12px; color: var(--text); text-align: left;
 }
-.intake-action.primary { border-color: var(--teal); background: var(--teal); color: #fff; }
+.intake-action.primary { border-color: var(--action); background: var(--action); color: #fff; }
 .intake-action > span:last-child { display: grid; min-width: 0; }
 .intake-action small {
   overflow: hidden; opacity: .76; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap;
@@ -220,7 +220,7 @@
   min-height: 46px; border-radius: 3px; padding: 0 15px; font-size: .78rem; font-weight: 760;
 }
 .review-save, .voice-type { border: 1px solid var(--line); background: transparent; }
-.review-confirm, .voice-start { background: var(--teal); color: #fff; }
+.review-confirm, .voice-start { background: var(--action); color: #fff; }
 .voice-stop { background: var(--coral-soft); color: var(--coral); }
 .review-message, .confirmed-note, .typed-fallback {
   margin: 10px 0; color: var(--muted); font-size: .75rem;

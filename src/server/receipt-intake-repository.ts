@@ -137,9 +137,9 @@ export async function createReceiptIntake(
           `INSERT INTO receipt_intakes (
             id, owner_id, batch_id, status, original_name,
             original_object_key, content_type, byte_size, sha256,
-            idempotency_key, location, business_reason, trip_id, meal_context,
+            idempotency_key, service_date, location, business_reason, trip_id, meal_context,
             missing_fields_json
-          ) VALUES (?, ?, ?, 'uploaded', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, 'uploaded', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           id,
@@ -151,13 +151,14 @@ export async function createReceiptIntake(
           bytes.length,
           hash,
           idempotencyKey,
+          defaults.serviceDate,
           defaults.location,
           defaults.businessReason,
           defaults.tripId,
           defaults.mealContext,
           JSON.stringify([
             "merchant",
-            "service_date",
+            ...(defaults.serviceDate ? [] : ["service_date"]),
             "receipt_total",
             "eligible_amount",
             ...(defaults.location ? [] : ["location"]),
