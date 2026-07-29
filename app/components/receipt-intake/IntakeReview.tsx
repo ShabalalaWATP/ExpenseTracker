@@ -17,16 +17,22 @@ export function IntakeReview({
   data,
   voiceAvailable,
   canRetryAnalysis,
+  canReanalyse,
+  analysisModel,
   onUpdate,
   onRetryAnalysis,
+  onReanalyse,
   onConfirmed,
 }: {
   intake: ReceiptIntake;
   data: DashboardData;
   voiceAvailable: boolean;
   canRetryAnalysis: boolean;
+  canReanalyse: boolean;
+  analysisModel: string;
   onUpdate: (next: ReceiptIntake) => void;
   onRetryAnalysis: () => void;
+  onReanalyse: () => void;
   onConfirmed: () => Promise<void>;
 }) {
   const [merchant, setMerchant] = useState(intake.merchant ?? "");
@@ -188,6 +194,18 @@ export function IntakeReview({
             <span>{intake.uncertainFields.length} uncertain</span>
           ) : null}
         </header>
+
+        {canReanalyse ? (
+          <div className="review-reread">
+            <p>
+              Need a better result? Re-read the secured image with{" "}
+              {analysisModel || "the current receipt model"}.
+            </p>
+            <button type="button" onClick={onReanalyse}>
+              Read receipt again
+            </button>
+          </div>
+        ) : null}
 
         {intake.alcoholSuspected ? (
           <div className="alcohol-warning" role="alert">

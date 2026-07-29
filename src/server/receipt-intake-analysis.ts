@@ -33,7 +33,8 @@ export async function beginReceiptAnalysis(
        SET status = 'analysing', analysis_object_key = ?,
            error_code = NULL, error_message = NULL,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE owner_id = ? AND id = ? AND status <> 'analysing'
+       WHERE owner_id = ? AND id = ?
+         AND status IN ('uploaded', 'needs_review', 'ready', 'failed')
        RETURNING id`,
     )
     .bind(objectKey, principal.ownerId, id)

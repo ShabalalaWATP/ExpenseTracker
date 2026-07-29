@@ -10,6 +10,7 @@ import {
   deleteIntake,
   getAiStatus,
   listIntakes,
+  reanalyseIntake,
   uploadIntake,
 } from "./receiptApi";
 import { LocalQueueItem, QueueItem } from "./QueueItem";
@@ -182,6 +183,18 @@ export function ReceiptInbox({
     }
   }
 
+  async function reanalyse(intake: ReceiptIntake) {
+    if (!window.confirm("Read this receipt again? AI suggestions and any saved or unsaved corrections in this review will be replaced.")) return;
+    setProcessingIds((ids) => [...new Set([...ids, intake.id])]);
+    try {
+      updateIntake(await reanalyseIntake(intake.id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The receipt could not be read again.");
+    } finally {
+      setProcessingIds((ids) => ids.filter((id) => id !== intake.id));
+    }
+  }
+
   async function addFiles(selected: File[]) {
     setError("");
     const candidates = selected.slice(0, MAX_BATCH);
@@ -320,8 +333,11 @@ export function ReceiptInbox({
                   data={data}
                   voiceAvailable={voiceAvailable}
                   canRetryAnalysis={retryableAnalysisIds.includes(intake.id)}
+                  canReanalyse={Boolean(ai?.configured && intake.hasAnalysisCopy && !["analysing", "confirmed"].includes(intake.status) && !processingIds.includes(intake.id))}
+                  analysisModel={ai?.models.receipt ?? ""}
                   onUpdate={updateIntake}
                   onRetryAnalysis={() => void retryAnalysis(intake)}
+                  onReanalyse={() => void reanalyse(intake)}
                   onConfirmed={onSaved}
                 />
               </QueueItem>

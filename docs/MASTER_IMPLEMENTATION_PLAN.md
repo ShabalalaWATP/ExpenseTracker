@@ -266,6 +266,9 @@ control and the development record contains verification evidence.
 - AI status confirms configuration and endpoint availability, not successful
   end-to-end receipt understanding. One synthetic or non-sensitive receipt and
   one iPhone Safari microphone session remain required acceptance tests.
+- Receipt extraction now requests `gpt-5.6-sol` with original image detail and
+  high reasoning effort. This deliberately prioritises quality over the lower
+  latency and cost of the previous Luna configuration.
 
 ## 7. Risks and mitigations
 
@@ -307,6 +310,8 @@ control and the development record contains verification evidence.
 - [x] Add server-side receipt extraction for merchant, date and total as
   untrusted suggestions requiring confirmation.
 - [x] Add line-item review and warnings for alcohol or other ineligible spend.
+- [x] Allow an unconfirmed receipt to be read again from its secured analysis
+  copy after a model upgrade or an inaccurate first result.
 - [ ] Add receipt text search, saved filters and better expense-to-trip
   suggestions.
 - [ ] Add an explicit offline capture queue with clear device-only and
@@ -324,6 +329,7 @@ decisions remain out of scope.
 
 ## 9. Current next step
 
-Complete the remaining iPhone 16 HEIC receipt-analysis and Realtime microphone
-acceptance checks before treating AI-assisted capture as fully proven. Then
-document the result and finish the recovery/export acceptance work.
+Re-read the existing unconfirmed Luna receipts with the deployed Sol model and
+compare the suggested fields with the receipt images. Then complete the iPhone
+16 HEIC and Realtime microphone acceptance checks before treating AI-assisted
+capture as fully proven, and finish the recovery/export acceptance work.

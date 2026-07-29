@@ -2,7 +2,7 @@ import { getRuntimeEnv } from "@/db";
 
 export const DEFAULT_MODELS = Object.freeze({
   chat: "gpt-5.6-sol",
-  receipt: "gpt-5.6-luna",
+  receipt: "gpt-5.6-sol",
   realtime: "gpt-realtime-2.1",
   transcription: "gpt-realtime-whisper",
 });

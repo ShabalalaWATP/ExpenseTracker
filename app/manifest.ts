@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Private receipt evidence and UK claim preparation.",
     start_url: "/",
     display: "standalone",
-    background_color: "#152a2b",
-    theme_color: "#152a2b",
+    background_color: "#02050d",
+    theme_color: "#02050d",
     icons: [
       {
         src: "/expensetracker-logo.png",

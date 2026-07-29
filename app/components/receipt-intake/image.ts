@@ -1,5 +1,6 @@
-const MAX_DIMENSION = 2400;
-const JPEG_QUALITY = 0.9;
+export const MAX_ANALYSIS_DIMENSION = 4096;
+const JPEG_QUALITY = 0.92;
+const MAX_ANALYSIS_BYTES = 9 * 1_048_576;
 const MAX_RECEIPT_BYTES = 20 * 1_048_576;
 
 export function canSelectReceipt(
@@ -36,7 +37,10 @@ export async function normaliseReceipt(file: File): Promise<Blob> {
   try {
     const width = source.width;
     const height = source.height;
-    const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+    const scale = Math.min(
+      1,
+      MAX_ANALYSIS_DIMENSION / Math.max(width, height),
+    );
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(width * scale));
     canvas.height = Math.max(1, Math.round(height * scale));
@@ -45,10 +49,20 @@ export async function normaliseReceipt(file: File): Promise<Blob> {
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
-    );
+    let quality = JPEG_QUALITY;
+    let blob: Blob | null = null;
+    do {
+      blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", quality),
+      );
+      quality -= 0.1;
+    } while (blob && blob.size > MAX_ANALYSIS_BYTES && quality >= 0.62);
     if (!blob) throw new Error("The photo could not be converted to JPEG.");
+    if (blob.size > MAX_ANALYSIS_BYTES) {
+      throw new Error(
+        "This photo is too detailed to prepare safely. Move closer to the receipt and try again.",
+      );
+    }
     return blob;
   } finally {
     if (source instanceof ImageBitmap) source.close();

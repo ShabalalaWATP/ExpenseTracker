@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { resolveStoredTheme, THEME_STORAGE_KEY, type Theme } from "../theme";
 import { AppShell } from "./AppShell";
 import { CalendarView } from "./CalendarView";
 import { CaptureView } from "./CaptureView";
@@ -33,12 +34,24 @@ export function ExpenseApp() {
   const [status, setStatus] = useState("");
   const { data, error, loading, refresh } = useDashboard();
   const errorRef = useRef<HTMLDivElement>(null);
+  const settingsReturnView = useRef<ViewName>("capture");
+
+  function applyTheme(theme: Theme) {
+    if (theme === "system") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.dataset.theme = theme;
+    }
+  }
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("expense-tracker-theme");
-    if (saved === "light" || saved === "dark") {
-      document.documentElement.dataset.theme = saved;
+    let saved: string | null = null;
+    try {
+      saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    } catch {
+      // Safari may block storage in a restricted browsing context.
     }
+    applyTheme(resolveStoredTheme(saved));
   }, []);
 
   useEffect(() => {
@@ -69,15 +82,41 @@ export function ExpenseApp() {
   }, [error]);
 
   function navigate(next: ViewName) {
+    const returnView =
+      next === "settings" && view !== "settings" ? view : undefined;
+    if (returnView) settingsReturnView.current = returnView;
     if (next === "capture") setCaptureDate("");
     setSelectedExpense(null);
     setView(next);
     setStatus(`${titles[next]} view opened`);
     if (window.location.hash !== `#${next}`) {
-      window.history.pushState({ view: next }, "", `#${next}`);
+      window.history.pushState(
+        { view: next, settingsReturnView: returnView },
+        "",
+        `#${next}`,
+      );
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
     requestAnimationFrame(() => document.getElementById("main-content")?.focus());
+  }
+
+  function closeSettings() {
+    const state = window.history.state as {
+      view?: string;
+      settingsReturnView?: string;
+    } | null;
+    if (
+      state?.view === "settings" &&
+      state.settingsReturnView === settingsReturnView.current
+    ) {
+      window.history.back();
+      setStatus(`${titles[settingsReturnView.current]} view opened`);
+      requestAnimationFrame(() =>
+        document.getElementById("main-content")?.focus(),
+      );
+      return;
+    }
+    navigate(settingsReturnView.current);
   }
 
   function captureForDate(date: string) {
@@ -146,7 +185,7 @@ export function ExpenseApp() {
       expenses: <ExpensesView data={data} navigate={navigate} onChanged={changed} />,
       trips: <TripsView data={data} onChanged={changed} />,
       claims: <ClaimsView data={data} navigate={navigate} onChanged={changed} />,
-      settings: <SettingsView />,
+      settings: <SettingsView onClose={closeSettings} />,
     };
     content = (
       <>

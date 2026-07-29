@@ -175,7 +175,8 @@
   }
 
   .header-action,
-  .header-action .primary-button {
+  .header-action .primary-button,
+  .header-action .settings-close {
     width: 100%;
   }
 }

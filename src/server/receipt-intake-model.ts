@@ -103,6 +103,7 @@ export function publicIntake(row: ReceiptIntakeRow) {
     alcoholReviewed: Boolean(row.alcohol_reviewed),
     clarificationQuestions: clarificationQuestions(unresolved),
     aiModel: row.ai_model,
+    hasAnalysisCopy: Boolean(row.analysis_object_key),
     expenseId: row.expense_id,
     error: row.error_message,
     createdAt: row.created_at,

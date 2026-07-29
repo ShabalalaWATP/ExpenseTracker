@@ -81,6 +81,14 @@ export async function analyseIntake(
   return result.data.intake;
 }
 
+export async function reanalyseIntake(id: string): Promise<ReceiptIntake> {
+  const result = await request<Envelope<{ intake: ReceiptIntake }>>(
+    `/api/receipt-intakes/${encodeURIComponent(id)}/analysis`,
+    { method: "POST" },
+  );
+  return result.data.intake;
+}
+
 export async function patchIntake(
   id: string,
   fields: IntakePatch,

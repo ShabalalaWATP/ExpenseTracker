@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { THEME_STORAGE_KEY } from "./theme";
 import "./styles/base.css";
 import "./styles/shell.css";
 import "./styles/forms.css";
@@ -63,11 +64,29 @@ export const viewport: Viewport = {
   ],
 };
 
+const themeBootstrap = `
+try {
+  var savedTheme = window.localStorage.getItem("${THEME_STORAGE_KEY}");
+  if (savedTheme === "system") {
+    document.documentElement.removeAttribute("data-theme");
+  } else if (savedTheme === "light" || savedTheme === "dark") {
+    document.documentElement.dataset.theme = savedTheme;
+  } else {
+    document.documentElement.dataset.theme = "dark";
+  }
+} catch (_) {
+  document.documentElement.dataset.theme = "dark";
+}
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-GB" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body>{children}</body>
     </html>
   );

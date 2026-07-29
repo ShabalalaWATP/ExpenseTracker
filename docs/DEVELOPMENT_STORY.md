@@ -60,3 +60,20 @@ This document records meaningful implementation milestones, decisions and verifi
   owner-only production path. Owner-side smoke checks confirmed Capture,
   Calendar, date-led capture, Settings, AI configuration status and the
   near-black dark theme.
+- Diagnosed the first receipt-reading failures as a quality configuration
+  problem: production used the high-volume Luna model, disabled reasoning,
+  reduced iPhone images to 2,400 pixels and requested model-side high rather
+  than original image detail.
+- Upgraded receipt extraction to the frontier `gpt-5.6-sol` model with original
+  image detail, high reasoning effort, a larger response budget and explicit
+  line-item, total, discount, service-charge, eligibility and alcohol
+  reconciliation instructions. Safari now retains up to 4,096 pixels in the
+  bounded metadata-stripped analysis copy.
+- Added owner-scoped re-analysis of existing unconfirmed receipts from their
+  private R2 analysis copy. This lets the first Luna-read receipts be re-read
+  with Sol after a reload without creating a duplicate upload.
+- Made dark mode the pre-paint default on devices with no saved preference,
+  while preserving explicitly selected Light, Dark and System modes. Updated
+  the installed-app colours to the same near-black navy.
+- Added a visible Close settings action that returns to the preceding app view
+  with Capture as the safe fallback for a direct Settings link.

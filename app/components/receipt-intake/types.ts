@@ -42,6 +42,7 @@ export interface ReceiptIntake {
   alcoholReviewed: boolean;
   clarificationQuestions: string[];
   aiModel: string | null;
+  hasAnalysisCopy: boolean;
   error: string | null;
   createdAt: string;
   updatedAt: string;

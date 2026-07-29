@@ -225,6 +225,15 @@
 .review-message, .confirmed-note, .typed-fallback {
   margin: 10px 0; color: var(--muted); font-size: .75rem;
 }
+.review-reread {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 14px; padding: 12px 0; border-block: 1px solid var(--line);
+}
+.review-reread p { margin: 0; color: var(--muted); font-size: .75rem; }
+.review-reread button {
+  flex: 0 0 auto; min-height: 42px; border: 1px solid var(--line);
+  border-radius: 3px; padding: 0 13px; background: transparent; font-weight: 760;
+}
 
 .voice-clarification {
   display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px;
@@ -288,4 +297,5 @@
     box-shadow: 0 -10px 22px color-mix(in srgb, var(--ink) 10%, transparent);
   }
   .review-actions button { flex: 1; }
+  .review-reread { align-items: stretch; flex-direction: column; }
 }

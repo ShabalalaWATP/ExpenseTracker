@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  resolveStoredTheme,
+  THEME_STORAGE_KEY,
+  type Theme,
+} from "../theme";
 import { StatusMessage, ViewHeader } from "./ui";
-
-type Theme = "system" | "light" | "dark";
 
 type AiStatus = {
   configured: boolean;
@@ -25,20 +28,21 @@ function applyTheme(theme: Theme) {
   }
 }
 
-export function SettingsView() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "system";
-    const saved = window.localStorage.getItem("expense-tracker-theme");
-    return saved === "light" || saved === "dark" || saved === "system"
-      ? saved
-      : "system";
-  });
+function initialTheme(): Theme {
+  if (typeof window === "undefined") return "dark";
+  try {
+    return resolveStoredTheme(
+      window.localStorage.getItem(THEME_STORAGE_KEY),
+    );
+  } catch {
+    return "dark";
+  }
+}
+
+export function SettingsView({ onClose }: { onClose: () => void }) {
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [aiError, setAiError] = useState("");
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
 
   useEffect(() => {
     let active = true;
@@ -65,7 +69,11 @@ export function SettingsView() {
 
   function chooseTheme(value: Theme) {
     setTheme(value);
-    window.localStorage.setItem("expense-tracker-theme", value);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, value);
+    } catch {
+      // The selected theme still applies for this page session.
+    }
     applyTheme(value);
   }
 
@@ -75,6 +83,15 @@ export function SettingsView() {
         eyebrow="Current view"
         title="Settings"
         detail="Manage appearance, check AI setup, review privacy controls and export your data."
+        action={
+          <button
+            className="secondary-button settings-close"
+            type="button"
+            onClick={onClose}
+          >
+            Close settings
+          </button>
+        }
       />
 
       <div className="settings-ledger">
@@ -107,7 +124,7 @@ export function SettingsView() {
                 <StatusMessage tone={ai.configured ? "neutral" : "warning"}>
                   <strong>
                     {ai.configured
-                      ? "AI is configured"
+                      ? "OpenAI API key configured"
                       : "Manual receipt entry is active"}
                   </strong>
                   <p>
