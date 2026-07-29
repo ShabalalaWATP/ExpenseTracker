@@ -4,7 +4,7 @@ import {
   requireSameOrigin,
 } from "@/src/server/http";
 import { requirePrincipal } from "@/src/server/principal";
-import { confirmReceiptIntake } from "@/src/server/receipt-intake-processing";
+import { confirmReceiptIntake } from "@/src/server/receipt-intake-confirmation";
 import { assertId } from "@/src/server/validation";
 
 type Context = { params: Promise<{ id: string }> };

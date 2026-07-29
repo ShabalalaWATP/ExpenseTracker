@@ -3,10 +3,12 @@ import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import { analyseReceiptIntake } from "./receipt-intake-processing";
 import { requireIntake } from "./receipt-intake-repository";
+import type { ReceiptField } from "./receipt-extraction";
 
 export async function reanalyseStoredReceiptIntake(
   principal: Principal,
   id: string,
+  targetedFields: readonly ReceiptField[] = [],
 ) {
   const intake = await requireIntake(principal, id);
   if (intake.status === "confirmed") {
@@ -39,5 +41,6 @@ export async function reanalyseStoredReceiptIntake(
     intake.analysis_object_key.endsWith(".png")
       ? "image/png"
       : "image/jpeg",
+    { targetedFields },
   );
 }

@@ -12,10 +12,12 @@ type CaptureMode = "inbox" | "manual";
 export function CaptureView({
   data,
   initialDate,
+  initialIntakeId,
   onSaved,
 }: {
   data: DashboardData;
   initialDate?: string;
+  initialIntakeId?: string;
   onSaved: () => Promise<void>;
 }) {
   const [mode, setMode] = useState<CaptureMode>("inbox");
@@ -86,7 +88,12 @@ export function CaptureView({
         }
       >
         {mode === "inbox" ? (
-          <ReceiptInbox data={data} initialDate={initialDate} onSaved={onSaved} />
+          <ReceiptInbox
+            data={data}
+            initialDate={initialDate}
+            initialIntakeId={initialIntakeId}
+            onSaved={onSaved}
+          />
         ) : (
           <ManualCapture data={data} initialDate={initialDate} onSaved={onSaved} />
         )}

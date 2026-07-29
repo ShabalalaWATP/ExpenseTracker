@@ -111,6 +111,14 @@ const schemaStatements = [
     alcohol_suspected INTEGER NOT NULL DEFAULT 0 CHECK (alcohol_suspected IN (0, 1)),
     alcohol_reviewed INTEGER NOT NULL DEFAULT 0 CHECK (alcohol_reviewed IN (0, 1)),
     extraction_json TEXT,
+    analysis_history_json TEXT NOT NULL DEFAULT '[]',
+    correction_provenance_json TEXT NOT NULL DEFAULT '{}',
+    duplicate_candidates_json TEXT NOT NULL DEFAULT '[]',
+    duplicate_fingerprint TEXT,
+    duplicate_reviewed_fingerprint TEXT,
+    duplicate_reviewed INTEGER NOT NULL DEFAULT 0 CHECK (duplicate_reviewed IN (0, 1)),
+    reconciliation_reviewed INTEGER NOT NULL DEFAULT 0 CHECK (reconciliation_reviewed IN (0, 1)),
+    image_edits_json TEXT NOT NULL DEFAULT '{}',
     clarification_json TEXT,
     ai_model TEXT,
     expense_id TEXT REFERENCES expenses(id) ON DELETE SET NULL,
@@ -125,6 +133,21 @@ const schemaStatements = [
     ON receipt_intakes (owner_id, status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS receipt_intakes_owner_batch_idx
     ON receipt_intakes (owner_id, batch_id)`,
+  `CREATE TABLE IF NOT EXISTS receipt_intake_revisions (
+    id TEXT PRIMARY KEY NOT NULL,
+    owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
+    receipt_intake_id TEXT NOT NULL REFERENCES receipt_intakes(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    fields_json TEXT NOT NULL DEFAULT '[]',
+    before_json TEXT NOT NULL DEFAULT '{}',
+    after_json TEXT NOT NULL DEFAULT '{}',
+    model TEXT,
+    reason_code TEXT,
+    transform_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  )`,
+  `CREATE INDEX IF NOT EXISTS receipt_intake_revisions_owner_intake_idx
+    ON receipt_intake_revisions (owner_id, receipt_intake_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS audit_events (
     id TEXT PRIMARY KEY NOT NULL,
     owner_id TEXT NOT NULL DEFAULT 'singleton-owner',

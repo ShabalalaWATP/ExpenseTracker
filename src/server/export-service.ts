@@ -35,7 +35,7 @@ async function rows<T>(
 
 export async function buildJsonExport(principal: Principal) {
   await ensureSchema();
-  const [expenses, trips, tripDays, claims, intakes, auditEvents] =
+  const [expenses, trips, tripDays, claims, intakes, intakeRevisions, auditEvents] =
     await Promise.all([
       rows<ExpenseExportRow>(
         `SELECT e.id, e.service_date, e.merchant, e.location,
@@ -78,8 +78,20 @@ export async function buildJsonExport(principal: Principal) {
                 meal_context, trip_id, line_items_json, confidence_json,
                 missing_fields_json, uncertain_fields_json,
                 alcohol_suspected, alcohol_reviewed, ai_model, expense_id,
+                analysis_history_json, correction_provenance_json,
+                duplicate_candidates_json, duplicate_fingerprint,
+                duplicate_reviewed_fingerprint, duplicate_reviewed,
+                reconciliation_reviewed, image_edits_json,
                 error_code, error_message, created_at, updated_at
          FROM receipt_intakes WHERE owner_id = ? ORDER BY created_at`,
+        principal,
+      ),
+      rows(
+        `SELECT id, receipt_intake_id, source, fields_json, before_json,
+                after_json, model, reason_code, transform_json, created_at
+         FROM receipt_intake_revisions
+         WHERE owner_id = ?
+         ORDER BY created_at`,
         principal,
       ),
       rows(
@@ -98,6 +110,7 @@ export async function buildJsonExport(principal: Principal) {
     tripDays,
     claims,
     receiptIntakes: intakes,
+    receiptIntakeRevisions: intakeRevisions,
     auditEvents,
   };
 }

@@ -18,9 +18,19 @@ export function ManualCapture({
   initialDate?: string;
   onSaved: () => Promise<void>;
 }) {
+  const dateSeed = initialDate ?? "";
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
-  const [date, setDate] = useState(initialDate ?? localDate());
+  const [dateState, setDateState] = useState(() => ({
+    seed: dateSeed,
+    value: initialDate ?? localDate(),
+  }));
+  const date =
+    dateState.seed === dateSeed
+      ? dateState.value
+      : (initialDate ?? localDate());
+  const setDate = (value: string) =>
+    setDateState({ seed: dateSeed, value });
   const [merchant, setMerchant] = useState("");
   const [receiptTotal, setReceiptTotal] = useState("");
   const [eligibleAmount, setEligibleAmount] = useState("");
@@ -40,7 +50,6 @@ export function ManualCapture({
     },
     [preview],
   );
-
   function selectFile(selected: File | null) {
     if (preview) URL.revokeObjectURL(preview);
     setFile(selected);

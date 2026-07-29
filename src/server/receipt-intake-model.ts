@@ -37,6 +37,14 @@ export type ReceiptIntakeRow = {
   alcohol_suspected: number;
   alcohol_reviewed: number;
   extraction_json: string | null;
+  analysis_history_json: string;
+  correction_provenance_json: string;
+  duplicate_candidates_json: string;
+  duplicate_fingerprint: string | null;
+  duplicate_reviewed_fingerprint: string | null;
+  duplicate_reviewed: number;
+  reconciliation_reviewed: number;
+  image_edits_json: string;
   clarification_json: string | null;
   ai_model: string | null;
   expense_id: string | null;
@@ -101,6 +109,12 @@ export function publicIntake(row: ReceiptIntakeRow) {
     uncertainFields: json(row.uncertain_fields_json, []),
     alcoholSuspected: Boolean(row.alcohol_suspected),
     alcoholReviewed: Boolean(row.alcohol_reviewed),
+    analysisHistory: json(row.analysis_history_json, []),
+    correctionProvenance: json(row.correction_provenance_json, {}),
+    duplicateCandidates: json(row.duplicate_candidates_json, []),
+    duplicateReviewed: Boolean(row.duplicate_reviewed),
+    reconciliationReviewed: Boolean(row.reconciliation_reviewed),
+    imageEdits: json(row.image_edits_json, {}),
     clarificationQuestions: clarificationQuestions(unresolved),
     aiModel: row.ai_model,
     hasAnalysisCopy: Boolean(row.analysis_object_key),

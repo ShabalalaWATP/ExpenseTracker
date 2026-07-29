@@ -13,6 +13,7 @@ import {
 import { listTrips } from "./trip-repository";
 import { listClaimBlockingReceiptIntakes } from "./receipt-intake-repository";
 import type { Principal } from "./principal";
+import { structuredReadinessIssue } from "./readiness-service";
 
 export const CLAIM_PERIOD = "2026-08";
 
@@ -157,7 +158,7 @@ export async function dashboard(principal: Principal) {
     },
     readiness: {
       ready: issues.length === 0,
-      issues,
+      issues: issues.map(structuredReadinessIssue),
     },
     calculation,
   };

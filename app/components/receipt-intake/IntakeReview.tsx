@@ -1,11 +1,26 @@
 "use client";
 
-import Image from "next/image";
 import { useState, type FormEvent } from "react";
+import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
 import { parsePence } from "../format";
 import type { DashboardData, MealContext } from "../types";
+import { CorrectionHistory } from "./CorrectionHistory";
+import { DuplicateReview } from "./DuplicateReview";
+import { ReceiptImageAdjuster } from "./ReceiptImageAdjuster";
+import { ReceiptLineItems } from "./ReceiptLineItems";
+import { ReconciliationCard } from "./ReconciliationCard";
+import { validateIntakeReview } from "./intake-review-validation";
+import {
+  confidenceLabel,
+  fieldFlagged,
+} from "./receipt-field-state";
 import { confirmIntake, patchIntake } from "./receiptApi";
-import type { IntakePatch, ReceiptIntake } from "./types";
+import type {
+  ImageEdits,
+  IntakePatch,
+  ReceiptIntake,
+  ReceiptRecheckField,
+} from "./types";
 import { VoiceClarification } from "./VoiceClarification";
 
 function pounds(pence: number | null) {
@@ -18,10 +33,12 @@ export function IntakeReview({
   voiceAvailable,
   canRetryAnalysis,
   canReanalyse,
+  analysisBusy,
   analysisModel,
   onUpdate,
   onRetryAnalysis,
   onReanalyse,
+  onAnalyseWithEdits,
   onConfirmed,
 }: {
   intake: ReceiptIntake;
@@ -29,10 +46,12 @@ export function IntakeReview({
   voiceAvailable: boolean;
   canRetryAnalysis: boolean;
   canReanalyse: boolean;
+  analysisBusy: boolean;
   analysisModel: string;
   onUpdate: (next: ReceiptIntake) => void;
-  onRetryAnalysis: () => void;
-  onReanalyse: () => void;
+  onRetryAnalysis: () => Promise<void>;
+  onReanalyse: (fields: ReceiptRecheckField[]) => Promise<void>;
+  onAnalyseWithEdits: (edits: ImageEdits) => Promise<void>;
   onConfirmed: () => Promise<void>;
 }) {
   const [merchant, setMerchant] = useState(intake.merchant ?? "");
@@ -45,47 +64,18 @@ export function IntakeReview({
   const [meal, setMeal] = useState<MealContext>(intake.mealContext ?? "");
   const [tripId, setTripId] = useState(intake.tripId ?? "");
   const [alcoholReviewed, setAlcoholReviewed] = useState(intake.alcoholReviewed);
+  const [duplicateReviewed, setDuplicateReviewed] = useState(
+    intake.duplicateReviewed,
+  );
+  const [reconciliationReviewed, setReconciliationReviewed] = useState(
+    intake.reconciliationReviewed,
+  );
   const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState<"saving" | "confirming" | "">("");
   const [message, setMessage] = useState("");
 
-  const flagged = (field: string) =>
-    intake.missingFields.includes(
-      {
-        serviceDate: "service_date",
-        receiptTotalPence: "receipt_total",
-        eligiblePence: "eligible_amount",
-        businessReason: "business_reason",
-      }[field] ?? field,
-    ) ||
-    intake.uncertainFields.includes(
-      {
-        serviceDate: "service_date",
-        receiptTotalPence: "receipt_total",
-        eligiblePence: "eligible_amount",
-        businessReason: "business_reason",
-      }[field] ?? field,
-    );
-  const confidence = (field: string) => {
-    const value =
-      intake.confidence[
-        {
-          serviceDate: "serviceDate",
-          receiptTotalPence: "receiptTotal",
-          eligiblePence: "eligibleAmount",
-        }[field] ?? field
-      ] ??
-      intake.confidence[
-        {
-          serviceDate: "service_date",
-          receiptTotalPence: "receipt_total",
-          eligiblePence: "eligible_amount",
-        }[field] ?? field
-      ];
-    return typeof value === "number"
-      ? `${Math.round(value <= 1 ? value * 100 : value)}%`
-      : "";
-  };
+  const flagged = (field: string) => fieldFlagged(intake, field);
+  const confidence = (field: string) => confidenceLabel(intake, field);
 
   function fields(): IntakePatch {
     return {
@@ -99,29 +89,21 @@ export function IntakeReview({
       mealContext: meal || null,
       tripId: tripId || null,
       alcoholReviewed,
+      duplicateReviewed,
+      reconciliationReviewed,
     };
   }
 
   function validate() {
-    const receiptTotal = parsePence(total);
-    const eligibleTotal = parsePence(eligible);
-    const gratuityTotal = parsePence(gratuity);
-    if (!merchant.trim() || !date || !location.trim() || !reason.trim()) {
-      return "Complete the merchant, date, location and business reason.";
-    }
-    if (!receiptTotal || receiptTotal < 1 || !eligibleTotal || eligibleTotal < 1) {
-      return "Enter valid receipt and eligible totals.";
-    }
-    if (!Number.isSafeInteger(gratuityTotal) || gratuityTotal < 0) {
-      return "Enter a valid service charge or tip.";
-    }
-    if (eligibleTotal > receiptTotal) {
-      return "The eligible amount cannot exceed the receipt total.";
-    }
-    if (gratuityTotal > eligibleTotal) {
-      return "The service charge or tip cannot exceed the eligible amount.";
-    }
-    return "";
+    return validateIntakeReview({
+      merchant,
+      date,
+      location,
+      reason,
+      total,
+      eligible,
+      gratuity,
+    });
   }
 
   async function save(event?: FormEvent) {
@@ -167,22 +149,54 @@ export function IntakeReview({
     }
   }
 
+  async function afterSaving(action: () => Promise<void>) {
+    setBusy("saving");
+    setMessage("Saving your current corrections before the re-check…");
+    try {
+      const updated = await patchIntake(intake.id, fields());
+      onUpdate(updated);
+      await action();
+      setMessage("Corrections saved and re-check completed.");
+    } catch (caught) {
+      setMessage(
+        caught instanceof Error
+          ? caught.message
+          : "Your corrections could not be saved before the re-check.",
+      );
+    } finally {
+      setBusy("");
+    }
+  }
+
   const preview =
     intake.previewUrl ||
     `/api/receipt-intakes/${encodeURIComponent(intake.id)}/image`;
   const locked = intake.status === "confirmed";
+  const reconciliation = reconcileReceipt(
+    intake.lineItems,
+    parsePence(total),
+    parsePence(eligible),
+    parsePence(gratuity),
+  );
+  const duplicateBlocked =
+    intake.duplicateCandidates.length > 0 && !duplicateReviewed;
+  const reconciliationBlocked =
+    reconciliation.status === "mismatch" && !reconciliationReviewed;
 
   return (
     <div className="intake-review">
-      <aside className="review-receipt">
-        <div className="review-image">
-          <Image src={preview} alt="Original receipt" fill unoptimized sizes="420px" />
-        </div>
-        <p>
-          Original secured · {(intake.byteSize / 1_048_576).toFixed(1)} MB
-          {intake.aiModel ? ` · Read by ${intake.aiModel}` : ""}
-        </p>
-      </aside>
+      <ReceiptImageAdjuster
+        previewUrl={preview}
+        merchant={intake.merchant}
+        byteSize={intake.byteSize}
+        aiModel={intake.aiModel}
+        initialEdits={intake.imageEdits}
+        busy={analysisBusy || Boolean(busy)}
+        canAnalyse={canReanalyse}
+        onAnalyse={(edits) =>
+          void afterSaving(() => onAnalyseWithEdits(edits))
+        }
+      />
 
       <form className="intake-review-form" onSubmit={(event) => void save(event)}>
         <header>
@@ -199,9 +213,10 @@ export function IntakeReview({
           <div className="review-reread">
             <p>
               Need a better result? Re-read the secured image with{" "}
-              {analysisModel || "the current receipt model"}.
+              {analysisModel || "the current receipt model"}. Manual corrections
+              remain unchanged unless you recheck that field.
             </p>
-            <button type="button" onClick={onReanalyse}>
+            <button type="button" onClick={() => void afterSaving(() => onReanalyse([]))}>
               Read receipt again
             </button>
           </div>
@@ -226,7 +241,7 @@ export function IntakeReview({
           <div className="review-error">
             <p>{intake.error}</p>
             {canRetryAnalysis ? (
-              <button type="button" onClick={onRetryAnalysis}>Retry reading</button>
+              <button type="button" onClick={() => void afterSaving(onRetryAnalysis)}>Retry reading</button>
             ) : null}
           </div>
         ) : null}
@@ -240,24 +255,32 @@ export function IntakeReview({
 
         <div className="intake-field-grid">
           <label className={flagged("merchant") ? "flagged" : ""}>
-            <span>Merchant <small>{confidence("merchant")}</small></span>
+            <span>Merchant <small>{confidence("merchant")}</small>
+              {canReanalyse ? <button type="button" className="field-reread" disabled={analysisBusy || Boolean(busy)} onClick={() => void afterSaving(() => onReanalyse(["merchant"]))}>Recheck</button> : null}
+            </span>
             <input data-intake-review-field="merchant" value={merchant} onChange={(event) => setMerchant(event.target.value)} disabled={locked} />
           </label>
           <label className={flagged("serviceDate") ? "flagged" : ""}>
-            <span>Date <small>{confidence("serviceDate")}</small></span>
+            <span>Date <small>{confidence("serviceDate")}</small>
+              {canReanalyse ? <button type="button" className="field-reread" disabled={analysisBusy || Boolean(busy)} onClick={() => void afterSaving(() => onReanalyse(["service_date"]))}>Recheck</button> : null}
+            </span>
             <input data-intake-review-field="serviceDate" type="date" value={date} onChange={(event) => setDate(event.target.value)} disabled={locked} />
           </label>
           <label className={flagged("receiptTotalPence") ? "flagged" : ""}>
-            <span>Receipt total <small>{confidence("receiptTotalPence")}</small></span>
-            <div className="intake-money"><b>£</b><input data-intake-review-field="receiptTotalPence" inputMode="decimal" value={total} onChange={(event) => setTotal(event.target.value)} disabled={locked} /></div>
+            <span>Receipt total <small>{confidence("receiptTotalPence")}</small>
+              {canReanalyse ? <button type="button" className="field-reread" disabled={analysisBusy || Boolean(busy)} onClick={() => void afterSaving(() => onReanalyse(["receipt_total"]))}>Recheck</button> : null}
+            </span>
+            <div className="intake-money"><b>£</b><input data-intake-review-field="receiptTotalPence" inputMode="decimal" value={total} onChange={(event) => { setTotal(event.target.value); setReconciliationReviewed(false); }} disabled={locked} /></div>
           </label>
           <label className={flagged("eligiblePence") ? "flagged" : ""}>
-            <span>Eligible food and drink <small>{confidence("eligiblePence")}</small></span>
-            <div className="intake-money"><b>£</b><input data-intake-review-field="eligiblePence" inputMode="decimal" value={eligible} onChange={(event) => setEligible(event.target.value)} disabled={locked} /></div>
+            <span>Eligible food and drink <small>{confidence("eligiblePence")}</small>
+              {canReanalyse ? <button type="button" className="field-reread" disabled={analysisBusy || Boolean(busy)} onClick={() => void afterSaving(() => onReanalyse(["eligible_amount"]))}>Recheck</button> : null}
+            </span>
+            <div className="intake-money"><b>£</b><input data-intake-review-field="eligiblePence" inputMode="decimal" value={eligible} onChange={(event) => { setEligible(event.target.value); setReconciliationReviewed(false); }} disabled={locked} /></div>
           </label>
           <label>
             <span>Service charge or tip</span>
-            <div className="intake-money"><b>£</b><input inputMode="decimal" value={gratuity} onChange={(event) => setGratuity(event.target.value)} disabled={locked} /></div>
+            <div className="intake-money"><b>£</b><input inputMode="decimal" value={gratuity} onChange={(event) => { setGratuity(event.target.value); setReconciliationReviewed(false); }} disabled={locked} /></div>
           </label>
           <label className={flagged("location") ? "flagged" : ""}>
             <span>Location <small>{confidence("location")}</small></span>
@@ -282,20 +305,24 @@ export function IntakeReview({
           </label>
         </div>
 
-        {intake.lineItems.length ? (
-          <details className="line-items">
-            <summary>{intake.lineItems.length} receipt items</summary>
-            <ul>
-              {intake.lineItems.map((item, index) => (
-                <li key={`${item.description}-${index}`}>
-                  <span>{(item.quantity ?? 0) > 1 ? `${item.quantity} × ` : ""}{item.description}</span>
-                  {item.alcoholSuspected ? <em>Check alcohol</em> : null}
-                  <strong>{item.totalPence === null ? "—" : `£${(item.totalPence / 100).toFixed(2)}`}</strong>
-                </li>
-              ))}
-            </ul>
-          </details>
-        ) : null}
+        <ReceiptLineItems items={intake.lineItems} />
+
+        <ReconciliationCard
+          lineItems={intake.lineItems}
+          receiptTotalPence={parsePence(total)}
+          eligiblePence={parsePence(eligible)}
+          gratuityPence={parsePence(gratuity)}
+          reviewed={reconciliationReviewed}
+          onReviewed={setReconciliationReviewed}
+          locked={locked}
+        />
+        <DuplicateReview
+          candidates={intake.duplicateCandidates}
+          reviewed={duplicateReviewed}
+          onReviewed={setDuplicateReviewed}
+          locked={locked}
+        />
+        <CorrectionHistory entries={intake.analysisHistory} />
 
         {!locked ? (
           <label className="review-attestation">
@@ -309,7 +336,7 @@ export function IntakeReview({
             <button type="submit" className="review-save" disabled={Boolean(busy)}>
               {busy === "saving" ? "Saving…" : "Save review"}
             </button>
-            <button type="button" className="review-confirm" disabled={!reviewed || (intake.alcoholSuspected && !alcoholReviewed) || Boolean(busy)} onClick={() => void confirm()}>
+            <button type="button" className="review-confirm" disabled={!reviewed || duplicateBlocked || reconciliationBlocked || (intake.alcoholSuspected && !alcoholReviewed) || Boolean(busy)} onClick={() => void confirm()}>
               {busy === "confirming" ? "Confirming…" : "Confirm expense"}
             </button>
           </div>

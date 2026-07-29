@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#02050d" />
+    <title>ExpenseTracker is offline</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #02050d; color: #f3f7ff; }
+      body { min-height: 100svh; margin: 0; display: grid; place-items: center; padding: 32px; box-sizing: border-box; }
+      main { width: min(440px, 100%); border-top: 1px solid #294565; padding-top: 28px; }
+      img { width: 64px; height: 64px; border-radius: 16px; }
+      h1 { font-size: clamp(2rem, 8vw, 3.5rem); line-height: 1; margin: 28px 0 16px; }
+      p { color: #a9bad1; line-height: 1.6; }
+      button { min-height: 48px; margin-top: 16px; border: 0; border-radius: 12px; background: #8ecbff; color: #06111f; font: inherit; font-weight: 700; padding: 0 20px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/expensetracker-logo.png" alt="" />
+      <h1>You’re offline</h1>
+      <p>No expense or receipt data is cached here. Reopen ExpenseTracker when you have a connection. Any photo already preserved in the upload queue will retry when the app is open and online.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

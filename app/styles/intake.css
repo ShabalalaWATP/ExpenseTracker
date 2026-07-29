@@ -166,6 +166,23 @@
   position: relative; aspect-ratio: 3 / 4; overflow: hidden; background: var(--paper);
 }
 .review-image img { object-fit: contain; }
+.adjusted-receipt img {
+  width: 100%; height: 100%; object-fit: contain; transition: transform 180ms ease, filter 180ms ease;
+}
+.image-tool-row { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 8px; }
+.image-tool-row button, .field-reread {
+  min-height: 44px; border: 1px solid var(--line); background: transparent;
+  color: var(--muted); font-size: .68rem; font-weight: 750;
+}
+.image-tool-row button + button { border-left: 0; }
+.image-slider {
+  display: grid; grid-template-columns: 58px minmax(0, 1fr) 42px; gap: 8px;
+  align-items: center; margin-top: 10px; color: var(--muted); font-size: .68rem;
+}
+.image-slider input { width: 100%; accent-color: var(--teal); }
+.image-slider output { text-align: right; }
+.crop-controls { margin-top: 8px; border-top: 1px solid var(--line); }
+.crop-controls summary { padding: 10px 0 2px; cursor: pointer; font-size: .72rem; font-weight: 750; }
 .review-receipt p { margin: 8px 0 0; color: var(--muted); font-size: .67rem; }
 .intake-review-form header { display: flex; justify-content: space-between; gap: 12px; }
 .intake-review-form h3 {
@@ -179,6 +196,9 @@
 }
 .intake-field-grid .wide { grid-column: 1 / -1; }
 .intake-field-grid label > span { display: flex; justify-content: space-between; }
+.field-reread {
+  min-width: 44px; min-height: 44px; border-radius: 3px; padding: 0 8px; color: var(--teal-dark);
+}
 .intake-field-grid label small { color: var(--muted); }
 .intake-field-grid label.flagged > span::after { color: var(--amber); content: "Check"; }
 .intake-field-grid label.flagged :is(input, textarea, select) { border-color: var(--amber); }
@@ -207,6 +227,39 @@
   gap: 10px; align-items: center; border-top: 1px solid var(--line); font-size: .75rem;
 }
 .line-items em { color: var(--coral); font-style: normal; }
+.receipt-reconciliation, .duplicate-review, .correction-history {
+  margin-top: 16px; border: 1px solid var(--line); background: var(--paper-raised); padding: 14px;
+}
+.receipt-reconciliation.mismatch, .duplicate-review { border-left: 3px solid var(--amber); }
+.receipt-reconciliation h4, .duplicate-review h4 { margin: 0; font-size: .95rem; }
+.receipt-reconciliation dl {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0;
+}
+.receipt-reconciliation dl div { display: grid; }
+.receipt-reconciliation dt { color: var(--muted); font-size: .65rem; }
+.receipt-reconciliation dd { margin: 0; font-weight: 760; }
+.receipt-reconciliation > p { color: var(--muted); font-size: .73rem; }
+.receipt-reconciliation > label, .duplicate-review > label {
+  display: flex; align-items: flex-start; gap: 9px; border-top: 1px solid var(--line);
+  padding-top: 11px; font-size: .75rem; font-weight: 700;
+}
+.receipt-reconciliation input, .duplicate-review input { width: 20px; height: 20px; accent-color: var(--teal); }
+.duplicate-review ul { margin: 12px 0; padding: 0; list-style: none; }
+.duplicate-review li {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border-top: 1px solid var(--line); padding: 9px 0;
+}
+.duplicate-review li span { display: grid; }
+.duplicate-review li small { color: var(--muted); font-size: .68rem; }
+.correction-history summary { cursor: pointer; font-size: .75rem; font-weight: 760; }
+.correction-history dl { margin: 10px 0 0; }
+.correction-history dl div {
+  display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; border-top: 1px solid var(--line); padding: 8px 0;
+}
+.correction-history dt { color: var(--muted); font-size: .7rem; text-transform: capitalize; }
+.correction-history dd { display: flex; gap: 8px; flex-wrap: wrap; }
+.correction-history del { color: var(--coral); }
+.correction-history ins { color: var(--teal-dark); font-weight: 760; text-decoration: none; }
 .review-attestation {
   display: flex; min-height: 52px; align-items: center; gap: 10px; margin-top: 18px;
   border-top: 1px solid var(--line); font-size: .78rem;
@@ -296,4 +349,5 @@
   }
   .review-actions button { flex: 1; }
   .review-reread { align-items: stretch; flex-direction: column; }
+  .receipt-reconciliation dl { grid-template-columns: 1fr; }
 }

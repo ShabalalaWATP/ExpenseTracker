@@ -7,6 +7,16 @@ export type ViewName =
   | "claims"
   | "settings";
 
+export type NavigationTarget = {
+  view: ViewName;
+  intakeId?: string;
+  expenseId?: string;
+  tripId?: string;
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
 export type MealContext =
   | "breakfast"
   | "lunch"
@@ -69,10 +79,14 @@ export interface DashboardData {
   excessPence: number;
   claimReady: boolean;
   attention: Array<{
-    id?: string;
+    id: string;
+    code?: string;
+    category?: "evidence" | "details" | "trip" | "policy";
+    severity?: "blocking" | "warning";
     title: string;
     detail?: string;
     view?: ViewName;
+    target?: NavigationTarget;
   }>;
   expenses: Expense[];
   deletedExpenses: Expense[];

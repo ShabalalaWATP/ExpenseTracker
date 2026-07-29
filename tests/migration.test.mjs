@@ -52,6 +52,7 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   );
   db.exec("UPDATE expenses SET deleted_at = NULL WHERE id = 'expense-1'");
   apply(db, await migration("0003_neat_runaways.sql"));
+  apply(db, await migration("0004_woozy_gravity.sql"));
 
   const expense = db
     .prepare("SELECT owner_id, deleted_at FROM expenses WHERE id = 'expense-1'")
@@ -61,10 +62,10 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   assert.equal(
     db
       .prepare(
-        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('receipt_intakes', 'audit_events')",
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('receipt_intakes', 'receipt_intake_revisions', 'audit_events')",
       )
       .get().count,
-    2,
+    3,
   );
   assert.equal(
     db
@@ -113,6 +114,116 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
     db.prepare("SELECT merchant FROM expenses WHERE id = 'expense-1'").get()
       .merchant,
     "Synthetic café",
+  );
+  db.exec(`
+    DELETE FROM claim_period_locks WHERE id = 'lock-1';
+    INSERT INTO receipt_intakes
+      (id, owner_id, batch_id, status, original_name,
+       original_object_key, content_type, byte_size, sha256,
+       idempotency_key, service_date)
+    VALUES
+      ('race-intake', 'singleton-owner', 'batch-race', 'uploaded',
+       'race.jpg', 'intakes/race.jpg', 'image/jpeg', 128,
+       'race-sha', 'race-idempotency', '2026-08-02');
+    UPDATE receipt_intakes
+      SET status = 'analysing',
+          updated_at = '2026-07-29T12:01:00.000Z'
+      WHERE id = 'race-intake';
+  `);
+  const blockedLock = db
+    .prepare(`
+      INSERT INTO claim_period_locks
+        (id, owner_id, period, status, token)
+      SELECT ?, ?, ?, 'preparing', ?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM receipt_intakes
+        WHERE owner_id = ?
+          AND status = 'analysing'
+          AND (service_date IS NULL OR substr(service_date, 1, 7) = ?)
+      )
+    `)
+    .run(
+      "race-lock-blocked",
+      "singleton-owner",
+      "2026-08",
+      "race-token-blocked",
+      "singleton-owner",
+      "2026-08",
+    );
+  assert.equal(blockedLock.changes, 0);
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM claim_period_locks WHERE id = 'race-lock-blocked'",
+      )
+      .get().count,
+    0,
+  );
+  db.exec("UPDATE receipt_intakes SET status = 'ready' WHERE id = 'race-intake'");
+  const acquiredLock = db
+    .prepare(`
+      INSERT INTO claim_period_locks
+        (id, owner_id, period, status, token)
+      SELECT ?, ?, ?, 'preparing', ?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM receipt_intakes
+        WHERE owner_id = ?
+          AND status = 'analysing'
+          AND (service_date IS NULL OR substr(service_date, 1, 7) = ?)
+      )
+    `)
+    .run(
+      "race-lock-acquired",
+      "singleton-owner",
+      "2026-08",
+      "race-token-acquired",
+      "singleton-owner",
+      "2026-08",
+    );
+  assert.equal(acquiredLock.changes, 1);
+  assert.throws(
+    () =>
+      db.exec(
+        "UPDATE receipt_intakes SET status = 'analysing' WHERE id = 'race-intake'",
+      ),
+    /claim_period_locked/,
+  );
+  assert.equal(
+    db.prepare("SELECT status FROM receipt_intakes WHERE id = 'race-intake'").get()
+      .status,
+    "ready",
+  );
+  db.exec("DELETE FROM claim_period_locks WHERE id = 'race-lock-acquired'");
+
+  const deleteSnapshot = db
+    .prepare(
+      "SELECT updated_at FROM receipt_intakes WHERE id = 'race-intake'",
+    )
+    .get();
+  db.exec(`
+    UPDATE receipt_intakes
+      SET status = 'analysing',
+          updated_at = '2026-07-29T12:02:00.000Z'
+      WHERE id = 'race-intake'
+  `);
+  const rejectedDelete = db
+    .prepare(`
+      DELETE FROM receipt_intakes
+      WHERE owner_id = ? AND id = ?
+        AND status NOT IN ('analysing', 'confirmed')
+        AND expense_id IS NULL
+        AND updated_at = ?
+      RETURNING id
+    `)
+    .all("singleton-owner", "race-intake", deleteSnapshot.updated_at);
+  assert.equal(rejectedDelete.length, 0);
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM receipt_intakes WHERE id = 'race-intake'",
+      )
+      .get().count,
+    1,
   );
   db.close();
 });

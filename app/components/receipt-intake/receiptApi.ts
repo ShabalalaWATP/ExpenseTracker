@@ -1,17 +1,37 @@
 import type {
   AiStatus,
   BatchDefaults,
+  ImageEdits,
   IntakePatch,
   ReceiptIntake,
+  ReceiptRecheckField,
 } from "./types";
 
 type Envelope<T> = { data: T };
 
+export class ReceiptApiError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = "ReceiptApiError";
+  }
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...init,
-    headers: { Accept: "application/json", ...init?.headers },
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: { Accept: "application/json", ...init?.headers },
+    });
+  } catch {
+    throw new ReceiptApiError(
+      "The upload was interrupted. It will retry when the app is active.",
+      true,
+    );
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
       error?: string | { message?: string };
@@ -21,7 +41,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       typeof body?.error === "string"
         ? body.error
         : body?.error?.message ?? body?.message;
-    throw new Error(message || `Request failed (${response.status})`);
+    throw new ReceiptApiError(
+      message || `Request failed (${response.status})`,
+      response.status === 408 ||
+        response.status === 429 ||
+        response.status >= 500,
+    );
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
@@ -69,22 +94,33 @@ export async function uploadIntake(
 export async function analyseIntake(
   id: string,
   image: Blob,
+  edits?: ImageEdits,
 ): Promise<ReceiptIntake> {
   const result = await request<Envelope<{ intake: ReceiptIntake }>>(
     `/api/receipt-intakes/${encodeURIComponent(id)}/analysis`,
     {
       method: "PUT",
-      headers: { "Content-Type": "image/jpeg" },
+      headers: {
+        "Content-Type": "image/jpeg",
+        ...(edits ? { "X-Image-Edits": JSON.stringify(edits) } : {}),
+      },
       body: image,
     },
   );
   return result.data.intake;
 }
 
-export async function reanalyseIntake(id: string): Promise<ReceiptIntake> {
+export async function reanalyseIntake(
+  id: string,
+  fields: readonly ReceiptRecheckField[] = [],
+): Promise<ReceiptIntake> {
   const result = await request<Envelope<{ intake: ReceiptIntake }>>(
     `/api/receipt-intakes/${encodeURIComponent(id)}/analysis`,
-    { method: "POST" },
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields }),
+    },
   );
   return result.data.intake;
 }

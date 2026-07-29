@@ -224,6 +224,24 @@ export const receiptIntakes = sqliteTable(
       .notNull()
       .default(false),
     extractionJson: text("extraction_json"),
+    analysisHistoryJson: text("analysis_history_json").notNull().default("[]"),
+    correctionProvenanceJson: text("correction_provenance_json")
+      .notNull()
+      .default("{}"),
+    duplicateCandidatesJson: text("duplicate_candidates_json")
+      .notNull()
+      .default("[]"),
+    duplicateFingerprint: text("duplicate_fingerprint"),
+    duplicateReviewedFingerprint: text("duplicate_reviewed_fingerprint"),
+    duplicateReviewed: integer("duplicate_reviewed", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    reconciliationReviewed: integer("reconciliation_reviewed", {
+      mode: "boolean",
+    })
+      .notNull()
+      .default(false),
+    imageEditsJson: text("image_edits_json").notNull().default("{}"),
     clarificationJson: text("clarification_json"),
     aiModel: text("ai_model"),
     expenseId: text("expense_id").references(() => expenses.id, {
@@ -259,6 +277,32 @@ export const receiptIntakes = sqliteTable(
     index("receipt_intakes_owner_batch_idx").on(
       table.ownerId,
       table.batchId,
+    ),
+  ],
+);
+
+export const receiptIntakeRevisions = sqliteTable(
+  "receipt_intake_revisions",
+  {
+    id: text().primaryKey(),
+    ownerId: ownerId(),
+    receiptIntakeId: text("receipt_intake_id")
+      .notNull()
+      .references(() => receiptIntakes.id, { onDelete: "cascade" }),
+    source: text().notNull(),
+    fieldsJson: text("fields_json").notNull().default("[]"),
+    beforeJson: text("before_json").notNull().default("{}"),
+    afterJson: text("after_json").notNull().default("{}"),
+    model: text(),
+    reasonCode: text("reason_code"),
+    transformJson: text("transform_json").notNull().default("{}"),
+    createdAt: timestamp("created_at"),
+  },
+  (table) => [
+    index("receipt_intake_revisions_owner_intake_idx").on(
+      table.ownerId,
+      table.receiptIntakeId,
+      table.createdAt,
     ),
   ],
 );

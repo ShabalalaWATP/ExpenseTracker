@@ -11,15 +11,17 @@ import {
   parseCalendarDate,
   type CalendarMode,
 } from "./calendar-model";
-import { formatMoney, localDate } from "./format";
+import { CalendarDayDrawer } from "./CalendarDayDrawer";
+import { formatDate, formatMoney, localDate } from "./format";
 import type { Expense } from "./types";
-import { EmptyState, ViewHeader } from "./ui";
+import { ViewHeader } from "./ui";
 
 export interface CalendarViewProps {
   expenses: readonly Expense[];
   lockedPeriods?: readonly string[];
   onAddClaim: (date: string) => void;
   onOpenClaim: (expense: Expense) => void;
+  onCreateTripRange?: (startDate: string, endDate: string) => void;
   initialDate?: string;
   initialMode?: CalendarMode;
   supportedPeriod?: string;
@@ -33,6 +35,7 @@ export function CalendarView({
   lockedPeriods = [],
   onAddClaim,
   onOpenClaim,
+  onCreateTripRange,
   initialDate = localDate(),
   initialMode = "working-week",
   supportedPeriod,
@@ -43,6 +46,10 @@ export function CalendarView({
   const [mode, setMode] = useState<CalendarMode>(initialMode);
   const [cursor, setCursor] = useState(safeInitialDate);
   const [selectedDate, setSelectedDate] = useState(safeInitialDate);
+  const [filter, setFilter] = useState<"all" | "attention" | "missing">("all");
+  const [selectingRange, setSelectingRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
   const today = localDate();
 
   const activeExpenses = useMemo(
@@ -64,15 +71,22 @@ export function CalendarView({
     { length: Math.ceil(dates.length / columns) },
     (_, index) => dates.slice(index * columns, (index + 1) * columns),
   );
-  const selectedExpenses = byDate.get(selectedDate) ?? [];
+  const allSelectedExpenses = byDate.get(selectedDate) ?? [];
+  const selectedExpenses = allSelectedExpenses.filter((expense) => {
+    if (filter === "missing") return expense.receiptStatus !== "stored";
+    if (filter === "attention") {
+      return (
+        expense.receiptStatus !== "stored" ||
+        !expense.location ||
+        !expense.reason
+      );
+    }
+    return true;
+  });
   const selectedLocked = lockedPeriods.includes(selectedDate.slice(0, 7));
   const selectedSupported =
     !supportedPeriod || selectedDate.startsWith(`${supportedPeriod}-`);
   const canAddToSelected = selectedSupported && !selectedLocked;
-  const selectedTotal = selectedExpenses.reduce(
-    (total, expense) => total + calendarAmount(expense),
-    0,
-  );
   const cursorMonth = parseCalendarDate(cursor).getUTCMonth();
 
   function changeMode(next: CalendarMode) {
@@ -93,6 +107,14 @@ export function CalendarView({
   function selectDay(date: string) {
     setSelectedDate(date);
     setCursor(date);
+    if (!selectingRange) return;
+    if (!rangeStart || rangeEnd) {
+      setRangeStart(date);
+      setRangeEnd("");
+    } else {
+      setRangeStart(date < rangeStart ? date : rangeStart);
+      setRangeEnd(date < rangeStart ? rangeStart : date);
+    }
   }
 
   function returnToToday() {
@@ -171,6 +193,59 @@ export function CalendarView({
           <button className="round-button" type="button" onClick={() => move(1)} aria-label={`Next ${mode.replace("-", " ")}`}>→</button>
         </div>
         <h2 aria-live="polite">{calendarRangeLabel(cursor, mode)}</h2>
+        <div className="filter-group calendar-filters" role="group" aria-label="Calendar entries">
+          {([
+            ["all", "All"],
+            ["attention", "Needs attention"],
+            ["missing", "Missing receipt"],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={filter === id ? "active" : ""}
+              aria-pressed={filter === id}
+              onClick={() => setFilter(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {onCreateTripRange ? (
+          <div className="calendar-range">
+            <span aria-live="polite">
+              {!selectingRange
+                ? "Select duty dates for a new trip"
+                : rangeStart
+                ? rangeEnd
+                  ? `${formatDate(rangeStart)} to ${formatDate(rangeEnd)}`
+                  : `Start: ${formatDate(rangeStart)}. Choose an end date.`
+                : "Choose the first duty date"}
+            </span>
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => {
+                setSelectingRange((current) => !current);
+                setRangeStart("");
+                setRangeEnd("");
+              }}
+            >
+              {selectingRange ? "Cancel date selection" : "Select trip dates"}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              hidden={!selectingRange}
+              disabled={!rangeStart || !rangeEnd}
+              onClick={() => {
+                onCreateTripRange(rangeStart, rangeEnd);
+                setSelectingRange(false);
+              }}
+            >
+              Create trip from dates
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <div className={`calendar-grid ${mode}`} role="grid" aria-label={calendarRangeLabel(cursor, mode)}>
@@ -196,6 +271,12 @@ export function CalendarView({
                     "calendar-day",
                     date === selectedDate ? "selected" : "",
                     date === today ? "today" : "",
+                    selectingRange &&
+                    rangeStart &&
+                    date >= rangeStart &&
+                    date <= (rangeEnd || rangeStart)
+                      ? "range-selected"
+                      : "",
                     isOutsideMonth ? "outside-month" : "",
                   ].filter(Boolean).join(" ")}
                   type="button"
@@ -224,71 +305,17 @@ export function CalendarView({
         ))}
       </div>
 
-      <section className="calendar-inspector" aria-labelledby="selected-day-heading">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Selected day</p>
-            <h2 id="selected-day-heading">{longCalendarDate(selectedDate)}</h2>
-          </div>
-          <div className="calendar-selected-total">
-            <strong>{formatMoney(selectedTotal)}</strong>
-            <small>
-              {selectedExpenses.length} {selectedExpenses.length === 1 ? "claim" : "claims"}
-              {selectedLocked ? " · period locked" : ""}
-              {!selectedSupported ? ` · ${supportedPeriod ?? "this period"} only` : ""}
-            </small>
-          </div>
-        </div>
-
-        {selectedExpenses.length ? (
-          <ul className="calendar-claim-list">
-            {selectedExpenses.map((expense) => {
-              const receiptHref = expense.receiptUrl ??
-                `/api/expenses/${encodeURIComponent(expense.id)}/receipt`;
-              return (
-                <li key={expense.id}>
-                  {expense.receiptStatus === "stored" ? (
-                    <a className="calendar-receipt" href={receiptHref} target="_blank" rel="noreferrer" aria-label={`Open receipt from ${expense.merchant}`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={receiptHref} alt="" loading="lazy" />
-                    </a>
-                  ) : <span className="calendar-receipt missing">No receipt</span>}
-                  <button className="calendar-claim-main" type="button" onClick={() => onOpenClaim(expense)}>
-                    <strong>{expense.merchant || "Unnamed claim"}</strong>
-                    <span>{expense.location || "Location needed"} · {expense.mealContext || "Meal not set"}</span>
-                    <small>{expense.reason || "Reason needed"}</small>
-                  </button>
-                  <span className="money-stack">
-                    <strong>{formatMoney(calendarAmount(expense))}</strong>
-                    <small>{expense.claimableAmountPence === undefined ? "Eligible" : "Claimable"}</small>
-                  </span>
-                  <button className="round-button" type="button" onClick={() => onOpenClaim(expense)} aria-label={`Open claim from ${expense.merchant}`}>→</button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <EmptyState
-            title="No claims on this day"
-            action={
-              <button
-                className="primary-button"
-                type="button"
-                disabled={!canAddToSelected}
-                onClick={() => onAddClaim(selectedDate)}
-              >
-                {selectedLocked
-                  ? "Prepared period is locked"
-                  : selectedSupported
-                    ? "Add receipt for this date"
-                    : "Only August 2026 can be claimed"}
-              </button>
-            }
-          >
-            Capture a receipt now, or choose another day.
-          </EmptyState>
-        )}
-      </section>
+      <CalendarDayDrawer
+        date={selectedDate}
+        expenses={selectedExpenses}
+        allExpenseCount={allSelectedExpenses.length}
+        locked={selectedLocked}
+        supported={selectedSupported}
+        supportedPeriod={supportedPeriod}
+        onAdd={() => onAddClaim(selectedDate)}
+        onClearFilter={() => setFilter("all")}
+        onOpen={onOpenClaim}
+      />
     </div>
   );
 }

@@ -49,20 +49,34 @@ export async function acquireClaimPeriodLock(
   }
   const id = crypto.randomUUID();
   const token = crypto.randomUUID();
+  let result: D1Result;
   try {
-    await db
+    result = await db
       .prepare(
         `INSERT INTO claim_period_locks
           (id, owner_id, period, status, token)
-         VALUES (?, ?, ?, 'preparing', ?)`,
+         SELECT ?, ?, ?, 'preparing', ?
+         WHERE NOT EXISTS (
+           SELECT 1 FROM receipt_intakes
+           WHERE owner_id = ?
+             AND status = 'analysing'
+             AND (service_date IS NULL OR substr(service_date, 1, 7) = ?)
+         )`,
       )
-      .bind(id, ownerId, period, token)
+      .bind(id, ownerId, period, token, ownerId, period)
       .run();
   } catch {
     throw new ApiError(
       409,
       "claim_preparing",
       "The August claim is already being prepared.",
+    );
+  }
+  if (Number(result.meta.changes ?? 0) !== 1) {
+    throw new ApiError(
+      409,
+      "receipt_intake_in_progress",
+      "A receipt is being updated. Try preparing the claim again.",
     );
   }
   return token;

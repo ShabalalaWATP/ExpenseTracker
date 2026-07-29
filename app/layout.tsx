@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { THEME_STORAGE_KEY } from "./theme";
+import { PwaLifecycle } from "./components/PwaLifecycle";
 import "./styles/base.css";
 import "./styles/shell.css";
 import "./styles/forms.css";
@@ -87,7 +88,10 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <PwaLifecycle />
+        {children}
+      </body>
     </html>
   );
 }

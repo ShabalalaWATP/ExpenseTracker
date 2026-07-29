@@ -36,6 +36,7 @@ export type ReceiptExtraction = {
 
 const nullableString = { type: ["string", "null"] };
 const nullableInteger = { type: ["integer", "null"], minimum: 0 };
+const nullableSignedInteger = { type: ["integer", "null"] };
 
 export const RECEIPT_EXTRACTION_SCHEMA = {
   type: "object",
@@ -60,7 +61,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
         properties: {
           description: { type: "string" },
           quantity: { type: ["number", "null"], minimum: 0 },
-          total_pence: nullableInteger,
+          total_pence: nullableSignedInteger,
           eligible: { type: ["boolean", "null"] },
           alcohol_suspected: { type: "boolean" },
           confidence: { type: "number", minimum: 0, maximum: 1 },
@@ -92,6 +93,8 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
         service_date: { type: "number", minimum: 0, maximum: 1 },
         receipt_total: { type: "number", minimum: 0, maximum: 1 },
         eligible_amount: { type: "number", minimum: 0, maximum: 1 },
+        location: { type: "number", minimum: 0, maximum: 1 },
+        gratuity: { type: "number", minimum: 0, maximum: 1 },
         line_items: { type: "number", minimum: 0, maximum: 1 },
       },
       required: [
@@ -99,6 +102,8 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
         "service_date",
         "receipt_total",
         "eligible_amount",
+        "location",
+        "gratuity",
         "line_items",
       ],
     },
@@ -130,6 +135,10 @@ function money(value: unknown): number | null {
   return Number.isSafeInteger(value) && (value as number) >= 0
     ? (value as number)
     : null;
+}
+
+function signedMoney(value: unknown): number | null {
+  return Number.isSafeInteger(value) ? (value as number) : null;
 }
 
 function confidence(value: unknown): number {
@@ -186,7 +195,7 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
           item.quantity >= 0
             ? item.quantity
             : null,
-        totalPence: money(item.total_pence),
+        totalPence: signedMoney(item.total_pence),
         eligible:
           typeof item.eligible === "boolean" ? item.eligible : null,
         alcoholSuspected: item.alcohol_suspected === true,
@@ -205,6 +214,8 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
       serviceDate: confidence(rawConfidence.service_date),
       receiptTotal: confidence(rawConfidence.receipt_total),
       eligibleAmount: confidence(rawConfidence.eligible_amount),
+      location: confidence(rawConfidence.location),
+      gratuity: confidence(rawConfidence.gratuity),
       lineItems: confidence(rawConfidence.line_items),
     },
   };

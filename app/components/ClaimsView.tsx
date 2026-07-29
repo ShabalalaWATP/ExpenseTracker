@@ -2,22 +2,25 @@
 
 import { useState } from "react";
 import { prepareClaim, submitClaim } from "./api";
+import { ClaimPackageDownloads } from "./ClaimPackageDownloads";
 import {
   augustClaimExpenses,
   claimDescription,
   claimHandoffText,
 } from "./claim-handoff";
 import { formatDate, formatMoney } from "./format";
-import type { DashboardData, ViewName } from "./types";
+import type { DashboardData, NavigationTarget, ViewName } from "./types";
 import { EmptyState, StatusMessage, ViewHeader } from "./ui";
 
 export function ClaimsView({
   data,
   navigate,
+  navigateTarget,
   onChanged,
 }: {
   data: DashboardData;
   navigate: (view: ViewName) => void;
+  navigateTarget: (target: NavigationTarget) => void;
   onChanged: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState("");
@@ -99,7 +102,7 @@ export function ClaimsView({
           {data.attention.length ? (
             <ol className="readiness-list">
               {data.attention.map((item, index) => (
-                <li key={item.id ?? index}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong>{item.detail ? <p>{item.detail}</p> : null}</div><button type="button" className="text-button" onClick={() => navigate(item.view ?? "expenses")}>Review</button></li>
+                <li key={item.id ?? index}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong>{item.detail ? <p>{item.detail}</p> : null}</div><button type="button" className="text-button" onClick={() => item.target ? navigateTarget(item.target) : navigate(item.view ?? "expenses")}>Review</button></li>
               ))}
             </ol>
           ) : (
@@ -116,6 +119,7 @@ export function ClaimsView({
                 <strong>{formatMoney(currentClaim.claimablePence)}</strong>
                 <small>{currentClaim.preparedAt ? `Prepared ${formatDate(currentClaim.preparedAt.slice(0, 10))}` : "August 2026"}</small>
               </div>
+              <ClaimPackageDownloads claimId={currentClaim.id} />
               {currentClaim.status !== "submitted" ? <button className="primary-button full-button" type="button" onClick={() => void markSubmitted()} disabled={busy === "submit"}>{busy === "submit" ? "Updating…" : "Mark as submitted"}</button> : <StatusMessage tone="success">This snapshot is recorded as submitted.</StatusMessage>}
             </>
           ) : data.expenses.length ? (

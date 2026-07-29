@@ -1,24 +1,40 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import {
   resolveStoredTheme,
   THEME_STORAGE_KEY,
   type Theme,
 } from "../theme";
+import {
+  clearUploadDrafts,
+  countUploadDrafts,
+} from "./receipt-intake/upload-drafts";
+import { RecoveryPanel } from "./RecoveryPanel";
 import { StatusMessage, ViewHeader } from "./ui";
-
-type AiStatus = {
-  configured: boolean;
-  models: {
-    receipt: string;
-    realtime: string;
-    transcription: string;
+type OperationalStatus = {
+  version: string;
+  databaseSchema: string;
+  database: { verified: boolean; detail: string };
+  storage: { verified: boolean; detail: string };
+  ai: {
+    configured: boolean;
+    models: {
+      receipt: string;
+      realtime: string;
+      transcription: string;
+    };
+    voice: string;
+    lastSuccessAt: string | null;
+    lastSuccessModel: string | null;
+    lastError: { code: string; message: string; at: string } | null;
   };
-  voice: string;
-  privacy: string;
+  usage: {
+    expenses: number;
+    receipts: number;
+    receiptBytes: number;
+    pendingIntakes: number;
+  };
 };
-
 function applyTheme(theme: Theme) {
   if (theme === "system") {
     document.documentElement.removeAttribute("data-theme");
@@ -26,7 +42,6 @@ function applyTheme(theme: Theme) {
     document.documentElement.dataset.theme = theme;
   }
 }
-
 function initialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
   try {
@@ -37,27 +52,35 @@ function initialTheme(): Theme {
     return "dark";
   }
 }
-
 export function SettingsView({ onClose }: { onClose: () => void }) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [ai, setAi] = useState<AiStatus | null>(null);
+  const [status, setStatus] = useState<OperationalStatus | null>(null);
   const [aiError, setAiError] = useState("");
-
+  const [localDrafts, setLocalDrafts] = useState(0);
+  const [online, setOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
+  const [standalone] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      (window.matchMedia("(display-mode: standalone)").matches ||
+        Boolean((navigator as Navigator & { standalone?: boolean }).standalone)),
+  );
   useEffect(() => {
     let active = true;
-    void fetch("/api/ai/status", {
+    void fetch("/api/status", {
       headers: { Accept: "application/json" },
       cache: "no-store",
     })
       .then(async (response) => {
-        if (!response.ok) throw new Error("AI status is unavailable.");
-        const body = (await response.json()) as { data: AiStatus };
-        if (active) setAi(body.data);
+        if (!response.ok) throw new Error("App status is unavailable.");
+        const body = (await response.json()) as { data: OperationalStatus };
+        if (active) setStatus(body.data);
       })
       .catch((error: unknown) => {
         if (active) {
           setAiError(
-            error instanceof Error ? error.message : "AI status is unavailable.",
+            error instanceof Error ? error.message : "App status is unavailable.",
           );
         }
       });
@@ -65,6 +88,25 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
       active = false;
     };
   }, []);
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine);
+    void countUploadDrafts().then(setLocalDrafts).catch(() => setLocalDrafts(0));
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+  async function clearLocalQueue() {
+    if (
+      !window.confirm(
+        "Remove all receipt uploads waiting on this device? Uploaded server records are not affected.",
+      )
+    ) return;
+    await clearUploadDrafts();
+    setLocalDrafts(0);
+  }
 
   function chooseTheme(value: Theme) {
     setTheme(value);
@@ -118,25 +160,34 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
           <div className="setting-content">
             <p className="eyebrow">Receipt assistance</p>
             <h2 id="ai-heading">AI and voice</h2>
-            {ai ? (
+            {status ? (
               <>
-                <StatusMessage tone={ai.configured ? "neutral" : "warning"}>
+                <StatusMessage tone={status.ai.configured ? "neutral" : "warning"}>
                   <strong>
-                    {ai.configured
+                    {status.ai.configured
                       ? "OpenAI API key configured"
                       : "Manual receipt entry is active"}
                   </strong>
                   <p>
-                    {ai.configured
-                      ? "The server has the required credential. A real receipt and iPhone voice check are still the final end-to-end acceptance tests."
+                    {status.ai.configured
+                      ? status.ai.lastSuccessAt
+                        ? `Last successful extraction: ${new Date(status.ai.lastSuccessAt).toLocaleString("en-GB")} using ${status.ai.lastSuccessModel ?? status.ai.models.receipt}.`
+                        : "The credential is configured. No successful extraction has been recorded yet."
                       : "Add OPENAI_API_KEY to the private Sites runtime environment to enable receipt analysis and voice."}
                   </p>
                 </StatusMessage>
                 <dl className="policy-details compact-details">
-                  <div><dt>Receipt extraction</dt><dd>{ai.models.receipt}</dd></div>
-                  <div><dt>Realtime voice</dt><dd>{ai.models.realtime} · {ai.voice}</dd></div>
-                  <div><dt>Transcription</dt><dd>{ai.models.transcription}</dd></div>
+                  <div><dt>Receipt extraction</dt><dd>{status.ai.models.receipt}</dd></div>
+                  <div><dt>Realtime voice</dt><dd>{status.ai.models.realtime} · {status.ai.voice}</dd></div>
+                  <div><dt>Transcription</dt><dd>{status.ai.models.transcription}</dd></div>
                 </dl>
+                {status.ai.lastError ? (
+                  <p className="setting-note">
+                    Last recorded issue: {status.ai.lastError.code} on{" "}
+                    {new Date(status.ai.lastError.at).toLocaleString("en-GB")}.
+                    The original receipt remains safe.
+                  </p>
+                ) : null}
               </>
             ) : aiError ? (
               <StatusMessage tone="warning">{aiError}</StatusMessage>
@@ -146,8 +197,22 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
           </div>
         </section>
 
-        <section aria-labelledby="privacy-heading">
+        <section aria-labelledby="device-heading">
           <div className="setting-number" aria-hidden="true">03</div>
+          <div className="setting-content">
+            <p className="eyebrow">This iPhone or browser</p>
+            <h2 id="device-heading">Device and offline capture</h2>
+            <ul className="plain-list">
+              <li><strong>{online ? "Online" : "Offline"}</strong><span>{online ? "Queued uploads can be sent now." : "New receipt photos wait on this device, but are not secured until the connection returns and upload completes."}</span></li>
+              <li><strong>{standalone ? "Installed app" : "Safari site"}</strong><span>{standalone ? "ExpenseTracker is running from the Home Screen." : "For faster capture on iPhone, use Safari Share, then Add to Home Screen."}</span></li>
+              <li><strong>{localDrafts} local {localDrafts === 1 ? "upload" : "uploads"}</strong><span>Only interrupted or waiting receipt uploads are retained in this browser.</span></li>
+            </ul>
+            {localDrafts ? <button className="text-button" type="button" onClick={() => void clearLocalQueue()}>Clear local upload queue</button> : null}
+          </div>
+        </section>
+
+        <section aria-labelledby="privacy-heading">
+          <div className="setting-number" aria-hidden="true">04</div>
           <div className="setting-content">
             <p className="eyebrow">Owner-only data</p>
             <h2 id="privacy-heading">Privacy and control</h2>
@@ -161,7 +226,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
         </section>
 
         <section aria-labelledby="export-heading">
-          <div className="setting-number" aria-hidden="true">04</div>
+          <div className="setting-number" aria-hidden="true">05</div>
           <div className="setting-content">
             <p className="eyebrow">Owner-only download</p>
             <h2 id="export-heading">Export your ledger</h2>
@@ -181,8 +246,29 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
           </div>
         </section>
 
+        <RecoveryPanel />
+
+        <section aria-labelledby="status-heading">
+          <div className="setting-number" aria-hidden="true">07</div>
+          <div className="setting-content">
+            <p className="eyebrow">Operational truth</p>
+            <h2 id="status-heading">App status</h2>
+            {status ? (
+              <dl className="policy-details compact-details">
+                <div><dt>Version</dt><dd>{status.version} · schema {status.databaseSchema}</dd></div>
+                <div><dt>Database</dt><dd>{status.database.verified ? "Connected" : status.database.detail}</dd></div>
+                <div><dt>Receipt storage</dt><dd>{status.storage.detail}</dd></div>
+                <div><dt>Records</dt><dd>{status.usage.expenses} expenses · {status.usage.receipts} receipts · {status.usage.pendingIntakes} awaiting review</dd></div>
+                <div><dt>Receipt storage used</dt><dd>{(status.usage.receiptBytes / 1024 / 1024).toFixed(1)} MB</dd></div>
+              </dl>
+            ) : aiError ? (
+              <StatusMessage tone="warning">{aiError}</StatusMessage>
+            ) : <p className="setting-note">Checking the private services…</p>}
+          </div>
+        </section>
+
         <section aria-labelledby="policy-heading">
-          <div className="setting-number" aria-hidden="true">05</div>
+          <div className="setting-number" aria-hidden="true">08</div>
           <div className="setting-content">
             <p className="eyebrow">Reference</p>
             <h2 id="policy-heading">Allowance rules</h2>

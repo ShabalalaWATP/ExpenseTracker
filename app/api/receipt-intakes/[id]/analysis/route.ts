@@ -2,8 +2,13 @@ import {
   errorResponse,
   json,
   readBoundedBody,
+  readJson,
   requireSameOrigin,
 } from "@/src/server/http";
+import {
+  parseImageEditsHeader,
+  parseTargetedFields,
+} from "@/src/server/receipt-analysis-options";
 import { requirePrincipal } from "@/src/server/principal";
 import { analyseReceiptIntake } from "@/src/server/receipt-intake-processing";
 import { reanalyseStoredReceiptIntake } from "@/src/server/receipt-intake-reanalysis";
@@ -26,6 +31,11 @@ export async function PUT(
       id,
       bytes,
       request.headers.get("Content-Type"),
+      {
+        imageEdits: parseImageEditsHeader(
+          request.headers.get("X-Image-Edits"),
+        ),
+      },
     );
     return json({ intake });
   } catch (error) {
@@ -41,7 +51,8 @@ export async function POST(
     requireSameOrigin(request);
     const principal = await requirePrincipal();
     const id = assertId((await context.params).id);
-    const intake = await reanalyseStoredReceiptIntake(principal, id);
+    const fields = parseTargetedFields(await readJson(request));
+    const intake = await reanalyseStoredReceiptIntake(principal, id, fields);
     return json({ intake });
   } catch (error) {
     return errorResponse(error);

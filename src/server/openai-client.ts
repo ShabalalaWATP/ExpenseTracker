@@ -98,6 +98,7 @@ export async function extractReceipt(
   bytes: Uint8Array,
   contentType: "image/jpeg" | "image/png",
   principal: Principal,
+  targetedFields: readonly ReceiptField[] = [],
 ): Promise<{ extraction: ReceiptExtraction; model: string }> {
   const config = runtimeConfig();
   const imageUrl = `data:${contentType};base64,${bytesToBase64(bytes)}`;
@@ -108,6 +109,7 @@ export async function extractReceipt(
       imageUrl,
       principal.actorHash,
       RECEIPT_EXTRACTION_SCHEMA,
+      targetedFields,
     ),
     principal,
     "receipt",

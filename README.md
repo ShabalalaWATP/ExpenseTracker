@@ -18,8 +18,18 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Includes permitted gratuities and service charges within the £30 limit.
 - Keeps deletions recoverable without removing private receipt evidence.
 - Provides copy-ready where-and-why text and receipt downloads for submission.
+- Adjusts crop, rotation and contrast before a frontier-model re-read without
+  changing the secured original.
+- Requires explicit review of possible duplicates and receipt arithmetic.
+- Preserves interrupted iPhone uploads on-device and resumes them when the app
+  is open and online.
+- Provides working-week, week and month calendars with day evidence and
+  calendar-led trip creation.
 - Prepares an immutable August claim snapshot and records submission status.
-- Provides protected JSON and CSV exports plus a minimal audit history.
+- Downloads complete, size-bounded claim ZIP parts with PDF, CSV, manifest and
+  original receipts.
+- Provides protected JSON, CSV and size-bounded multipart recovery ZIP exports,
+  byte-level integrity checks and an append-only correction and audit history.
 
 The app assists with claim preparation. The user remains responsible for
 confirming eligibility and the applicable policy with their authorising team.

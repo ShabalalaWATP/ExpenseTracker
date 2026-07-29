@@ -22,7 +22,6 @@ export function safeAnalysisError(error: unknown): {
 export async function beginReceiptAnalysis(
   principal: Principal,
   id: string,
-  priorObjectKey: string | null,
   objectKey: string,
   bytes: Uint8Array,
   contentType: "image/jpeg" | "image/png",
@@ -30,14 +29,14 @@ export async function beginReceiptAnalysis(
   const locked = await database()
     .prepare(
       `UPDATE receipt_intakes
-       SET status = 'analysing', analysis_object_key = ?,
+       SET status = 'analysing',
            error_code = NULL, error_message = NULL,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE owner_id = ? AND id = ?
          AND status IN ('uploaded', 'needs_review', 'ready', 'failed')
        RETURNING id`,
     )
-    .bind(objectKey, principal.ownerId, id)
+    .bind(principal.ownerId, id)
     .first<{ id: string }>();
   if (!locked) {
     throw new ApiError(
@@ -54,12 +53,12 @@ export async function beginReceiptAnalysis(
     await database()
       .prepare(
         `UPDATE receipt_intakes
-         SET status = 'needs_review', analysis_object_key = ?,
+         SET status = 'needs_review',
              error_code = 'analysis_storage_failed',
              error_message = 'The analysis copy could not be stored. The original remains safe.'
          WHERE owner_id = ? AND id = ?`,
       )
-      .bind(priorObjectKey, principal.ownerId, id)
+      .bind(principal.ownerId, id)
       .run();
     throw new ApiError(
       503,

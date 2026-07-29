@@ -8,13 +8,9 @@ import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import {
   publicIntake,
-  unresolvedFields,
   type ReceiptIntakeRow,
 } from "./receipt-intake-model";
-import type {
-  IntakeDefaults,
-  IntakePatch,
-} from "./receipt-intake-validation";
+import type { IntakeDefaults } from "./receipt-intake-validation";
 import {
   MAX_RECEIPT_BYTES,
   validateImageType,
@@ -25,17 +21,6 @@ import {
   validIntakeIdempotencyKey,
 } from "./receipt-intake-storage";
 import { deleteReceiptIntakeAfterRecord } from "./receipt-intake-deletion";
-
-function stringArray(value: string): string[] {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
 
 async function requireOwnedTrip(
   principal: Principal,
@@ -117,15 +102,24 @@ export async function createReceiptIntake(
   const contentType = validateImageType(bytes, declaredType);
   await requireOwnedTrip(principal, defaults.tripId);
   const db = database();
+  const hash = await receiptSha256(bytes);
   const prior = await db
     .prepare(
       "SELECT * FROM receipt_intakes WHERE owner_id = ? AND idempotency_key = ?",
     )
     .bind(principal.ownerId, idempotencyKey)
     .first<ReceiptIntakeRow>();
-  if (prior) return { intake: publicIntake(prior), created: false };
+  if (prior) {
+    if (prior.sha256 !== hash) {
+      throw new ApiError(
+        409,
+        "idempotency_conflict",
+        "This retry key belongs to a different receipt photo.",
+      );
+    }
+    return { intake: publicIntake(prior), created: false };
+  }
 
-  const hash = await receiptSha256(bytes);
   const duplicateIntake = await db
     .prepare(
       "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ?",
@@ -141,12 +135,16 @@ export async function createReceiptIntake(
       409,
       "receipt_duplicate",
       "This receipt image has already been uploaded.",
+      {
+        existingId: duplicateIntake?.id ?? duplicateReceipt?.id,
+        existingKind: duplicateIntake ? "intake" : "expense",
+      },
     );
   }
 
   const id = crypto.randomUUID();
   const objectKey =
-    `receipt-intakes/${id}/original.${intakeImageExtension(contentType)}`;
+    `receipt-intakes/${principal.ownerId}/${id}/original.${intakeImageExtension(contentType)}`;
   const bucket = getReceiptsBucket();
   await bucket.put(objectKey, bytes, {
     httpMetadata: { contentType },
@@ -160,8 +158,8 @@ export async function createReceiptIntake(
             id, owner_id, batch_id, status, original_name,
             original_object_key, content_type, byte_size, sha256,
             idempotency_key, service_date, location, business_reason, trip_id, meal_context,
-            missing_fields_json
-          ) VALUES (?, ?, ?, 'uploaded', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            missing_fields_json, correction_provenance_json
+          ) VALUES (?, ?, ?, 'uploaded', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           id,
@@ -186,6 +184,13 @@ export async function createReceiptIntake(
             ...(defaults.location ? [] : ["location"]),
             ...(defaults.businessReason ? [] : ["business_reason"]),
           ]),
+          JSON.stringify({
+            ...(defaults.serviceDate ? { service_date: "owner" } : {}),
+            ...(defaults.location ? { location: "owner" } : {}),
+            ...(defaults.businessReason ? { business_reason: "owner" } : {}),
+            ...(defaults.tripId ? { trip_id: "owner" } : {}),
+            ...(defaults.mealContext ? { meal_context: "owner" } : {}),
+          }),
         ),
       auditStatement(principal, {
         action: "receipt_intake.uploaded",
@@ -202,113 +207,6 @@ export async function createReceiptIntake(
     intake: publicIntake(await requireIntake(principal, id)),
     created: true,
   };
-}
-
-const patchColumns: Record<keyof IntakePatch, string> = {
-  merchant: "merchant",
-  serviceDate: "service_date",
-  receiptTotalPence: "receipt_total_pence",
-  eligiblePence: "eligible_pence",
-  gratuityPence: "gratuity_pence",
-  location: "location",
-  businessReason: "business_reason",
-  mealContext: "meal_context",
-  tripId: "trip_id",
-  alcoholReviewed: "alcohol_reviewed",
-};
-
-const fieldForPatch: Partial<Record<keyof IntakePatch, string>> = {
-  merchant: "merchant",
-  serviceDate: "service_date",
-  receiptTotalPence: "receipt_total",
-  eligiblePence: "eligible_amount",
-  location: "location",
-  businessReason: "business_reason",
-  alcoholReviewed: "alcohol",
-};
-
-export async function updateReceiptIntake(
-  principal: Principal,
-  id: string,
-  patch: IntakePatch,
-) {
-  const existing = await requireIntake(principal, id);
-  if (existing.status === "confirmed") {
-    throw new ApiError(409, "receipt_confirmed", "This receipt is already confirmed.");
-  }
-  if (existing.status === "analysing") {
-    throw new ApiError(
-      409,
-      "receipt_analysis_in_progress",
-      "Wait for receipt analysis to finish before editing it.",
-    );
-  }
-  await requireOwnedTrip(principal, patch.tripId ?? existing.trip_id);
-  const receiptTotal =
-    patch.receiptTotalPence ?? existing.receipt_total_pence;
-  const eligible = patch.eligiblePence ?? existing.eligible_pence;
-  const gratuity = patch.gratuityPence ?? existing.gratuity_pence;
-  if (
-    receiptTotal !== null &&
-    eligible !== null &&
-    (eligible > receiptTotal || gratuity > eligible)
-  ) {
-    throw new ApiError(
-      400,
-      "validation_failed",
-      "Eligible amount and gratuity must fit within the receipt total.",
-    );
-  }
-  const cleared = new Set(
-    (Object.keys(patch) as (keyof IntakePatch)[])
-      .map((key) => fieldForPatch[key])
-      .filter((field): field is string => Boolean(field)),
-  );
-  const missing = stringArray(existing.missing_fields_json).filter(
-    (field) => !cleared.has(field),
-  );
-  const uncertain = stringArray(existing.uncertain_fields_json).filter(
-    (field) => !cleared.has(field),
-  );
-  const entries = Object.entries(patch) as [keyof IntakePatch, unknown][];
-  const assignments = entries.map(([key]) => `${patchColumns[key]} = ?`);
-  const values = entries.map(([key, value]) =>
-    key === "alcoholReviewed" ? Number(value) : value,
-  );
-  await database()
-    .prepare(
-      `UPDATE receipt_intakes
-       SET ${assignments.join(", ")},
-           missing_fields_json = ?,
-           uncertain_fields_json = ?,
-           error_code = NULL,
-           error_message = NULL,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE owner_id = ? AND id = ?`,
-    )
-    .bind(
-      ...values,
-      JSON.stringify(missing),
-      JSON.stringify(uncertain),
-      principal.ownerId,
-      id,
-    )
-    .run();
-  const updated = await requireIntake(principal, id);
-  const status = unresolvedFields(updated).length ? "needs_review" : "ready";
-  await database()
-    .prepare(
-      `UPDATE receipt_intakes SET status = ? WHERE owner_id = ? AND id = ?`,
-    )
-    .bind(status, principal.ownerId, id)
-    .run();
-  await auditStatement(principal, {
-    action: "receipt_intake.reviewed",
-    entityType: "receipt_intake",
-    entityId: id,
-    metadata: { fieldsChanged: entries.length },
-  }).run();
-  return publicIntake(await requireIntake(principal, id));
 }
 
 export async function deleteReceiptIntake(
@@ -335,17 +233,33 @@ export async function deleteReceiptIntake(
       originalObjectKey: row.original_object_key,
       analysisObjectKey: row.analysis_object_key,
     },
-    () =>
-      database().batch([
+    async () => {
+      const results = await database().batch<{ id: string }>([
         database()
-          .prepare("DELETE FROM receipt_intakes WHERE owner_id = ? AND id = ?")
-          .bind(principal.ownerId, id),
+          .prepare(
+            `DELETE FROM receipt_intakes
+             WHERE owner_id = ? AND id = ?
+               AND status NOT IN ('analysing', 'confirmed')
+               AND expense_id IS NULL
+               AND updated_at = ?
+             RETURNING id`,
+          )
+          .bind(principal.ownerId, id, row.updated_at),
         auditStatementAfterChange(principal, {
           action: "receipt_intake.deleted",
           entityType: "receipt_intake",
           entityId: id,
         }),
-      ]),
+      ]);
+      const deleted = results[0]?.results ?? [];
+      if (deleted.length !== 1 || deleted[0]?.id !== id) {
+        throw new ApiError(
+          409,
+          "receipt_changed",
+          "The receipt changed while it was being removed. Review it and try again.",
+        );
+      }
+    },
     getReceiptsBucket(),
   );
 }

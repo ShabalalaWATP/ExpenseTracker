@@ -47,7 +47,7 @@ test("builds the ExpenseTracker worker and branded client assets", async () => {
 });
 
 test("keeps the site private-ready and free of starter scaffolding", async () => {
-  const [layout, page, packageJson, hosting, analysisLock, intakeModel, app] = await Promise.all([
+  const [layout, page, packageJson, hosting, analysisLock, intakeModel, app, serviceWorker] = await Promise.all([
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -61,6 +61,7 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
       "utf8",
     ),
     readFile(new URL("../app/components/ExpenseApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
 
   assert.match(layout, /lang="en-GB"/);
@@ -68,11 +69,14 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
   assert.match(layout, /dataset\.theme = "dark"/);
   assert.match(page, /<ExpenseApp \/>/);
   assert.match(app, /function closeSettings\(\)/);
-  assert.match(app, /viewNames\.has\(hash\) \? hash : "capture"/);
+  assert.match(app, /parseNavigationHash\(window\.location\.hash\)/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(analysisLock, /status IN \('uploaded', 'needs_review', 'ready', 'failed'\)/);
   assert.doesNotMatch(analysisLock, /status <> 'analysing'/);
   assert.match(intakeModel, /hasAnalysisCopy: Boolean\(row\.analysis_object_key\)/);
+  assert.match(serviceWorker, /url\.pathname\.startsWith\("\/api\/"\)/);
+  assert.match(serviceWorker, /request\.mode === "navigate"/);
+  assert.doesNotMatch(serviceWorker, /cache\.put\(request, copy\)[\s\S]*\/api\//);
   const hostingConfig = JSON.parse(hosting);
   assert.equal(hostingConfig.d1, "DB");
   assert.equal(hostingConfig.r2, "RECEIPTS");
@@ -92,6 +96,7 @@ test("packages recoverable evidence and an operational receipt inbox", async () 
     exportService,
     claimRoute,
     claimLockSchema,
+    claimLocks,
   ] = await Promise.all([
     readFile(new URL("../src/server/expense-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/expenses/[id]/route.ts", import.meta.url), "utf8"),
@@ -104,6 +109,7 @@ test("packages recoverable evidence and an operational receipt inbox", async () 
     readFile(new URL("../src/server/export-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/claims/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/server/claim-lock-schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/claim-locks.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(expenseRepository, /SET deleted_at = strftime/);
@@ -112,7 +118,10 @@ test("packages recoverable evidence and an operational receipt inbox", async () 
   assert.doesNotMatch(deleteRoute, /removeReceiptObjects/);
   assert.match(restoreRoute, /requireSameOrigin\(request\)/);
   assert.match(restoreRoute, /requirePrincipal\(\)/);
-  assert.match(intakeRepository, /status <> 'confirmed'/);
+  assert.match(intakeRepository, /status NOT IN \('analysing', 'confirmed'\)/);
+  assert.match(intakeRepository, /updated_at = \?/);
+  assert.match(intakeRepository, /RETURNING id/);
+  assert.match(intakeRepository, /deleted\.length !== 1/);
   assert.match(dashboard, /receipt_intake_pending/);
   assert.doesNotMatch(intakeStyles, /\.review-receipt\s*\{\s*display:\s*none/);
   assert.match(receiptRoute, /searchParams\.get\("download"\) === "1"/);
@@ -122,4 +131,40 @@ test("packages recoverable evidence and an operational receipt inbox", async () 
   assert.match(claimRoute, /acquireClaimPeriodLock/);
   assert.match(claimRoute, /finaliseClaimPeriodLock/);
   assert.match(claimLockSchema, /RAISE\(ABORT, 'claim_period_locked'\)/);
+  assert.match(claimLocks, /WHERE NOT EXISTS \(\s*SELECT 1 FROM receipt_intakes/);
+  assert.match(claimLocks, /status = 'analysing'/);
+  assert.match(claimLocks, /receipt_intake_in_progress/);
+});
+
+test("guards manual review, concurrent confirmation and multipart evidence", async () => {
+  const [
+    intakeReview,
+    imageAdjuster,
+    confirmation,
+    processing,
+    claimPackage,
+    claimsView,
+  ] = await Promise.all([
+    readFile(new URL("../app/components/receipt-intake/IntakeReview.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/receipt-intake/ReceiptImageAdjuster.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/receipt-intake-confirmation.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/receipt-intake-processing.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/claim-package.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/ClaimsView.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(intakeReview, /canReanalyse \? <button[^>]+field-reread/);
+  assert.match(imageAdjuster, /canAnalyse \? <>/);
+  assert.match(confirmation, /SET status = 'analysing'/);
+  assert.match(
+    confirmation,
+    /status = 'analysing'[\s\S]+expense_id IS NULL/,
+  );
+  assert.match(
+    processing,
+    /if \(current && current\.analysis_object_key !== analysisObjectKey\)/,
+  );
+  assert.match(claimPackage, /MAX_CLAIM_PART_BYTES/);
+  assert.match(claimPackage, /partitionByByteSize/);
+  assert.match(claimsView, /<ClaimPackageDownloads/);
 });

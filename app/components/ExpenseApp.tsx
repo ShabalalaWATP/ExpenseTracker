@@ -11,7 +11,12 @@ import { ExpensesView } from "./ExpensesView";
 import { SettingsView } from "./SettingsView";
 import { TodayView } from "./TodayView";
 import { TripsView } from "./TripsView";
-import type { Expense, ViewName } from "./types";
+import type { Expense, NavigationTarget, ViewName } from "./types";
+import {
+  navigationHash,
+  parseNavigationHash,
+  replaceNavigationTarget,
+} from "./navigation";
 import { useDashboard } from "./useDashboard";
 import { LoadingLedger, StatusMessage } from "./ui";
 
@@ -25,10 +30,9 @@ const titles: Record<ViewName, string> = {
   settings: "Settings",
 };
 
-const viewNames = new Set<ViewName>(Object.keys(titles) as ViewName[]);
-
 export function ExpenseApp() {
   const [view, setView] = useState<ViewName>("capture");
+  const [target, setTarget] = useState<NavigationTarget>({ view: "capture" });
   const [captureDate, setCaptureDate] = useState("");
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [status, setStatus] = useState("");
@@ -56,15 +60,17 @@ export function ExpenseApp() {
 
   useEffect(() => {
     function syncViewFromLocation() {
-      const hash = window.location.hash.slice(1) as ViewName;
-      const next = viewNames.has(hash) ? hash : "capture";
-      setView(next);
+      const nextTarget = parseNavigationHash(window.location.hash);
+      const next = nextTarget.view;
+      setTarget(nextTarget);
+      setView(nextTarget.view);
       setSelectedExpense(null);
       setCaptureDate(
-        next === "capture" &&
+        nextTarget.date ??
+          (next === "capture" &&
           typeof window.history.state?.captureDate === "string"
-          ? window.history.state.captureDate
-          : "",
+            ? window.history.state.captureDate
+            : ""),
       );
     }
     syncViewFromLocation();
@@ -87,6 +93,7 @@ export function ExpenseApp() {
     if (next === "capture") setCaptureDate("");
     setSelectedExpense(null);
     setView(next);
+    setTarget({ view: next });
     setStatus(`${titles[next]} view opened`);
     if (window.location.hash !== `#${next}`) {
       window.history.pushState(
@@ -95,6 +102,20 @@ export function ExpenseApp() {
         `#${next}`,
       );
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => document.getElementById("main-content")?.focus());
+  }
+
+  function navigateTarget(next: NavigationTarget) {
+    if (next.view === "settings" && view !== "settings") {
+      settingsReturnView.current = view;
+    }
+    setTarget(next);
+    setView(next.view);
+    setSelectedExpense(null);
+    setCaptureDate(next.date ?? "");
+    setStatus(`${titles[next.view]} view opened`);
+    window.history.pushState({ target: next }, "", navigationHash(next));
     window.scrollTo({ top: 0, behavior: "smooth" });
     requestAnimationFrame(() => document.getElementById("main-content")?.focus());
   }
@@ -119,17 +140,8 @@ export function ExpenseApp() {
   }
 
   function captureForDate(date: string) {
-    setCaptureDate(date);
-    setSelectedExpense(null);
-    setView("capture");
+    navigateTarget({ view: "capture", date });
     setStatus(`Receipt capture opened for ${date}`);
-    window.history.pushState(
-      { view: "capture", captureDate: date },
-      "",
-      "#capture",
-    );
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    requestAnimationFrame(() => document.getElementById("main-content")?.focus());
   }
 
   async function changed() {
@@ -159,15 +171,22 @@ export function ExpenseApp() {
       </div>
     );
   } else if (data) {
+    const activeExpense =
+      selectedExpense ??
+      (target.expenseId
+        ? data.expenses.find((expense) => expense.id === target.expenseId) ?? null
+        : null);
+    const captureView = (
+      <CaptureView
+        data={data}
+        initialDate={captureDate || undefined}
+        initialIntakeId={target.intakeId}
+        onSaved={changed}
+      />
+    );
     const views: Record<ViewName, React.ReactNode> = {
       today: <TodayView data={data} navigate={navigate} />,
-      capture: (
-        <CaptureView
-          data={data}
-          initialDate={captureDate || undefined}
-          onSaved={changed}
-        />
-      ),
+      capture: null,
       calendar: (
         <CalendarView
           expenses={data.expenses}
@@ -178,12 +197,23 @@ export function ExpenseApp() {
           )}
           onAddClaim={captureForDate}
           onOpenClaim={setSelectedExpense}
+          onCreateTripRange={(startDate, endDate) =>
+            navigateTarget({ view: "trips", startDate, endDate })
+          }
           supportedPeriod="2026-08"
         />
       ),
       expenses: <ExpensesView data={data} navigate={navigate} onChanged={changed} />,
-      trips: <TripsView data={data} onChanged={changed} />,
-      claims: <ClaimsView data={data} navigate={navigate} onChanged={changed} />,
+      trips: (
+        <TripsView
+          data={data}
+          initialTripId={target.tripId}
+          initialStartDate={target.startDate}
+          initialEndDate={target.endDate}
+          onChanged={changed}
+        />
+      ),
+      claims: <ClaimsView data={data} navigate={navigate} navigateTarget={navigateTarget} onChanged={changed} />,
       settings: <SettingsView onClose={closeSettings} />,
     };
     content = (
@@ -196,12 +226,21 @@ export function ExpenseApp() {
             </StatusMessage>
           </div>
         ) : null}
-        {views[view]}
-        {selectedExpense ? (
+        <div hidden={view !== "capture"}>{captureView}</div>
+        {view === "capture" ? null : views[view]}
+        {activeExpense ? (
           <ExpenseEditor
-            expense={selectedExpense}
+            expense={activeExpense}
             trips={data.trips}
-            onClose={() => setSelectedExpense(null)}
+            onClose={() => {
+              setSelectedExpense(null);
+              if (target.expenseId) {
+                const next = { view: "expenses" as const };
+                setTarget(next);
+                setView(next.view);
+                replaceNavigationTarget(window.history, next);
+              }
+            }}
             onChanged={changed}
           />
         ) : null}

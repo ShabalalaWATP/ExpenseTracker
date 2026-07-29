@@ -8,8 +8,8 @@ import {
 import { requirePrincipal } from "@/src/server/principal";
 import {
   deleteReceiptIntake,
-  updateReceiptIntake,
 } from "@/src/server/receipt-intake-repository";
+import { updateReceiptIntake } from "@/src/server/receipt-intake-review-repository";
 import { parseIntakePatch } from "@/src/server/receipt-intake-validation";
 import { assertId } from "@/src/server/validation";
 

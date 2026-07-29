@@ -8,6 +8,14 @@ export type IntakeStatus =
   | "confirmed"
   | "failed";
 
+export type ReceiptRecheckField =
+  | "merchant"
+  | "service_date"
+  | "receipt_total"
+  | "eligible_amount"
+  | "location"
+  | "alcohol";
+
 export interface ReceiptLineItem {
   description: string;
   quantity: number | null;
@@ -15,6 +23,37 @@ export interface ReceiptLineItem {
   eligible: boolean | null;
   alcoholSuspected: boolean;
   confidence?: number;
+}
+
+export interface DuplicateCandidate {
+  id: string;
+  kind: "expense" | "intake";
+  merchant: string;
+  serviceDate: string;
+  receiptTotalPence: number;
+  reason: string;
+}
+
+export interface ImageEdits {
+  rotation: 0 | 90 | 180 | 270;
+  contrast: number;
+  cropTop: number;
+  cropRight: number;
+  cropBottom: number;
+  cropLeft: number;
+}
+
+export interface AnalysisHistoryEntry {
+  analysedAt: string;
+  model: string;
+  targetedFields: string[];
+  extraction: {
+    merchant: string | null;
+    serviceDate: string | null;
+    receiptTotalPence: number | null;
+    eligiblePence: number | null;
+    gratuityPence: number;
+  };
 }
 
 export interface ReceiptIntake {
@@ -40,6 +79,12 @@ export interface ReceiptIntake {
   uncertainFields: string[];
   alcoholSuspected: boolean;
   alcoholReviewed: boolean;
+  analysisHistory: AnalysisHistoryEntry[];
+  correctionProvenance: Record<string, "ai" | "owner">;
+  duplicateCandidates: DuplicateCandidate[];
+  duplicateReviewed: boolean;
+  reconciliationReviewed: boolean;
+  imageEdits: Partial<ImageEdits>;
   clarificationQuestions: string[];
   aiModel: string | null;
   hasAnalysisCopy: boolean;
@@ -70,8 +115,11 @@ export interface BatchDefaults {
 export interface LocalUpload {
   id: string;
   idempotencyKey: string;
+  batchId: string;
+  defaults: BatchDefaults;
   file: File;
-  stage: "queued" | "uploading" | "normalising" | "failed";
+  stage: "queued" | "waiting-online" | "uploading" | "normalising" | "failed";
+  attempts: number;
   error?: string;
 }
 
@@ -86,4 +134,6 @@ export type IntakePatch = Partial<{
   mealContext: MealContext | null;
   tripId: string | null;
   alcoholReviewed: boolean;
+  duplicateReviewed: boolean;
+  reconciliationReviewed: boolean;
 }>;

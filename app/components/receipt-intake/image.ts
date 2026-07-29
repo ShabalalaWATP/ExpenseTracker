@@ -1,8 +1,67 @@
+import type { ImageEdits } from "./types";
+
 export const MAX_ANALYSIS_DIMENSION = 4096;
 export const MAX_ANALYSIS_PIXELS = 12_000_000;
 const JPEG_QUALITY = 0.92;
 const MAX_ANALYSIS_BYTES = 9 * 1_048_576;
 const MAX_RECEIPT_BYTES = 20 * 1_048_576;
+
+export const DEFAULT_IMAGE_EDITS: ImageEdits = {
+  rotation: 0,
+  contrast: 1,
+  cropTop: 0,
+  cropRight: 0,
+  cropBottom: 0,
+  cropLeft: 0,
+};
+
+export function normaliseImageEdits(
+  value: Partial<ImageEdits> | null | undefined,
+): ImageEdits {
+  const rotation = [0, 90, 180, 270].includes(value?.rotation ?? 0)
+    ? (value?.rotation ?? 0)
+    : 0;
+  const bounded = (input: number | undefined, minimum: number, maximum: number) =>
+    Math.max(minimum, Math.min(maximum, Number.isFinite(input) ? input! : minimum));
+  const result: ImageEdits = {
+    rotation: rotation as ImageEdits["rotation"],
+    contrast: bounded(value?.contrast, 0.8, 1.8) || 1,
+    cropTop: bounded(value?.cropTop, 0, 0.4),
+    cropRight: bounded(value?.cropRight, 0, 0.4),
+    cropBottom: bounded(value?.cropBottom, 0, 0.4),
+    cropLeft: bounded(value?.cropLeft, 0, 0.4),
+  };
+  if (result.cropLeft + result.cropRight >= 0.8) {
+    result.cropLeft = 0;
+    result.cropRight = 0;
+  }
+  if (result.cropTop + result.cropBottom >= 0.8) {
+    result.cropTop = 0;
+    result.cropBottom = 0;
+  }
+  return result;
+}
+
+export function cropGeometry(
+  width: number,
+  height: number,
+  edits: ImageEdits,
+) {
+  const x = Math.round(width * edits.cropLeft);
+  const y = Math.round(height * edits.cropTop);
+  return {
+    x,
+    y,
+    width: Math.max(
+      1,
+      width - x - Math.round(width * edits.cropRight),
+    ),
+    height: Math.max(
+      1,
+      height - y - Math.round(height * edits.cropBottom),
+    ),
+  };
+}
 
 export function canSelectReceipt(
   file: Pick<File, "size" | "type">,
@@ -11,7 +70,7 @@ export function canSelectReceipt(
   return file.size > 0 && file.size <= MAX_RECEIPT_BYTES && supportedType;
 }
 
-async function decodeImage(file: File): Promise<ImageBitmap | HTMLImageElement> {
+async function decodeImage(file: Blob): Promise<ImageBitmap | HTMLImageElement> {
   if ("createImageBitmap" in window) {
     try {
       return await createImageBitmap(file, { imageOrientation: "from-image" });
@@ -33,24 +92,47 @@ async function decodeImage(file: File): Promise<ImageBitmap | HTMLImageElement> 
   }
 }
 
-export async function normaliseReceipt(file: File): Promise<Blob> {
+export async function normaliseReceipt(
+  file: Blob,
+  requestedEdits: Partial<ImageEdits> = DEFAULT_IMAGE_EDITS,
+): Promise<Blob> {
   const source = await decodeImage(file);
   try {
     const width = source.width;
     const height = source.height;
+    const edits = normaliseImageEdits(requestedEdits);
+    const crop = cropGeometry(width, height, edits);
     const scale = Math.min(
       1,
-      MAX_ANALYSIS_DIMENSION / Math.max(width, height),
-      Math.sqrt(MAX_ANALYSIS_PIXELS / (width * height)),
+      MAX_ANALYSIS_DIMENSION / Math.max(crop.width, crop.height),
+      Math.sqrt(MAX_ANALYSIS_PIXELS / (crop.width * crop.height)),
     );
+    const drawWidth = Math.max(1, Math.round(crop.width * scale));
+    const drawHeight = Math.max(1, Math.round(crop.height * scale));
+    const rotated = edits.rotation === 90 || edits.rotation === 270;
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.width = rotated ? drawHeight : drawWidth;
+    canvas.height = rotated ? drawWidth : drawHeight;
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("Image processing is unavailable.");
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    context.save();
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate((edits.rotation * Math.PI) / 180);
+    context.filter = `contrast(${edits.contrast})`;
+    context.drawImage(
+      source,
+      crop.x,
+      crop.y,
+      crop.width,
+      crop.height,
+      -drawWidth / 2,
+      -drawHeight / 2,
+      drawWidth,
+      drawHeight,
+    );
+    context.restore();
     let quality = JPEG_QUALITY;
     let blob: Blob | null = null;
     do {

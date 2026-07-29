@@ -4,25 +4,19 @@ import type {
   Expense,
   ExpenseDraft,
   Trip,
-  TripDraft,
+  ViewName,
 } from "./types";
 import { claimableAmountIndex } from "../../src/domain/calendar";
-import { daysBetween } from "./format";
-
 type RecordValue = Record<string, unknown>;
-
 function record(value: unknown): RecordValue {
   return value && typeof value === "object" ? (value as RecordValue) : {};
 }
-
 function integer(value: unknown, fallback = 0): number {
   return Number.isSafeInteger(value) ? (value as number) : fallback;
 }
-
 function text(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
-
 function normaliseExpense(value: unknown): Expense {
   const item = record(value);
   const receipt = record(item.receipt);
@@ -159,17 +153,43 @@ export function normaliseDashboard(value: unknown): DashboardData {
     attention: Array.isArray(attentionSource)
       ? attentionSource.map((value) => {
           const item = record(value);
+          const rawTarget = record(item.target);
+          const fallbackId =
+            text(item.expenseId ?? item.intakeId ?? item.tripId ?? item.id) ||
+            "readiness";
+          const targetView = text(rawTarget.view);
+          const view: ViewName =
+            targetView === "capture" ||
+            targetView === "trips" ||
+            targetView === "calendar" ||
+            targetView === "claims" ||
+            targetView === "settings" ||
+            targetView === "today"
+              ? targetView
+              : "expenses";
+          const target = {
+            view,
+            intakeId: text(rawTarget.intakeId) || undefined,
+            expenseId: text(rawTarget.expenseId) || undefined,
+            tripId: text(rawTarget.tripId) || undefined,
+            date: text(rawTarget.date) || undefined,
+            startDate: text(rawTarget.startDate) || undefined,
+            endDate: text(rawTarget.endDate) || undefined,
+          };
           return {
-            id:
-              text(item.expenseId ?? item.intakeId ?? item.tripId ?? item.id) ||
-              undefined,
+            id: text(item.id) || fallbackId,
+            code: text(item.code) || undefined,
+            category:
+              item.category === "evidence" ||
+              item.category === "trip" ||
+              item.category === "policy"
+                ? item.category
+                : "details",
+            severity: item.severity === "warning" ? "warning" : "blocking",
             title: text(item.title ?? item.message ?? item.code, "Needs attention"),
             detail: text(item.detail ?? item.description) || undefined,
-            view: text(item.intakeId)
-              ? "capture"
-              : text(item.tripId) && !text(item.expenseId)
-                ? "trips"
-                : "expenses",
+            view: target.view,
+            target,
           };
         })
       : [],
@@ -184,7 +204,7 @@ export function normaliseDashboard(value: unknown): DashboardData {
   };
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+export async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
     headers: { Accept: "application/json", ...init?.headers },
@@ -205,11 +225,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getDashboard(): Promise<DashboardData> {
-  return normaliseDashboard(await request<unknown>("/api/dashboard"));
+  return normaliseDashboard(await apiRequest<unknown>("/api/dashboard"));
 }
 
 export async function createExpense(draft: ExpenseDraft): Promise<Expense> {
-  const result = await request<unknown>("/api/expenses", {
+  const result = await apiRequest<unknown>("/api/expenses", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -271,7 +291,7 @@ export async function updateExpense(
   if (changes.mealContext !== undefined) {
     patch.mealContext = changes.mealContext || null;
   }
-  await request(`/api/expenses/${encodeURIComponent(id)}`, {
+  await apiRequest(`/api/expenses/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
@@ -279,37 +299,17 @@ export async function updateExpense(
 }
 
 export async function deleteExpense(id: string): Promise<void> {
-  await request(`/api/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
+  await apiRequest(`/api/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export async function restoreExpense(id: string): Promise<void> {
-  await request(`/api/expenses/${encodeURIComponent(id)}/restore`, {
+  await apiRequest(`/api/expenses/${encodeURIComponent(id)}/restore`, {
     method: "POST",
-  });
-}
-
-export async function createTrip(draft: TripDraft): Promise<void> {
-  await request("/api/trips", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: draft.title,
-      purpose: draft.location,
-      country: "GB",
-      startDate: draft.startDate,
-      endDate: draft.endDate,
-      aggregateElection: draft.calculationMethod === "aggregate",
-      days: daysBetween(draft.startDate, draft.endDate).map((date) => ({
-        date,
-        eligible: draft.eligibleDates.includes(date),
-        confirmed: draft.eligibleDates.includes(date) && draft.attested,
-      })),
-    }),
   });
 }
 
 export async function prepareClaim(): Promise<Claim> {
-  const result = await request<unknown>("/api/claims", {
+  const result = await apiRequest<unknown>("/api/claims", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ period: "2026-08" }),
@@ -320,7 +320,7 @@ export async function prepareClaim(): Promise<Claim> {
 }
 
 export async function submitClaim(id: string): Promise<void> {
-  await request(`/api/claims/${encodeURIComponent(id)}`, {
+  await apiRequest(`/api/claims/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: "submitted" }),

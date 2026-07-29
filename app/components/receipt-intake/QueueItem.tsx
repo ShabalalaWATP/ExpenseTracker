@@ -27,6 +27,7 @@ export function LocalQueueItem({
 }) {
   const label = {
     queued: "Waiting",
+    "waiting-online": "Waiting to retry",
     uploading: "Securing original",
     normalising: "Preparing image",
     failed: "Upload failed",

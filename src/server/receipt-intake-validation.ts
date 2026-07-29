@@ -74,6 +74,8 @@ export type IntakePatch = {
   mealContext?: string | null;
   tripId?: string | null;
   alcoholReviewed?: boolean;
+  duplicateReviewed?: boolean;
+  reconciliationReviewed?: boolean;
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -155,6 +157,26 @@ export function parseIntakePatch(value: unknown): IntakePatch {
       );
     }
     result.alcoholReviewed = input.alcoholReviewed;
+  }
+  if ("duplicateReviewed" in input) {
+    if (typeof input.duplicateReviewed !== "boolean") {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "duplicateReviewed must be true or false.",
+      );
+    }
+    result.duplicateReviewed = input.duplicateReviewed;
+  }
+  if ("reconciliationReviewed" in input) {
+    if (typeof input.reconciliationReviewed !== "boolean") {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "reconciliationReviewed must be true or false.",
+      );
+    }
+    result.reconciliationReviewed = input.reconciliationReviewed;
   }
   if (Object.keys(result).length === 0) {
     throw new ApiError(400, "validation_failed", "No review fields were provided.");

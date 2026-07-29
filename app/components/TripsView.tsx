@@ -1,26 +1,43 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { createTrip } from "./api";
+import { createTrip, updateTrip } from "./tripApi";
 import { daysBetween, formatDate } from "./format";
 import type { DashboardData } from "./types";
 import { EmptyState, Field, StatusMessage, ViewHeader } from "./ui";
 
 export function TripsView({
   data,
+  initialTripId,
+  initialStartDate,
+  initialEndDate,
   onChanged,
 }: {
   data: DashboardData;
+  initialTripId?: string;
+  initialStartDate?: string;
+  initialEndDate?: string;
   onChanged: () => Promise<void>;
 }) {
-  const [creating, setCreating] = useState(data.trips.length === 0);
-  const [title, setTitle] = useState("");
-  const [location, setLocation] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [eligibleDates, setEligibleDates] = useState<string[]>([]);
-  const [attested, setAttested] = useState(false);
-  const [method, setMethod] = useState<"daily" | "aggregate">("daily");
+  const initialTrip = data.trips.find((trip) => trip.id === initialTripId);
+  const [creating, setCreating] = useState(
+    data.trips.length === 0 || Boolean(initialStartDate) || Boolean(initialTrip),
+  );
+  const [editingId, setEditingId] = useState(initialTrip?.id ?? "");
+  const [title, setTitle] = useState(initialTrip?.title ?? "");
+  const [location, setLocation] = useState(initialTrip?.location ?? "");
+  const [startDate, setStartDate] = useState(initialStartDate ?? initialTrip?.startDate ?? "");
+  const [endDate, setEndDate] = useState(initialEndDate ?? initialStartDate ?? initialTrip?.endDate ?? "");
+  const [eligibleDates, setEligibleDates] = useState<string[]>(
+    initialTrip?.eligibleDates ??
+    (initialStartDate
+      ? daysBetween(initialStartDate, initialEndDate ?? initialStartDate)
+      : []),
+  );
+  const [attested, setAttested] = useState(Boolean(initialTrip?.attested));
+  const [method, setMethod] = useState<"daily" | "aggregate">(
+    initialTrip?.calculationMethod ?? "daily",
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const dates = startDate && endDate && endDate >= startDate
@@ -45,6 +62,39 @@ export function TripsView({
     setAttested(false);
   }
 
+  function editTrip(id: string) {
+    const trip = data.trips.find((item) => item.id === id);
+    if (!trip) return;
+    setEditingId(trip.id);
+    setTitle(trip.title);
+    setLocation(trip.location);
+    setStartDate(trip.startDate);
+    setEndDate(trip.endDate);
+    setEligibleDates(trip.eligibleDates ?? []);
+    setAttested(Boolean(trip.attested));
+    setMethod(trip.calculationMethod ?? "daily");
+    setCreating(true);
+  }
+
+  function openNewTrip() {
+    setEditingId("");
+    setTitle("");
+    setLocation("");
+    setStartDate("");
+    setEndDate("");
+    setEligibleDates([]);
+    setAttested(false);
+    setMethod("daily");
+    setError("");
+    setCreating(true);
+  }
+
+  function closeForm() {
+    setCreating(false);
+    setEditingId("");
+    setError("");
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!title.trim() || !location.trim() || !startDate || !endDate || endDate < startDate) {
@@ -62,7 +112,7 @@ export function TripsView({
     setSaving(true);
     setError("");
     try {
-      await createTrip({
+      const draft = {
         title: title.trim(),
         location: location.trim(),
         country: "GB",
@@ -71,13 +121,16 @@ export function TripsView({
         eligibleDates,
         attested,
         calculationMethod: method,
-      });
+      } as const;
+      if (editingId) await updateTrip(editingId, draft);
+      else await createTrip(draft);
       await onChanged();
       setCreating(false);
       setTitle("");
       setLocation("");
       setStartDate("");
       setEndDate("");
+      setEditingId("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The trip could not be saved.");
     } finally {
@@ -91,7 +144,7 @@ export function TripsView({
         eyebrow={`${data.trips.length} ${data.trips.length === 1 ? "trip" : "trips"}`}
         title="Trips"
         detail="Group detached duty dates and confirm how the allowance is calculated."
-        action={!creating ? <button className="primary-button" type="button" onClick={() => setCreating(true)}>New trip</button> : undefined}
+        action={!creating ? <button className="primary-button" type="button" onClick={openNewTrip}>New trip</button> : undefined}
       />
 
       <div className={`trips-layout ${creating ? "with-form" : ""}`}>
@@ -116,12 +169,13 @@ export function TripsView({
                   <div className="trip-state">
                     <span className={`state-label ${trip.attested ? "success" : "warning"}`}>{trip.attested ? "Dates confirmed" : "Needs confirmation"}</span>
                     <small>{trip.calculationMethod === "aggregate" ? "Aggregate method" : "Daily method"}</small>
+                    <button className="text-button" type="button" onClick={() => editTrip(trip.id)}>Edit trip</button>
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <EmptyState title="No duty periods recorded" action={<button className="primary-button" type="button" onClick={() => setCreating(true)}>Create a trip</button>}>
+            <EmptyState title="No duty periods recorded" action={<button className="primary-button" type="button" onClick={openNewTrip}>Create a trip</button>}>
               Trips make repeated location, purpose and eligible dates easier to confirm.
             </EmptyState>
           )}
@@ -130,8 +184,8 @@ export function TripsView({
         {creating ? (
           <section className="trip-form-panel" aria-labelledby="trip-form-heading">
             <div className="editor-top">
-              <div><p className="eyebrow">New duty period</p><h2 id="trip-form-heading">Trip details</h2></div>
-              {data.trips.length ? <button className="round-button" type="button" onClick={() => setCreating(false)} aria-label="Close trip form">×</button> : null}
+              <div><p className="eyebrow">{editingId ? "Update duty period" : "New duty period"}</p><h2 id="trip-form-heading">Trip details</h2></div>
+              {data.trips.length ? <button className="round-button" type="button" onClick={closeForm} aria-label="Close trip form">×</button> : null}
             </div>
             <form onSubmit={save}>
               {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
@@ -158,7 +212,7 @@ export function TripsView({
                 <input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
                 <span><strong>I confirm these eligible dates</strong><small>The absence exceeded five hours, arose from authorised duty, and equivalent food was not provided at public expense.</small></span>
               </label>
-              <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving trip…" : "Save trip"}</button></div>
+              <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving trip…" : editingId ? "Update trip" : "Save trip"}</button></div>
             </form>
           </section>
         ) : null}

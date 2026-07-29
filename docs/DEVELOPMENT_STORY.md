@@ -110,3 +110,32 @@ This document records meaningful implementation milestones, decisions and verifi
 - Reordered staged-receipt deletion so the trigger-protected D1 transition must
   succeed before R2 cleanup. A regression proves a claim-lock rejection
   preserves both the intake row and every receipt object.
+- Implemented the 0.2.0 evidence-assurance release: adjustable receipt analysis
+  images, selected-field Sol re-checks, preserved owner corrections, correction
+  provenance, append-only receipt revisions, possible-duplicate review and
+  deterministic line-item reconciliation.
+- Added an IndexedDB upload queue that reuses the same idempotency key after an
+  interruption and resumes when the app is visible and online. Added a minimal
+  service worker that caches only public shell assets and never caches private
+  pages, APIs, receipts or ledger responses.
+- Extended Calendar with receipt-attention filters, a selected-day evidence
+  drawer and duty-date range selection that opens a pre-filled Trip form.
+  Readiness actions now deep-link to the exact intake, expense or trip.
+- Added a frozen-claim submission ZIP containing a PDF, formula-safe CSV,
+  manifest and checksum-verified original receipts.
+- Added a portable owner-only recovery ZIP, R2/D1 evidence-integrity check,
+  local queue controls, current model status, last successful extraction,
+  database/storage health, app version and storage usage in Settings.
+- Hardened the release after independent quality and security reviews:
+  serialised IndexedDB queue updates, guarded concurrent manual and AI writes,
+  deterministic archive manifests, 99-ID D1 query chunks, size-bounded
+  multipart claim and recovery archives, and byte-for-byte evidence
+  verification.
+- Closed the final concurrency findings with an atomic claim-lock acquisition
+  that cannot overtake an active receipt mutation, plus a versioned delete that
+  cannot remove receipt evidence after confirmation starts. SQLite regressions
+  exercise both losing race orders against the real migration triggers.
+- Generated additive migration `0004_woozy_gravity.sql`. TypeScript, ESLint,
+  production build, migration rehearsal and all 45 TypeScript tests plus five
+  rendered/migration checks passed. The production dependency audit reported
+  zero known vulnerabilities.

@@ -15,12 +15,11 @@ owner. Its first purpose is to support an August 2026 UK Day Subsistence claim:
 capture a receipt, confirm the eligible amount and duty context, calculate the
 claim under JSP 752, and freeze a reviewed monthly snapshot.
 
-The local MVP is implemented. It includes the receipt-first responsive
-application, calendar review, D1 data
-model, R2 receipt storage path, deterministic policy calculation, trip
-attestation, readiness checks and claim snapshots. A production-compatible
-build, focused policy tests and a local HTTP smoke check were recorded on
-28 July 2026.
+The private beta now includes resilient receipt capture, receipt-image
+adjustment, targeted AI re-checks, deterministic duplicate and arithmetic
+review, a correction trail, calendar-led trip creation, structured readiness,
+immutable submission packages, portable recovery packages and operational
+health checks.
 
 The application is privately deployed. The owner-only Sites boundary and
 unauthenticated denial have been verified. Real iPhone HEIC capture and the
@@ -38,7 +37,8 @@ product.
 - One owner only, with no public registration, invitations or organisations.
 - GBP and UK expenses only in the MVP.
 - August 2026 is the only supported claim period.
-- Online-first capture. An upload is saved only after the server acknowledges it.
+- Online-first processing with a private on-device IndexedDB queue for
+  interrupted receipt uploads. The same idempotency key is reused on resume.
 - iPhone 16 Safari is the launch target. Desktop browsers support review.
 - AI may suggest receipt facts, but it never decides eligibility or allowance.
   Every staged receipt requires owner confirmation before it becomes an expense.
@@ -71,7 +71,8 @@ product.
 - The production bundle must remain Cloudflare Worker-compatible ESM.
 - D1 is authoritative for trips, expenses, receipt metadata and claim snapshots.
 - R2 is authoritative for receipt originals.
-- Browser storage is used only for the local appearance preference.
+- Browser storage holds only the appearance preference and unfinished receipt
+  uploads. Financial ledger records remain server-authoritative.
 - Private Sites access is the mandatory outer security boundary.
 - Dispatcher-owned Sign in with ChatGPT supplies the authenticated identity.
   Every page-backed API validates the identity against the single configured
@@ -144,6 +145,7 @@ private provisional beta rather than a formal system of record.
 | M9: real-device acceptance | Backlog | iPhone 16 HEIC, microphone permission and Safari backgrounding tests |
 | M10: receipt-first calendar and navigation | Complete | Working-week, week and month review, date-led capture, darker theme and clearer current-view state |
 | M11: trusted capture and submission handoff | Complete in code | Mobile evidence review, corrected policy, pending-intake claim gate, recovery and submission pack |
+| M12: evidence assurance and resilient operations | Complete in code | Targeted receipt re-checks, duplicate and arithmetic review, offline-resilient queue, submission/recovery ZIPs and service status |
 
 ## 5. Implemented MVP checklist
 
@@ -173,6 +175,16 @@ private provisional beta rather than a formal system of record.
 - [x] Structured receipt extraction with merchant, date, totals, line items,
   uncertainty and suspected-alcohol review.
 - [x] Typed clarification and explicit opt-in Realtime voice clarification.
+- [x] Crop, rotation and contrast controls for a disposable analysis derivative
+  while the secured original remains unchanged.
+- [x] Targeted merchant, date, total and eligible-amount AI re-checks that
+  preserve owner corrections outside the selected field.
+- [x] Possible-duplicate comparison, receipt-line reconciliation and explicit
+  acknowledgement before confirmation.
+- [x] Append-only AI/manual/voice correction revisions and owner-vs-AI
+  provenance.
+- [x] IndexedDB upload recovery with truthful queued, offline, uploading and
+  review states. Private APIs and pages are never service-worker cached.
 
 ### Persistence and server boundaries
 
@@ -215,6 +227,13 @@ private provisional beta rather than a formal system of record.
   calculation.
 - [x] SHA-256 snapshot digest, one prepared snapshot per period and manual
   prepared-to-submitted transition.
+- [x] Owner-only size-bounded claim ZIP parts built from the verified frozen
+  snapshot, containing a PDF summary, formula-safe CSV, global manifest and
+  checksum-verified originals.
+- [x] Owner-only size-bounded multipart recovery ZIPs containing the ledger,
+  original evidence, global checksums and a non-destructive recovery guide.
+- [x] Manual byte-level evidence-integrity report for missing, size-mismatched,
+  hash-mismatched and unlinked R2 objects.
 
 ## 6. Verification gates
 
@@ -315,15 +334,18 @@ control and the development record contains verification evidence.
 - The claims view provides private receipt View and Download actions and
   copy-ready where-and-why descriptions. Direct sharing is not used because a
   private authenticated URL is unsuitable for an external recipient.
-- JSON and CSV exports are available, but receipt-image archives, delete-all,
-  scheduled backups, restore tooling and a recovery drill remain outstanding.
-- There is no offline queue, background upload, notification or automated
-  monitoring.
+- JSON, CSV and portable multipart recovery ZIP exports are available.
+  Automatic restore, delete-all and scheduled off-site backups remain
+  deliberately unavailable.
+- Interrupted uploads resume while the app is open or when it returns online.
+  iOS does not guarantee a background upload after Safari is terminated, and
+  the app does not claim that it does.
 - Automated coverage is focused rather than comprehensive. API authorisation,
   browser accessibility, migration recovery and iPhone tests remain open.
-- AI status confirms configuration and endpoint availability, not successful
-  end-to-end receipt understanding. One synthetic or non-sensitive receipt and
-  one iPhone Safari microphone session remain required acceptance tests.
+- Operational status separates configuration from the last recorded successful
+  extraction and exposes the current receipt, Realtime and transcription
+  models. One synthetic or non-sensitive receipt and one iPhone Safari
+  microphone session remain required acceptance tests.
 - ExpenseTracker has no general chat feature. The removed `OPENAI_CHAT_MODEL`
   setting was unused; receipt extraction and Realtime voice are the only model
   workflows exposed by the app.
@@ -354,10 +376,12 @@ control and the development record contains verification evidence.
 
 - [ ] Wire verified owner identity into every protected page and API where Sites
   exposes a stable principal.
-- [ ] Add protected full export, verified delete-all and a documented restore
-  route.
+- [x] Add a protected full recovery export and documented staged recovery
+  procedure.
+- [ ] Add verified delete-all and a reviewed empty-ledger restore tool.
 - [x] Add soft delete and restore without deleting receipt evidence.
-- [ ] Add receipt reconciliation and an explicit protected purge workflow.
+- [x] Add receipt reconciliation.
+- [ ] Add an explicit protected purge workflow.
 - [x] Lock source records before and after claim preparation at the D1 boundary.
 - [ ] Implement corrections with superseding claim snapshots.
 - [x] Add receipt view or download and copy-ready where-and-why description
@@ -376,7 +400,7 @@ control and the development record contains verification evidence.
   copy after a model upgrade or an inaccurate first result.
 - [ ] Add receipt text search, saved filters and better expense-to-trip
   suggestions.
-- [ ] Add an explicit offline capture queue with clear device-only and
+- [x] Add an explicit offline capture queue with clear device-only and
   server-saved states.
 
 ### Priority 3: broader use only when justified
@@ -391,9 +415,9 @@ decisions remain out of scope.
 
 ## 10. Current next step
 
-Re-read the existing unconfirmed receipts with Sol and compare every suggested
-field with the image.
+Deploy release 0.2.0, re-read the existing unconfirmed receipts with Sol and
+compare every suggested field with the image.
 Complete the iPhone 16 HEIC, Safari backgrounding, receipt download and Realtime
 microphone acceptance checks before treating AI-assisted capture as proven.
-Finish route integration, concurrency and recovery drills before treating the
-app as a formal system of record.
+Complete route integration, concurrency and an empty-environment recovery drill
+before treating the app as a formal system of record.
