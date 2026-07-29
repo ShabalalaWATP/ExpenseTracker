@@ -1,7 +1,7 @@
 # ExpenseTracker Master Implementation Plan
 
-Status: Receipt-first calendar release implemented, production verification in progress
-Deployment: Sites version 2 is live privately; version 3 is the current release candidate
+Status: Receipt-first calendar release deployed, real-device acceptance pending
+Deployment: The receipt-first calendar release is live privately on Sites
 Primary client: iPhone 16 using Safari
 Initial claim period: August 2026
 Source repository: `ShabalalaWATP/ExpenseTracker`
@@ -92,9 +92,9 @@ product.
 | M5: launch hardening | Complete | Reviews, dependency updates, edge-case fixes and local end-to-end smoke checks completed |
 | M6: private Sites release | Complete | Version 1 deployed successfully with owner-only access |
 | M7: protected receipt inbox and AI review | Complete | Batch capture, human-reviewed extraction, scoped voice clarification, audit and export implemented |
-| M8: release validation and private Sites version 2 | In progress | Full checks, migration rehearsal, private deployment and owner smoke test |
+| M8: release validation and private Sites version 2 | Complete | Full checks, migration rehearsal, private deployment and owner smoke test |
 | M9: real-device acceptance | Backlog | iPhone 16 HEIC, microphone permission and Safari backgrounding tests |
-| M10: receipt-first calendar and navigation | In progress | Working-week, week and month review, date-led capture, darker theme and clearer current-view state |
+| M10: receipt-first calendar and navigation | Complete | Working-week, week and month review, date-led capture, darker theme and clearer current-view state |
 
 ## 4. Implemented MVP checklist
 
@@ -324,8 +324,6 @@ decisions remain out of scope.
 
 ## 9. Current next step
 
-Save and privately deploy version 3 from the verified receipt-first calendar
-source. Then smoke-test Capture, Calendar, Settings, direct receipt access and
-browser history as the owner. Complete the remaining iPhone 16 HEIC and
-Realtime microphone acceptance checks before treating AI-assisted capture as
-fully proven.
+Complete the remaining iPhone 16 HEIC receipt-analysis and Realtime microphone
+acceptance checks before treating AI-assisted capture as fully proven. Then
+document the result and finish the recovery/export acceptance work.

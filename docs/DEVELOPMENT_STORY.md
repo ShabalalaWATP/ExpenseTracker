@@ -55,3 +55,8 @@ This document records meaningful implementation milestones, decisions and verifi
   full end-to-end acceptance.
 - Completed TypeScript, ESLint and the complete 19-test build suite after the
   calendar, navigation, capture and AI-path changes.
+- Pushed the exact verified source only to the private Sites repository, saved
+  an immutable release and deployed it successfully through the verified
+  owner-only production path. Owner-side smoke checks confirmed Capture,
+  Calendar, date-led capture, Settings, AI configuration status and the
+  near-black dark theme.
