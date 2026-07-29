@@ -77,3 +77,5 @@ This document records meaningful implementation milestones, decisions and verifi
   the installed-app colours to the same near-black navy.
 - Added a visible Close settings action that returns to the preceding app view
   with Capture as the safe fallback for a direct Settings link.
+- Live owner-side testing caught and fixed the root-history edge case where
+  closing Settings changed the URL but left the Settings view rendered.

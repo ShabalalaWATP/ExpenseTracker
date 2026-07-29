@@ -57,16 +57,15 @@ export function ExpenseApp() {
   useEffect(() => {
     function syncViewFromLocation() {
       const hash = window.location.hash.slice(1) as ViewName;
-      if (viewNames.has(hash)) {
-        setView(hash);
-        setSelectedExpense(null);
-        setCaptureDate(
-          hash === "capture" &&
-            typeof window.history.state?.captureDate === "string"
-            ? window.history.state.captureDate
-            : "",
-        );
-      }
+      const next = viewNames.has(hash) ? hash : "capture";
+      setView(next);
+      setSelectedExpense(null);
+      setCaptureDate(
+        next === "capture" &&
+          typeof window.history.state?.captureDate === "string"
+          ? window.history.state.captureDate
+          : "",
+      );
     }
     syncViewFromLocation();
     window.addEventListener("popstate", syncViewFromLocation);

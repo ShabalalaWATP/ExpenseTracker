@@ -56,6 +56,7 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
   assert.match(layout, /dataset\.theme = "dark"/);
   assert.match(page, /<ExpenseApp \/>/);
   assert.match(app, /function closeSettings\(\)/);
+  assert.match(app, /viewNames\.has\(hash\) \? hash : "capture"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(analysisLock, /status IN \('uploaded', 'needs_review', 'ready', 'failed'\)/);
   assert.doesNotMatch(analysisLock, /status <> 'analysing'/);
