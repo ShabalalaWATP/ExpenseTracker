@@ -85,13 +85,23 @@ describe("JSP 752 v66.1 calculation", () => {
     assert.equal(result.claimablePence, 4_000);
   });
 
-  it("excludes separately identified gratuity", () => {
+  it("includes an identified gratuity within the £30 daily limit", () => {
     const result = calculateJsp752(
       [trip()],
       [expense("a", "2026-08-04", 2_500, { gratuityPence: 500 })],
     );
-    assert.equal(result.qualifyingActualPence, 2_000);
-    assert.equal(result.claimablePence, 2_000);
+    assert.equal(result.qualifyingActualPence, 2_500);
+    assert.equal(result.claimablePence, 2_500);
+    assert.equal(result.totalGratuityPence, 500);
+  });
+
+  it("caps food, drink and gratuity together at the daily limit", () => {
+    const result = calculateJsp752(
+      [trip()],
+      [expense("a", "2026-08-04", 3_500, { gratuityPence: 500 })],
+    );
+    assert.equal(result.qualifyingActualPence, 3_500);
+    assert.equal(result.claimablePence, 3_000);
   });
 
   it("allows standalone receipted expenses and shares their daily cap", () => {
@@ -108,6 +118,59 @@ describe("JSP 752 v66.1 calculation", () => {
       result.lines.map((line) => line.claimablePence),
       [2_000, 1_000],
     );
+  });
+
+  it("shares one daily cap across standalone and trip-linked expenses", () => {
+    const result = calculateJsp752(
+      [trip()],
+      [
+        expense("a", "2026-08-04", 2_000),
+        expense("b", "2026-08-04", 2_000, { tripId: null }),
+      ],
+    );
+    assert.equal(result.allowancePence, 9_000);
+    assert.equal(result.claimablePence, 3_000);
+  });
+
+  it("shares one daily cap across overlapping non-aggregated trips", () => {
+    const secondTrip = trip({ id: "trip-2" });
+    const result = calculateJsp752(
+      [trip(), secondTrip],
+      [
+        expense("a", "2026-08-04", 2_000),
+        expense("b", "2026-08-04", 2_000, { tripId: "trip-2" }),
+      ],
+    );
+    assert.equal(result.allowancePence, 9_000);
+    assert.equal(result.claimablePence, 3_000);
+  });
+
+  it("does not add a standalone cap inside an aggregated trip period", () => {
+    const result = calculateJsp752(
+      [trip({ aggregateElection: true })],
+      [
+        expense("a", "2026-08-04", 9_000),
+        expense("b", "2026-08-04", 3_000, { tripId: null }),
+      ],
+    );
+    assert.equal(result.allowancePence, 9_000);
+    assert.equal(result.claimablePence, 9_000);
+  });
+
+  it("caps and flags overlapping aggregated trip periods", () => {
+    const result = calculateJsp752(
+      [
+        trip({ aggregateElection: true }),
+        trip({ id: "trip-2", aggregateElection: true }),
+      ],
+      [
+        expense("a", "2026-08-04", 6_000),
+        expense("b", "2026-08-04", 6_000, { tripId: "trip-2" }),
+      ],
+    );
+    assert.equal(result.allowancePence, 9_000);
+    assert.equal(result.claimablePence, 9_000);
+    assert.equal(result.issues[0]?.code, "aggregate_period_overlap");
   });
 
   it("does not claim expenses lacking evidence or confirmed eligibility", () => {

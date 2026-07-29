@@ -22,14 +22,11 @@
 .intake-intro > p, .manual-intro > p { max-width: 440px; color: var(--muted); }
 
 .intake-defaults { margin: 30px 0 22px; border-block: 1px solid var(--line); }
-.intake-defaults summary {
+.intake-default-heading {
   display: flex; min-height: 70px; align-items: center; justify-content: space-between;
-  cursor: pointer; list-style: none;
 }
-.intake-defaults summary::-webkit-details-marker { display: none; }
-.intake-defaults summary > span:first-child { display: grid; }
-.intake-defaults summary small { color: var(--muted); font-size: .75rem; font-weight: 500; }
-.intake-defaults[open] summary > span:last-child { transform: rotate(180deg); }
+.intake-default-heading > span:first-child { display: grid; }
+.intake-default-heading small { color: var(--muted); font-size: .75rem; font-weight: 500; }
 .intake-default-fields { display: grid; gap: 14px; padding: 0 0 22px; }
 .intake-default-fields label, .intake-field-grid label {
   display: grid; gap: 6px; color: var(--text); font-size: .78rem; font-weight: 730;
@@ -277,7 +274,7 @@
   .intake-intro h2 { font-size: 1.72rem; }
   .intake-intro > p { display: none; }
   .intake-defaults { margin: 16px 0 14px; }
-  .intake-defaults summary { min-height: 58px; }
+  .intake-default-heading { min-height: 58px; }
   .intake-actions { grid-template-columns: 1fr 1fr; }
   .intake-action { min-height: 58px; padding: 9px; }
   .intake-action small { display: none; }
@@ -288,7 +285,8 @@
   .intake-state { grid-column: 2; justify-self: start; }
   .intake-row-shell.selected { margin-inline: -10px; padding-inline: 10px; }
   .intake-review { grid-template-columns: 1fr; }
-  .review-receipt { display: none; }
+  .review-receipt { display: block; }
+  .review-image { aspect-ratio: 4 / 3; border: 1px solid var(--line); }
   .intake-field-grid { grid-template-columns: 1fr; }
   .intake-field-grid .wide { grid-column: auto; }
   .review-actions {

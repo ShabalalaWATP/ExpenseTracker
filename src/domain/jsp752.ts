@@ -36,6 +36,7 @@ export type ReadinessIssue = {
   code: string;
   message: string;
   expenseId?: string;
+  intakeId?: string;
   tripId?: string;
   date?: string;
 };
@@ -76,7 +77,7 @@ function allocate(
       ? a.id.localeCompare(b.id)
       : a.serviceDate.localeCompare(b.serviceDate),
   )) {
-    const actual = Math.max(0, expense.eligiblePence - expense.gratuityPence);
+    const actual = Math.max(0, expense.eligiblePence);
     const claimable = Math.min(actual, remaining);
     remaining -= claimable;
     lines.set(expense.id, {
@@ -135,6 +136,21 @@ function issueFor(
   return null;
 }
 
+function mergedDateGroups(groups: Set<string>[]): Set<string>[] {
+  const merged: Set<string>[] = [];
+  for (const group of groups) {
+    const combined = new Set(group);
+    for (let index = merged.length - 1; index >= 0; index -= 1) {
+      if ([...merged[index]].some((date) => combined.has(date))) {
+        for (const date of merged[index]) combined.add(date);
+        merged.splice(index, 1);
+      }
+    }
+    merged.push(combined);
+  }
+  return merged;
+}
+
 export function calculateJsp752(
   tripsInput: readonly PolicyTrip[],
   expensesInput: readonly PolicyExpense[],
@@ -159,7 +175,7 @@ export function calculateJsp752(
       issues.push(issue);
       lines.set(expense.id, {
         expenseId: expense.id,
-        actualPence: Math.max(0, expense.eligiblePence - expense.gratuityPence),
+        actualPence: Math.max(0, expense.eligiblePence),
         claimablePence: 0,
         reason: issue.message,
       });
@@ -170,43 +186,81 @@ export function calculateJsp752(
 
   let allowancePence = 0;
   let claimablePence = 0;
-  const standalone = qualifying.filter((expense) => !expense.tripId);
-  const standaloneDates = new Set(
-    standalone.map((expense) => expense.serviceDate),
+  const aggregateTrips = tripsInput.filter(
+    (trip) =>
+      trip.aggregateElection &&
+      nights(trip.startDate, trip.endDate) >= 2,
   );
-  for (const date of [...standaloneDates].sort()) {
+  const aggregateTripIds = new Set(aggregateTrips.map((trip) => trip.id));
+  const aggregateGroups = mergedDateGroups(
+    aggregateTrips.map(
+      (trip) =>
+        new Set(
+          trip.days
+            .filter((day) => day.eligible && day.confirmed)
+            .map((day) => day.date),
+        ),
+    ),
+  );
+  const aggregateDates = new Set(
+    aggregateGroups.flatMap((group) => [...group]),
+  );
+  for (const group of aggregateGroups) {
+    const groupExpenses = qualifying.filter((expense) =>
+      group.has(expense.serviceDate),
+    );
+    const groupAllowance = group.size * JSP_752_POLICY.dailyCapPence;
+    allowancePence += groupAllowance;
+    claimablePence += allocate(groupExpenses, groupAllowance, lines);
+  }
+  for (const trip of aggregateTrips) {
+    const overlappingTrip = aggregateTrips.find(
+      (candidate) =>
+        candidate.id !== trip.id &&
+        candidate.days.some(
+          (day) =>
+            day.eligible &&
+            day.confirmed &&
+            trip.days.some(
+              (tripDay) =>
+                tripDay.date === day.date &&
+                tripDay.eligible &&
+                tripDay.confirmed,
+            ),
+        ),
+    );
+    if (overlappingTrip && trip.id < overlappingTrip.id) {
+      issues.push({
+        code: "aggregate_period_overlap",
+        message: "Overlapping aggregated trips require manual review.",
+        tripId: trip.id,
+      });
+    }
+  }
+  const dailyExpenses = qualifying.filter(
+    (expense) => !aggregateDates.has(expense.serviceDate),
+  );
+  const dailyDates = new Set(
+    [
+      ...dailyExpenses
+        .filter((expense) => !expense.tripId)
+        .map((expense) => expense.serviceDate),
+      ...tripsInput
+        .filter((trip) => !aggregateTripIds.has(trip.id))
+        .flatMap((trip) =>
+          trip.days
+            .filter((day) => day.eligible && day.confirmed)
+            .map((day) => day.date),
+        ),
+    ].filter((date) => !aggregateDates.has(date)),
+  );
+  for (const date of [...dailyDates].sort()) {
     allowancePence += JSP_752_POLICY.dailyCapPence;
     claimablePence += allocate(
-      standalone.filter((expense) => expense.serviceDate === date),
+      dailyExpenses.filter((expense) => expense.serviceDate === date),
       JSP_752_POLICY.dailyCapPence,
       lines,
     );
-  }
-  for (const trip of tripsInput) {
-    const tripExpenses = qualifying.filter((expense) => expense.tripId === trip.id);
-    const eligibleDates = new Set(
-      trip.days
-        .filter((day) => day.eligible && day.confirmed)
-        .map((day) => day.date),
-    );
-    if (trip.aggregateElection && nights(trip.startDate, trip.endDate) >= 2) {
-      const tripAllowance = eligibleDates.size * JSP_752_POLICY.dailyCapPence;
-      allowancePence += tripAllowance;
-      claimablePence += allocate(tripExpenses, tripAllowance, lines);
-      continue;
-    }
-    for (const date of [...eligibleDates].sort()) {
-      allowancePence += JSP_752_POLICY.dailyCapPence;
-      const dailyExpenses = tripExpenses.filter(
-        (expense) => expense.serviceDate === date,
-      );
-      if (dailyExpenses.length === 0) continue;
-      claimablePence += allocate(
-        dailyExpenses,
-        JSP_752_POLICY.dailyCapPence,
-        lines,
-      );
-    }
   }
 
   return {
@@ -219,8 +273,7 @@ export function calculateJsp752(
       0,
     ),
     qualifyingActualPence: qualifying.reduce(
-      (sum, expense) =>
-        sum + Math.max(0, expense.eligiblePence - expense.gratuityPence),
+      (sum, expense) => sum + Math.max(0, expense.eligiblePence),
       0,
     ),
     allowancePence,

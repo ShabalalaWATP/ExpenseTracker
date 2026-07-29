@@ -10,7 +10,6 @@ import {
   requireSameOrigin,
 } from "@/src/server/http";
 import { requirePrincipal } from "@/src/server/principal";
-import { removeReceiptObjects } from "@/src/server/receipt-repository";
 import { assertId, parseExpense } from "@/src/server/validation";
 
 type Context = { params: Promise<{ id: string }> };
@@ -38,8 +37,7 @@ export async function DELETE(
     requireSameOrigin(request);
     const principal = await requirePrincipal();
     const id = assertId((await context.params).id);
-    const objectKeys = await deleteExpense(principal, id);
-    await removeReceiptObjects(objectKeys);
+    await deleteExpense(principal, id);
     return empty();
   } catch (error) {
     return errorResponse(error);

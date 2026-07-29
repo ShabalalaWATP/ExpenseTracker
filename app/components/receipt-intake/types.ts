@@ -51,7 +51,6 @@ export interface ReceiptIntake {
 export interface AiStatus {
   configured: boolean;
   models: {
-    chat: string;
     receipt: string;
     realtime: string;
     transcription: string;

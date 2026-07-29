@@ -6,17 +6,24 @@ import {
 } from "@/src/domain/jsp752";
 import { ukCalendarDate } from "@/src/domain/calendar";
 import { listClaims } from "./claim-repository";
-import { listExpenses } from "./expense-repository";
+import {
+  listDeletedExpenses,
+  listExpenses,
+} from "./expense-repository";
 import { listTrips } from "./trip-repository";
+import { listClaimBlockingReceiptIntakes } from "./receipt-intake-repository";
 import type { Principal } from "./principal";
 
 export const CLAIM_PERIOD = "2026-08";
 
 export async function dashboard(principal: Principal) {
-  const [expenses, trips, claims] = await Promise.all([
+  const [expenses, deletedExpenses, trips, claims, receiptIntakes] =
+    await Promise.all([
     listExpenses(principal),
+    listDeletedExpenses(principal),
     listTrips(principal),
     listClaims(principal),
+    listClaimBlockingReceiptIntakes(principal, CLAIM_PERIOD),
   ]);
   const periodExpenses = expenses.filter((expense) =>
     expense.serviceDate.startsWith(`${CLAIM_PERIOD}-`),
@@ -48,6 +55,15 @@ export async function dashboard(principal: Principal) {
   }));
   const calculation = calculateJsp752(policyTrips, policyExpenses);
   const issues = [...calculation.issues];
+  for (const intake of receiptIntakes) {
+    issues.push({
+      code: "receipt_intake_pending",
+      message: intake.serviceDate
+        ? `Finish reviewing ${intake.merchant || intake.originalName} before preparing August.`
+        : `Finish reviewing ${intake.originalName}; its claim date is not confirmed.`,
+      intakeId: intake.id,
+    });
+  }
   for (const trip of trips) {
     const crossesClaimPeriod =
       trip.aggregateElection &&
@@ -99,8 +115,7 @@ export async function dashboard(principal: Principal) {
       date: todayDate,
       dailyCapPence: JSP_752_POLICY.dailyCapPence,
       spentPence: todayExpenses.reduce(
-        (sum, expense) =>
-          sum + Math.max(0, expense.eligiblePence - expense.gratuityPence),
+        (sum, expense) => sum + Math.max(0, expense.eligiblePence),
         0,
       ),
       claimablePence: todayClaimablePence,
@@ -110,6 +125,11 @@ export async function dashboard(principal: Principal) {
       ),
     },
     expenses: expenses.map((expense) => ({
+      ...expense,
+      locked: lockedPeriods.has(expense.serviceDate.slice(0, 7)),
+      submitted: submittedPeriods.has(expense.serviceDate.slice(0, 7)),
+    })),
+    deletedExpenses: deletedExpenses.map((expense) => ({
       ...expense,
       locked: lockedPeriods.has(expense.serviceDate.slice(0, 7)),
       submitted: submittedPeriods.has(expense.serviceDate.slice(0, 7)),

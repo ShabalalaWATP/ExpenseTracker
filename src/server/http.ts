@@ -30,6 +30,16 @@ export function empty(status = 204): Response {
 }
 
 export function errorResponse(error: unknown): Response {
+  if (
+    error instanceof Error &&
+    error.message.includes("claim_period_locked")
+  ) {
+    error = new ApiError(
+      409,
+      "claim_locked",
+      "This claim period is being prepared or is already frozen.",
+    );
+  }
   if (error instanceof ApiError) {
     return Response.json(
       {

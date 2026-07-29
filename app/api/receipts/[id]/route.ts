@@ -6,7 +6,7 @@ import { assertId } from "@/src/server/validation";
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: Context,
 ): Promise<Response> {
   try {
@@ -19,12 +19,15 @@ export async function GET(
         : row.content_type === "image/png"
           ? "png"
           : "heic";
+    const disposition = new URL(request.url).searchParams.get("download") === "1"
+      ? "attachment"
+      : "inline";
     return new Response(object.body, {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
         "Content-Type": row.content_type,
         "Content-Length": String(row.byte_size),
-        "Content-Disposition": `inline; filename="receipt-${id}.${extension}"`,
+        "Content-Disposition": `${disposition}; filename="receipt-${id}.${extension}"`,
         "X-Content-Type-Options": "nosniff",
       },
     });

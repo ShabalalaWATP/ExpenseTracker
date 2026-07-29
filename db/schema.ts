@@ -82,6 +82,7 @@ export const expenses = sqliteTable(
     }),
     mealContext: text("meal_context"),
     notes: text(),
+    deletedAt: text("deleted_at"),
     createdAt: timestamp("created_at"),
     updatedAt: timestamp("updated_at"),
   },
@@ -99,6 +100,7 @@ export const expenses = sqliteTable(
     check("expenses_country_gb", sql`${table.country} = 'GB'`),
     index("expenses_owner_date_idx").on(table.ownerId, table.serviceDate),
     index("expenses_owner_trip_idx").on(table.ownerId, table.tripId),
+    index("expenses_owner_deleted_idx").on(table.ownerId, table.deletedAt),
   ],
 );
 
@@ -157,6 +159,30 @@ export const claimSnapshots = sqliteTable(
     check(
       "claim_snapshots_status_valid",
       sql`${table.status} IN ('prepared', 'submitted')`,
+    ),
+  ],
+);
+
+export const claimPeriodLocks = sqliteTable(
+  "claim_period_locks",
+  {
+    id: text().primaryKey(),
+    ownerId: ownerId(),
+    period: text().notNull(),
+    status: text().notNull().default("preparing"),
+    token: text().notNull(),
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => [
+    uniqueIndex("claim_period_locks_owner_period_uidx").on(
+      table.ownerId,
+      table.period,
+    ),
+    uniqueIndex("claim_period_locks_token_uidx").on(table.token),
+    check(
+      "claim_period_locks_status_valid",
+      sql`${table.status} IN ('preparing', 'prepared')`,
     ),
   ],
 );

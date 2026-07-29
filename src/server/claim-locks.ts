@@ -4,10 +4,102 @@ import { ApiError } from "./http";
 async function lockedPeriods(ownerId: string): Promise<Set<string>> {
   await ensureSchema();
   const rows = await database()
-    .prepare("SELECT period FROM claim_snapshots WHERE owner_id = ?")
-    .bind(ownerId)
+    .prepare(
+      `SELECT period FROM claim_snapshots WHERE owner_id = ?
+       UNION
+       SELECT period FROM claim_period_locks WHERE owner_id = ?`,
+    )
+    .bind(ownerId, ownerId)
     .all<{ period: string }>();
   return new Set(rows.results.map((row) => row.period));
+}
+
+export async function acquireClaimPeriodLock(
+  ownerId: string,
+  period: string,
+): Promise<string> {
+  await ensureSchema();
+  const db = database();
+  await db
+    .prepare(
+      `DELETE FROM claim_period_locks
+       WHERE owner_id = ? AND period = ? AND status = 'preparing'
+         AND updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 minutes')
+         AND NOT EXISTS (
+           SELECT 1 FROM claim_snapshots
+           WHERE owner_id = ? AND period = ?
+         )`,
+    )
+    .bind(ownerId, period, ownerId, period)
+    .run();
+  const existing = await db
+    .prepare(
+      "SELECT status FROM claim_period_locks WHERE owner_id = ? AND period = ?",
+    )
+    .bind(ownerId, period)
+    .first<{ status: string }>();
+  if (existing) {
+    throw new ApiError(
+      409,
+      existing.status === "prepared" ? "claim_exists" : "claim_preparing",
+      existing.status === "prepared"
+        ? "The August claim has already been prepared."
+        : "The August claim is already being prepared.",
+    );
+  }
+  const id = crypto.randomUUID();
+  const token = crypto.randomUUID();
+  try {
+    await db
+      .prepare(
+        `INSERT INTO claim_period_locks
+          (id, owner_id, period, status, token)
+         VALUES (?, ?, ?, 'preparing', ?)`,
+      )
+      .bind(id, ownerId, period, token)
+      .run();
+  } catch {
+    throw new ApiError(
+      409,
+      "claim_preparing",
+      "The August claim is already being prepared.",
+    );
+  }
+  return token;
+}
+
+export async function finaliseClaimPeriodLock(
+  ownerId: string,
+  period: string,
+  token: string,
+): Promise<void> {
+  await database()
+    .prepare(
+      `UPDATE claim_period_locks
+       SET status = 'prepared',
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE owner_id = ? AND period = ? AND token = ?`,
+    )
+    .bind(ownerId, period, token)
+    .run();
+}
+
+export async function releaseClaimPeriodLock(
+  ownerId: string,
+  period: string,
+  token: string,
+): Promise<void> {
+  await database()
+    .prepare(
+      `DELETE FROM claim_period_locks
+       WHERE owner_id = ? AND period = ? AND token = ? AND status = 'preparing'
+         AND NOT EXISTS (
+           SELECT 1 FROM claim_snapshots
+           WHERE owner_id = ? AND period = ?
+         )`,
+    )
+    .bind(ownerId, period, token, ownerId, period)
+    .run();
 }
 
 export async function assertDateUnlocked(

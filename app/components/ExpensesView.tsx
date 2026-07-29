@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { restoreExpense } from "./api";
 import { ExpenseEditor } from "./ExpenseEditor";
 import { formatDate, formatMoney } from "./format";
 import { ReceiptAttachment } from "./ReceiptAttachment";
 import type { DashboardData, Expense, ViewName } from "./types";
-import { EmptyState, ViewHeader } from "./ui";
+import { EmptyState, StatusMessage, ViewHeader } from "./ui";
 
-type Filter = "all" | "august" | "needs-receipt" | "ready";
+type Filter = "all" | "august" | "needs-receipt" | "ready" | "deleted";
 
 export function ExpensesView({
   data,
@@ -21,10 +22,12 @@ export function ExpensesView({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<Expense | null>(null);
+  const [restoring, setRestoring] = useState("");
+  const [error, setError] = useState("");
   const expenses = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("en-GB");
-    return data.expenses
-      .filter((expense) => !expense.deletedAt)
+    const source = filter === "deleted" ? data.deletedExpenses : data.expenses;
+    return source
       .filter((expense) => {
         if (filter === "august" && !expense.date.startsWith("2026-08")) return false;
         if (filter === "needs-receipt" && expense.receiptStatus === "stored") return false;
@@ -44,7 +47,20 @@ export function ExpensesView({
         ].some((value) => value?.toLocaleLowerCase("en-GB").includes(needle));
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [data.attention, data.expenses, filter, query]);
+  }, [data.attention, data.deletedExpenses, data.expenses, filter, query]);
+
+  async function restore(id: string) {
+    setRestoring(id);
+    setError("");
+    try {
+      await restoreExpense(id);
+      await onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The expense could not be restored.");
+    } finally {
+      setRestoring("");
+    }
+  }
 
   return (
     <div className="view page-enter">
@@ -54,6 +70,7 @@ export function ExpensesView({
         detail="A chronological ledger of receipted duty expenditure."
         action={<button className="primary-button" type="button" onClick={() => navigate("capture")}>Add expense</button>}
       />
+      {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 
       <section className="ledger-toolbar" aria-label="Expense filters">
         <label className="search-field">
@@ -67,6 +84,7 @@ export function ExpensesView({
             ["august", "August"],
             ["needs-receipt", "Needs receipt"],
             ["ready", "Ready"],
+            ["deleted", `Deleted (${data.deletedExpenses.length})`],
           ] as Array<[Filter, string]>).map(([id, label]) => (
             <button key={id} type="button" className={filter === id ? "active" : ""} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>
           ))}
@@ -86,18 +104,22 @@ export function ExpensesView({
                   <small>{expense.reason || "Reason needed"}</small>
                 </div>
                 <span className={`state-label ${expense.receiptStatus === "stored" ? "success" : "warning"}`}>
-                  {expense.receiptStatus === "stored" ? "Receipt stored" : "Receipt needed"}
+                  {filter === "deleted" ? expense.locked ? "Claim locked" : "Recoverable" : expense.receiptStatus === "stored" ? "Receipt stored" : "Receipt needed"}
                 </span>
                 <div className="money-stack"><strong>{formatMoney(expense.eligibleAmountPence)}</strong>{expense.receiptTotalPence !== expense.eligibleAmountPence ? <small>of {formatMoney(expense.receiptTotalPence)}</small> : null}</div>
                 <div className="row-actions">
                   {expense.receiptStatus === "stored" ? <a className="round-button" href={expense.receiptUrl ?? `/api/expenses/${encodeURIComponent(expense.id)}/receipt`} target="_blank" rel="noreferrer" aria-label={`View receipt for ${expense.merchant}`}>↗</a> : null}
-                  {expense.receiptStatus !== "stored" ? (
+                  {filter !== "deleted" && expense.receiptStatus !== "stored" ? (
                     <ReceiptAttachment
                       expense={expense}
                       onChanged={onChanged}
                     />
                   ) : null}
-                  <button className="round-button" type="button" onClick={() => setSelected(expense)} aria-label={`Edit ${expense.merchant}`}>•••</button>
+                  {filter === "deleted" ? (
+                    <button className="text-button" type="button" title={expense.locked ? "Prepared claim records cannot be restored." : "Restore this expense"} disabled={expense.locked || restoring === expense.id} onClick={() => void restore(expense.id)}>{expense.locked ? "Locked" : restoring === expense.id ? "Restoring…" : "Restore"}</button>
+                  ) : (
+                    <button className="round-button" type="button" onClick={() => setSelected(expense)} aria-label={`Edit ${expense.merchant}`}>•••</button>
+                  )}
                 </div>
               </li>
             ))}
@@ -105,13 +127,13 @@ export function ExpensesView({
         </section>
       ) : (
         <EmptyState
-          title={data.expenses.length ? "No matching expenses" : "No expenses yet"}
-          action={data.expenses.length ? <button className="text-button" type="button" onClick={() => { setQuery(""); setFilter("all"); }}>Clear filters</button> : <button className="primary-button" type="button" onClick={() => navigate("capture")}>Capture a receipt</button>}
+          title={data.expenses.length || data.deletedExpenses.length ? "No matching expenses" : "No expenses yet"}
+          action={data.expenses.length || data.deletedExpenses.length ? <button className="text-button" type="button" onClick={() => { setQuery(""); setFilter("all"); }}>Clear filters</button> : <button className="primary-button" type="button" onClick={() => navigate("capture")}>Capture a receipt</button>}
         >
-          {data.expenses.length ? "Try a different term or readiness filter." : "Your first confirmed receipt will begin the ledger."}
+          {data.expenses.length || data.deletedExpenses.length ? "Try a different term or readiness filter." : "Your first confirmed receipt will begin the ledger."}
         </EmptyState>
       )}
-      {selected ? <ExpenseEditor expense={selected} onClose={() => setSelected(null)} onChanged={onChanged} /> : null}
+      {selected ? <ExpenseEditor expense={selected} trips={data.trips} onClose={() => setSelected(null)} onChanged={onChanged} /> : null}
     </div>
   );
 }

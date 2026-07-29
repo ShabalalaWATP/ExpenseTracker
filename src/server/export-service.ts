@@ -14,6 +14,7 @@ type ExpenseExportRow = {
   trip_id: string | null;
   meal_context: string | null;
   notes: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   receipt_id: string | null;
@@ -40,7 +41,8 @@ export async function buildJsonExport(principal: Principal) {
         `SELECT e.id, e.service_date, e.merchant, e.location,
                 e.business_reason, e.receipt_total_pence, e.eligible_pence,
                 e.gratuity_pence, e.currency, e.trip_id, e.meal_context,
-                e.notes, e.created_at, e.updated_at, r.id AS receipt_id,
+                e.notes, e.deleted_at, e.created_at, e.updated_at,
+                r.id AS receipt_id,
                 r.content_type AS receipt_content_type,
                 r.byte_size AS receipt_byte_size
          FROM expenses e
@@ -88,7 +90,7 @@ export async function buildJsonExport(principal: Principal) {
       ),
     ]);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
     policyScope: "JSP 752 UK Day Subsistence",
     expenses,
@@ -114,7 +116,8 @@ export async function buildCsvExport(
     `SELECT e.id, e.service_date, e.merchant, e.location,
             e.business_reason, e.receipt_total_pence, e.eligible_pence,
             e.gratuity_pence, e.currency, e.trip_id, e.meal_context,
-            e.notes, e.created_at, e.updated_at, r.id AS receipt_id,
+            e.notes, e.deleted_at, e.created_at, e.updated_at,
+            r.id AS receipt_id,
             r.content_type AS receipt_content_type,
             r.byte_size AS receipt_byte_size
      FROM expenses e
@@ -136,6 +139,7 @@ export async function buildCsvExport(
     "meal_context",
     "trip_id",
     "receipt_id",
+    "deleted_at",
     "created_at",
   ];
   const lines = expenses.map((expense) =>
@@ -151,6 +155,7 @@ export async function buildCsvExport(
       expense.meal_context,
       expense.trip_id,
       expense.receipt_id,
+      expense.deleted_at,
       expense.created_at,
     ]
       .map(safeCell)

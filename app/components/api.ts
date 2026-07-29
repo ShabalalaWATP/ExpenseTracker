@@ -38,6 +38,7 @@ function normaliseExpense(value: unknown): Expense {
     eligibleAmountPence: integer(
       item.eligibleAmountPence ?? item.eligiblePence ?? item.amountPence,
     ),
+    gratuityPence: integer(item.gratuityPence),
     claimableAmountPence: Number.isSafeInteger(claimable)
       ? (claimable as number)
       : undefined,
@@ -117,6 +118,9 @@ export function normaliseDashboard(value: unknown): DashboardData {
   const attentionSource =
     root.attention ?? root.attentionItems ?? readiness.issues;
   const expenses = Array.isArray(root.expenses) ? root.expenses : [];
+  const deletedExpenses = Array.isArray(root.deletedExpenses)
+    ? root.deletedExpenses
+    : [];
   const trips = Array.isArray(root.trips) ? root.trips : [];
   const claims = Array.isArray(root.claims) ? root.claims : [];
   const calculation = record(root.calculation);
@@ -156,9 +160,16 @@ export function normaliseDashboard(value: unknown): DashboardData {
       ? attentionSource.map((value) => {
           const item = record(value);
           return {
-            id: text(item.expenseId ?? item.tripId ?? item.id) || undefined,
+            id:
+              text(item.expenseId ?? item.intakeId ?? item.tripId ?? item.id) ||
+              undefined,
             title: text(item.title ?? item.message ?? item.code, "Needs attention"),
             detail: text(item.detail ?? item.description) || undefined,
+            view: text(item.intakeId)
+              ? "capture"
+              : text(item.tripId) && !text(item.expenseId)
+                ? "trips"
+                : "expenses",
           };
         })
       : [],
@@ -167,6 +178,7 @@ export function normaliseDashboard(value: unknown): DashboardData {
       claimableAmountPence:
         claimableByExpense.get(expense.id) ?? expense.claimableAmountPence,
     })),
+    deletedExpenses: deletedExpenses.map(normaliseExpense),
     trips: trips.map(normaliseTrip),
     claims: claims.map(normaliseClaim),
   };
@@ -207,7 +219,7 @@ export async function createExpense(draft: ExpenseDraft): Promise<Expense> {
       businessReason: draft.reason,
       receiptTotalPence: draft.receiptTotalPence,
       eligiblePence: draft.eligibleAmountPence,
-      gratuityPence: 0,
+      gratuityPence: draft.gratuityPence ?? 0,
       currency: "GBP",
       country: "GB",
       tripId: draft.tripId || null,
@@ -250,6 +262,9 @@ export async function updateExpense(
   if (changes.receiptTotalPence !== undefined) {
     patch.receiptTotalPence = changes.receiptTotalPence;
   }
+  if (changes.gratuityPence !== undefined) {
+    patch.gratuityPence = changes.gratuityPence;
+  }
   if (changes.location !== undefined) patch.location = changes.location;
   if (changes.reason !== undefined) patch.businessReason = changes.reason;
   if (changes.tripId !== undefined) patch.tripId = changes.tripId || null;
@@ -265,6 +280,12 @@ export async function updateExpense(
 
 export async function deleteExpense(id: string): Promise<void> {
   await request(`/api/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function restoreExpense(id: string): Promise<void> {
+  await request(`/api/expenses/${encodeURIComponent(id)}/restore`, {
+    method: "POST",
+  });
 }
 
 export async function createTrip(draft: TripDraft): Promise<void> {

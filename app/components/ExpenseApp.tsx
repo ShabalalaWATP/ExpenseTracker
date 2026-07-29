@@ -200,6 +200,7 @@ export function ExpenseApp() {
         {selectedExpense ? (
           <ExpenseEditor
             expense={selectedExpense}
+            trips={data.trips}
             onClose={() => setSelectedExpense(null)}
             onChanged={changed}
           />

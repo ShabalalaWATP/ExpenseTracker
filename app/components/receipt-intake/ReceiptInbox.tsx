@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import type { DashboardData } from "../types";
 import { IntakeDefaults } from "./IntakeDefaults";
@@ -21,15 +20,12 @@ import type {
   ReceiptIntake,
 } from "./types";
 import { UploadActions } from "./UploadActions";
-
 const MAX_BATCH = 20;
-
 function identifier() {
   return typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
-
 export function ReceiptInbox({
   data,
   initialDate,
@@ -55,7 +51,6 @@ export function ReceiptInbox({
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   useEffect(() => {
     let current = true;
     void Promise.allSettled([listIntakes(), getAiStatus()]).then(
@@ -70,7 +65,7 @@ export function ReceiptInbox({
         else {
           setAi({
             configured: false,
-            models: { chat: "", receipt: "", realtime: "", transcription: "" },
+            models: { receipt: "", realtime: "", transcription: "" },
             voice: "",
             privacy: "",
           });
@@ -82,13 +77,11 @@ export function ReceiptInbox({
       current = false;
     };
   }, []);
-
   function updateLocal(id: string, changes: Partial<LocalUpload>) {
     setLocalUploads((items) =>
       items.map((item) => (item.id === id ? { ...item, ...changes } : item)),
     );
   }
-
   function updateIntake(next: ReceiptIntake) {
     setIntakes((items) => {
       const exists = items.some((item) => item.id === next.id);
@@ -97,7 +90,12 @@ export function ReceiptInbox({
         : [next, ...items];
     });
   }
-
+  async function confirmed(id: string) {
+    const pending = intakes.filter((item) => item.id !== id);
+    setIntakes(pending);
+    setSelectedId(pending[0]?.id ?? "");
+    await onSaved();
+  }
   async function processFile(
     local: LocalUpload,
     batchId: string,
@@ -338,7 +336,7 @@ export function ReceiptInbox({
                   onUpdate={updateIntake}
                   onRetryAnalysis={() => void retryAnalysis(intake)}
                   onReanalyse={() => void reanalyse(intake)}
-                  onConfirmed={onSaved}
+                  onConfirmed={() => confirmed(intake.id)}
                 />
               </QueueItem>
             ))}

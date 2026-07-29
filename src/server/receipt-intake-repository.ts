@@ -1,5 +1,8 @@
 import { getReceiptsBucket } from "@/db";
-import { auditStatement } from "./audit-repository";
+import {
+  auditStatement,
+  auditStatementAfterChange,
+} from "./audit-repository";
 import { database, ensureSchema } from "./db";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
@@ -21,6 +24,7 @@ import {
   receiptSha256,
   validIntakeIdempotencyKey,
 } from "./receipt-intake-storage";
+import { deleteReceiptIntakeAfterRecord } from "./receipt-intake-deletion";
 
 function stringArray(value: string): string[] {
   try {
@@ -67,11 +71,29 @@ export async function listReceiptIntakes(principal: Principal) {
   const result = await database()
     .prepare(
       `SELECT * FROM receipt_intakes
-       WHERE owner_id = ?
+       WHERE owner_id = ? AND status <> 'confirmed'
        ORDER BY updated_at DESC
        LIMIT 100`,
     )
     .bind(principal.ownerId)
+    .all<ReceiptIntakeRow>();
+  return result.results.map(publicIntake);
+}
+
+export async function listClaimBlockingReceiptIntakes(
+  principal: Principal,
+  period: string,
+) {
+  await ensureSchema();
+  const result = await database()
+    .prepare(
+      `SELECT * FROM receipt_intakes
+       WHERE owner_id = ?
+         AND status <> 'confirmed'
+         AND (service_date IS NULL OR service_date LIKE ?)
+       ORDER BY updated_at DESC`,
+    )
+    .bind(principal.ownerId, `${period}-%`)
     .all<ReceiptIntakeRow>();
   return result.results.map(publicIntake);
 }
@@ -308,23 +330,24 @@ export async function deleteReceiptIntake(
       "Wait for receipt analysis to finish before removing it.",
     );
   }
-  const bucket = getReceiptsBucket();
-  await Promise.all([
-    bucket.delete(row.original_object_key),
-    row.analysis_object_key
-      ? bucket.delete(row.analysis_object_key)
-      : Promise.resolve(),
-  ]);
-  await database().batch([
-    database()
-      .prepare("DELETE FROM receipt_intakes WHERE owner_id = ? AND id = ?")
-      .bind(principal.ownerId, id),
-    auditStatement(principal, {
-      action: "receipt_intake.deleted",
-      entityType: "receipt_intake",
-      entityId: id,
-    }),
-  ]);
+  await deleteReceiptIntakeAfterRecord(
+    {
+      originalObjectKey: row.original_object_key,
+      analysisObjectKey: row.analysis_object_key,
+    },
+    () =>
+      database().batch([
+        database()
+          .prepare("DELETE FROM receipt_intakes WHERE owner_id = ? AND id = ?")
+          .bind(principal.ownerId, id),
+        auditStatementAfterChange(principal, {
+          action: "receipt_intake.deleted",
+          entityType: "receipt_intake",
+          entityId: id,
+        }),
+      ]),
+    getReceiptsBucket(),
+  );
 }
 
 export async function receiptIntakeObject(

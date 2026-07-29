@@ -28,6 +28,18 @@ test("builds the ExpenseTracker worker and branded client assets", async () => {
   );
   await access(
     new URL(
+      "../dist/.openai/drizzle/0002_dapper_speedball.sql",
+      import.meta.url,
+    ),
+  );
+  await access(
+    new URL(
+      "../dist/.openai/drizzle/0003_neat_runaways.sql",
+      import.meta.url,
+    ),
+  );
+  await access(
+    new URL(
       "../dist/.openai/drizzle/0001_good_zzzax.sql",
       import.meta.url,
     ),
@@ -65,4 +77,49 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
   assert.equal(hostingConfig.d1, "DB");
   assert.equal(hostingConfig.r2, "RECEIPTS");
   assert.match(hostingConfig.project_id, /^appgprj_/);
+});
+
+test("packages recoverable evidence and an operational receipt inbox", async () => {
+  const [
+    expenseRepository,
+    deleteRoute,
+    restoreRoute,
+    intakeRepository,
+    dashboard,
+    intakeStyles,
+    receiptRoute,
+    runtimeConfig,
+    exportService,
+    claimRoute,
+    claimLockSchema,
+  ] = await Promise.all([
+    readFile(new URL("../src/server/expense-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/expenses/[id]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/expenses/[id]/restore/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/receipt-intake-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/dashboard.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/styles/intake.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/receipts/[id]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/runtime-config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/export-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/claims/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/server/claim-lock-schema.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(expenseRepository, /SET deleted_at = strftime/);
+  assert.match(expenseRepository, /SET deleted_at = NULL/);
+  assert.doesNotMatch(expenseRepository, /DELETE FROM expenses/);
+  assert.doesNotMatch(deleteRoute, /removeReceiptObjects/);
+  assert.match(restoreRoute, /requireSameOrigin\(request\)/);
+  assert.match(restoreRoute, /requirePrincipal\(\)/);
+  assert.match(intakeRepository, /status <> 'confirmed'/);
+  assert.match(dashboard, /receipt_intake_pending/);
+  assert.doesNotMatch(intakeStyles, /\.review-receipt\s*\{\s*display:\s*none/);
+  assert.match(receiptRoute, /searchParams\.get\("download"\) === "1"/);
+  assert.doesNotMatch(runtimeConfig, /OPENAI_CHAT_MODEL/);
+  assert.match(exportService, /e\.deleted_at/);
+  assert.match(exportService, /"deleted_at"/);
+  assert.match(claimRoute, /acquireClaimPeriodLock/);
+  assert.match(claimRoute, /finaliseClaimPeriodLock/);
+  assert.match(claimLockSchema, /RAISE\(ABORT, 'claim_period_locked'\)/);
 });

@@ -15,7 +15,9 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Stores expense and trip records in D1 and receipt images in private R2.
 - Applies a £30 allowance for each confirmed eligible day.
 - Supports JSP 752 aggregation for trips of at least two nights.
-- Excludes separately identified gratuities from the claimable amount.
+- Includes permitted gratuities and service charges within the £30 limit.
+- Keeps deletions recoverable without removing private receipt evidence.
+- Provides copy-ready where-and-why text and receipt downloads for submission.
 - Prepares an immutable August claim snapshot and records submission status.
 - Provides protected JSON and CSV exports plus a minimal audit history.
 

@@ -26,6 +26,29 @@ export function auditStatement(principal: Principal, input: AuditInput) {
     );
 }
 
+export function auditStatementAfterChange(
+  principal: Principal,
+  input: AuditInput,
+) {
+  return database()
+    .prepare(
+      `INSERT INTO audit_events (
+        id, owner_id, actor_hash, action, entity_type, entity_id, metadata_json
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?
+      WHERE changes() > 0`,
+    )
+    .bind(
+      crypto.randomUUID(),
+      principal.ownerId,
+      principal.actorHash,
+      input.action,
+      input.entityType,
+      input.entityId,
+      JSON.stringify(input.metadata ?? {}),
+    );
+}
+
 export async function recordAudit(
   principal: Principal,
   input: AuditInput,

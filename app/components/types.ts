@@ -21,6 +21,7 @@ export interface Expense {
   merchant: string;
   receiptTotalPence: number;
   eligibleAmountPence: number;
+  gratuityPence?: number;
   claimableAmountPence?: number;
   country: string;
   location: string;
@@ -67,8 +68,14 @@ export interface DashboardData {
   claimablePence: number;
   excessPence: number;
   claimReady: boolean;
-  attention: Array<{ id?: string; title: string; detail?: string }>;
+  attention: Array<{
+    id?: string;
+    title: string;
+    detail?: string;
+    view?: ViewName;
+  }>;
   expenses: Expense[];
+  deletedExpenses: Expense[];
   trips: Trip[];
   claims: Claim[];
 }
@@ -78,6 +85,7 @@ export interface ExpenseDraft {
   merchant: string;
   receiptTotalPence: number;
   eligibleAmountPence: number;
+  gratuityPence?: number;
   country: "GB";
   location: string;
   reason: string;

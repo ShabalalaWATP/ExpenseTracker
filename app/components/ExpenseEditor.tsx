@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { deleteExpense, updateExpense } from "./api";
 import { parsePence, penceInput } from "./format";
-import type { Expense } from "./types";
+import type { Expense, MealContext, Trip } from "./types";
 import { Field, StatusMessage } from "./ui";
 
 export function ExpenseEditor({
   expense,
+  trips,
   onClose,
   onChanged,
 }: {
   expense: Expense;
+  trips: Trip[];
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -19,8 +21,15 @@ export function ExpenseEditor({
   const [merchant, setMerchant] = useState(expense.merchant);
   const [total, setTotal] = useState(penceInput(expense.receiptTotalPence));
   const [eligible, setEligible] = useState(penceInput(expense.eligibleAmountPence));
+  const [gratuity, setGratuity] = useState(
+    penceInput(expense.gratuityPence ?? 0),
+  );
   const [location, setLocation] = useState(expense.location);
   const [reason, setReason] = useState(expense.reason);
+  const [mealContext, setMealContext] = useState<MealContext>(
+    expense.mealContext ?? "",
+  );
+  const [tripId, setTripId] = useState(expense.tripId ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -33,6 +42,7 @@ export function ExpenseEditor({
     event.preventDefault();
     const totalPence = parsePence(total);
     const eligiblePence = parsePence(eligible);
+    const gratuityPence = parsePence(gratuity);
     if (
       !merchant.trim() ||
       !date ||
@@ -40,7 +50,9 @@ export function ExpenseEditor({
       !reason.trim() ||
       totalPence <= 0 ||
       eligiblePence <= 0 ||
-      eligiblePence > totalPence
+      eligiblePence > totalPence ||
+      gratuityPence < 0 ||
+      gratuityPence > eligiblePence
     ) {
       setError("Check the required fields and make sure the eligible amount does not exceed the total.");
       return;
@@ -53,9 +65,12 @@ export function ExpenseEditor({
         merchant: merchant.trim(),
         receiptTotalPence: totalPence,
         eligibleAmountPence: eligiblePence,
+        gratuityPence,
         country: "GB",
         location: location.trim(),
         reason: reason.trim(),
+        mealContext,
+        tripId,
       });
       await onChanged();
       onClose();
@@ -67,7 +82,7 @@ export function ExpenseEditor({
   }
 
   async function remove() {
-    if (!window.confirm(`Delete the unsubmitted expense from ${expense.merchant}?`)) return;
+    if (!window.confirm(`Move the unsubmitted expense from ${expense.merchant} to Recently deleted? Its receipt will be kept.`)) return;
     setSaving(true);
     setError("");
     try {
@@ -100,10 +115,29 @@ export function ExpenseEditor({
             <Field label="Receipt total" required><div className="money-input"><span>£</span><input inputMode="decimal" value={total} onChange={(event) => setTotal(event.target.value)} /></div></Field>
             <Field label="Eligible" required><div className="money-input"><span>£</span><input inputMode="decimal" value={eligible} onChange={(event) => setEligible(event.target.value)} /></div></Field>
           </div>
+          <Field label="Service charge or tip" hint="Included in the eligible amount and subject to the £30 daily limit."><div className="money-input"><span>£</span><input inputMode="decimal" value={gratuity} onChange={(event) => setGratuity(event.target.value)} /></div></Field>
           <Field label="Location" required><input value={location} onChange={(event) => setLocation(event.target.value)} /></Field>
           <Field label="Why was it necessary?" required><textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
+          <div className="two-fields">
+            <Field label="Meal context">
+              <select value={mealContext} onChange={(event) => setMealContext(event.target.value as MealContext)}>
+                <option value="">Not labelled</option>
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Evening meal</option>
+                <option value="snack">Snack</option>
+                <option value="mixed">Mixed</option>
+              </select>
+            </Field>
+            <Field label="Trip">
+              <select value={tripId} onChange={(event) => setTripId(event.target.value)}>
+                <option value="">No linked trip</option>
+                {trips.map((trip) => <option key={trip.id} value={trip.id}>{trip.title}</option>)}
+              </select>
+            </Field>
+          </div>
           <div className="form-actions split">
-            <button className="danger-button" type="button" onClick={() => void remove()} disabled={saving}>Delete</button>
+            <button className="danger-button" type="button" onClick={() => void remove()} disabled={saving}>Move to deleted</button>
             <button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
           </div>
         </form>

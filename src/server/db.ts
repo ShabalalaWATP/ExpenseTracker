@@ -1,4 +1,5 @@
 import { getD1 } from "@/db";
+import { claimLockSchemaStatements } from "./claim-lock-schema";
 
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS trips (
@@ -41,11 +42,13 @@ const schemaStatements = [
     trip_id TEXT REFERENCES trips(id) ON DELETE SET NULL,
     meal_context TEXT,
     notes TEXT,
+    deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   )`,
   `CREATE INDEX IF NOT EXISTS expenses_owner_date_idx ON expenses (owner_id, service_date)`,
   `CREATE INDEX IF NOT EXISTS expenses_owner_trip_idx ON expenses (owner_id, trip_id)`,
+  `CREATE INDEX IF NOT EXISTS expenses_owner_deleted_idx ON expenses (owner_id, deleted_at)`,
   `CREATE TABLE IF NOT EXISTS receipts (
     id TEXT PRIMARY KEY NOT NULL,
     owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
@@ -136,6 +139,7 @@ const schemaStatements = [
     ON audit_events (owner_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS audit_events_owner_entity_idx
     ON audit_events (owner_id, entity_type, entity_id)`,
+  ...claimLockSchemaStatements,
 ] as const;
 
 let schemaPromise: Promise<void> | null = null;

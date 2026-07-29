@@ -119,12 +119,20 @@ export async function attachReceipt(
   }
   const expense = await db
     .prepare(
-      "SELECT id, service_date FROM expenses WHERE owner_id = ? AND id = ?",
+      `SELECT id, service_date, deleted_at
+       FROM expenses WHERE owner_id = ? AND id = ?`,
     )
     .bind(principal.ownerId, expenseId)
-    .first<{ id: string; service_date: string }>();
+    .first<{ id: string; service_date: string; deleted_at: string | null }>();
   if (!expense) {
     throw new ApiError(404, "not_found", "The expense was not found.");
+  }
+  if (expense.deleted_at) {
+    throw new ApiError(
+      409,
+      "expense_deleted",
+      "Restore this expense before attaching a receipt.",
+    );
   }
   await assertDateUnlocked(principal.ownerId, expense.service_date);
   const existing = await db

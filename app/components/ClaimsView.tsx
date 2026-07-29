@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { prepareClaim, submitClaim } from "./api";
+import {
+  augustClaimExpenses,
+  claimDescription,
+  claimHandoffText,
+} from "./claim-handoff";
 import { formatDate, formatMoney } from "./format";
 import type { DashboardData, ViewName } from "./types";
 import { EmptyState, StatusMessage, ViewHeader } from "./ui";
@@ -18,9 +23,21 @@ export function ClaimsView({
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState("");
   const currentClaim = [...data.claims]
     .filter((claim) => !claim.period || claim.period === "2026-08")
     .sort((a, b) => (b.preparedAt ?? "").localeCompare(a.preparedAt ?? ""))[0];
+  const handoffExpenses = augustClaimExpenses(data.expenses);
+
+  async function copy(text: string, label: string) {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+    } catch {
+      setError("Safari could not copy this text. Select the description and copy it manually.");
+    }
+  }
 
   async function prepare() {
     setBusy("prepare");
@@ -82,7 +99,7 @@ export function ClaimsView({
           {data.attention.length ? (
             <ol className="readiness-list">
               {data.attention.map((item, index) => (
-                <li key={item.id ?? index}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong>{item.detail ? <p>{item.detail}</p> : null}</div><button type="button" className="text-button" onClick={() => navigate("expenses")}>Review</button></li>
+                <li key={item.id ?? index}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong>{item.detail ? <p>{item.detail}</p> : null}</div><button type="button" className="text-button" onClick={() => navigate(item.view ?? "expenses")}>Review</button></li>
               ))}
             </ol>
           ) : (
@@ -112,6 +129,43 @@ export function ClaimsView({
           )}
         </section>
       </div>
+
+      {handoffExpenses.length ? (
+        <section className="submission-pack" aria-labelledby="submission-pack-heading">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Receipt photos and descriptions</p>
+              <h2 id="submission-pack-heading">August submission pack</h2>
+            </div>
+            <button className="text-button" type="button" onClick={() => void copy(claimHandoffText(handoffExpenses), "all")}>
+              {copied === "all" ? "Copied all" : "Copy all descriptions"}
+            </button>
+          </div>
+          <p className="handoff-copy">Each item keeps the exact receipt photo with a copy-ready description of where you were and why.</p>
+          <ol className="submission-list">
+            {handoffExpenses.map((expense) => {
+              const description = claimDescription(expense);
+              const receiptUrl = expense.receiptUrl;
+              return (
+                <li key={expense.id}>
+                  <div>
+                    <span>{formatDate(expense.date)}</span>
+                    <strong>{expense.merchant} · {formatMoney(expense.eligibleAmountPence)}</strong>
+                    <p>{description || "Location or duty reason still needs attention."}</p>
+                  </div>
+                  <div className="submission-actions">
+                    <button type="button" className="text-button" disabled={!description} onClick={() => void copy(description, expense.id)}>
+                      {copied === expense.id ? "Copied" : "Copy where and why"}
+                    </button>
+                    {receiptUrl ? <a className="text-button" href={receiptUrl} target="_blank" rel="noreferrer">View receipt</a> : null}
+                    {receiptUrl ? <a className="text-button" href={`${receiptUrl}?download=1`}>Download photo</a> : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
     </div>
   );
 }

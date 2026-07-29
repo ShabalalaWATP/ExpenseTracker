@@ -7,7 +7,7 @@ This document records meaningful implementation milestones, decisions and verifi
 - Established ExpenseTracker as a private OpenAI Sites application using Vinext, keeping access and personal expense evidence within the intended private site boundary.
 - Built an iPhone-first responsive interface for capturing receipts, reviewing daily allowance, managing trips and expenses, preparing claims, and inspecting settings. Desktop layouts remain supported without displacing the mobile workflow.
 - Added Cloudflare D1 persistence for trips, expenses and prepared claims, with R2 storage for receipt evidence. Receipt responses are explicitly private and non-cacheable.
-- Implemented UK Day Subsistence calculations for JSP 752 v66.1. The policy applies a £30 daily cap, claims qualifying actual spend, excludes separately identified gratuities, requires receipt and eligibility evidence, and permits aggregation only for trips of at least two nights.
+- Implemented UK Day Subsistence calculations for JSP 752 v66.1. The policy applies a £30 daily cap, claims qualifying actual spend including permitted gratuities and service charges, requires receipt and eligibility evidence, and permits aggregation only for trips of at least two nights.
 - Added the ExpenseTracker logo, application icons and branded Open Graph image so installed and shared representations use the same visual identity as the product.
 - Added focused policy tests covering daily caps, aggregation eligibility, evidence requirements, gratuities and jurisdiction, plus rendered-output checks for worker routes, migrations, private-ready configuration and branded assets.
 - Completed independent quality and security reviews. The resulting hardening added standalone daily claims, prepared-period evidence locks, cross-period aggregate review, repeatable receipt-upload idempotency, server-derived Today figures, blank-MIME iPhone upload support and anti-framing response headers.
@@ -79,3 +79,34 @@ This document records meaningful implementation milestones, decisions and verifi
   with Capture as the safe fallback for a direct Settings link.
 - Live owner-side testing caught and fixed the root-history edge case where
   closing Settings changed the URL but left the Settings view rendered.
+- Audited the capture, correction, claim and recovery paths against measurable
+  definition-of-done goals. The release remains a provisional beta until route
+  integration, real iPhone, extraction-accuracy and recovery gates are proven.
+- Corrected two policy defects against official JSP 752 v66.1: gratuities and
+  service charges now remain claimable within the allowance, and standalone or
+  overlapping non-aggregate records can no longer multiply the £30 cap for one
+  date.
+- Kept the receipt image visible during narrow-screen review, exposed required
+  where-and-why context before batch capture, removed confirmed receipts from
+  the operational inbox and blocked claim preparation while a relevant receipt
+  remains unconfirmed.
+- Completed expense correction for service charge or tip, meal context and trip
+  linkage. Replaced destructive expense deletion with owner-scoped soft delete,
+  Recently deleted and restore while retaining D1 metadata and private R2
+  evidence.
+- Added an August submission pack with copy-ready descriptions and private
+  receipt View and Download actions. Added the additive `deleted_at` migration,
+  migration preservation checks and claim-handoff regression tests.
+- Verified the improvement source with TypeScript, ESLint, the production Sites
+  build, all 32 automated tests, migration preservation and a production
+  dependency audit reporting zero known vulnerabilities.
+- Added a database-enforced claim-period lock acquired before snapshot figures
+  are read. D1 triggers now reject any racing expense, receipt, receipt-intake
+  or trip mutation, and a timed recovery path clears an abandoned preparation
+  lock when no snapshot was created.
+- Separated the complete claim-readiness query from the paginated receipt inbox,
+  blocked attachments to deleted expenses and made soft-delete/restore audit
+  events conditional on a real state transition.
+- Reordered staged-receipt deletion so the trigger-protected D1 transition must
+  succeed before R2 cleanup. A regression proves a claim-lock rejection
+  preserves both the intake row and every receipt object.

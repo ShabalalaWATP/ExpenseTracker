@@ -1,4 +1,5 @@
 export const MAX_ANALYSIS_DIMENSION = 4096;
+export const MAX_ANALYSIS_PIXELS = 12_000_000;
 const JPEG_QUALITY = 0.92;
 const MAX_ANALYSIS_BYTES = 9 * 1_048_576;
 const MAX_RECEIPT_BYTES = 20 * 1_048_576;
@@ -40,6 +41,7 @@ export async function normaliseReceipt(file: File): Promise<Blob> {
     const scale = Math.min(
       1,
       MAX_ANALYSIS_DIMENSION / Math.max(width, height),
+      Math.sqrt(MAX_ANALYSIS_PIXELS / (width * height)),
     );
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(width * scale));
@@ -65,7 +67,13 @@ export async function normaliseReceipt(file: File): Promise<Blob> {
     }
     return blob;
   } finally {
-    if (source instanceof ImageBitmap) source.close();
-    else URL.revokeObjectURL(source.src);
+    if (
+      typeof ImageBitmap !== "undefined" &&
+      source instanceof ImageBitmap
+    ) {
+      source.close();
+    } else {
+      URL.revokeObjectURL((source as HTMLImageElement).src);
+    }
   }
 }

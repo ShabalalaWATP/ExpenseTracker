@@ -1,7 +1,6 @@
 import { getRuntimeEnv } from "@/db";
 
 export const DEFAULT_MODELS = Object.freeze({
-  chat: "gpt-5.6-sol",
   receipt: "gpt-5.6-sol",
   realtime: "gpt-realtime-2.1",
   transcription: "gpt-realtime-whisper",
@@ -20,7 +19,6 @@ export function runtimeConfig() {
     ownerEmail: value(env.EXPENSETRACKER_OWNER_EMAIL).toLowerCase(),
     openAiApiKey: value(env.OPENAI_API_KEY),
     models: {
-      chat: value(env.OPENAI_CHAT_MODEL, DEFAULT_MODELS.chat),
       receipt: value(env.OPENAI_RECEIPT_MODEL, DEFAULT_MODELS.receipt),
       realtime: value(env.OPENAI_REALTIME_MODEL, DEFAULT_MODELS.realtime),
       transcription: value(

@@ -34,11 +34,30 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   `);
 
   apply(db, await migration("0001_good_zzzax.sql"));
+  apply(db, await migration("0002_dapper_speedball.sql"));
+  db.exec(`
+    INSERT INTO receipts
+      (id, owner_id, expense_id, object_key, content_type, byte_size, sha256,
+       idempotency_key)
+    VALUES
+      ('receipt-1', 'singleton-owner', 'expense-1', 'receipts/receipt-1.jpg',
+       'image/jpeg', 128, 'synthetic-sha', 'synthetic-idempotency');
+    UPDATE expenses
+      SET deleted_at = '2026-07-29T12:00:00.000Z'
+      WHERE id = 'expense-1';
+  `);
+  assert.equal(
+    db.prepare("SELECT COUNT(*) AS count FROM receipts").get().count,
+    1,
+  );
+  db.exec("UPDATE expenses SET deleted_at = NULL WHERE id = 'expense-1'");
+  apply(db, await migration("0003_neat_runaways.sql"));
 
   const expense = db
-    .prepare("SELECT owner_id FROM expenses WHERE id = 'expense-1'")
+    .prepare("SELECT owner_id, deleted_at FROM expenses WHERE id = 'expense-1'")
     .get();
   assert.equal(expense.owner_id, "singleton-owner");
+  assert.equal(expense.deleted_at, null);
   assert.equal(
     db
       .prepare(
@@ -54,6 +73,46 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
       )
       .get().count,
     1,
+  );
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name = 'expenses_owner_deleted_idx'",
+      )
+      .get().count,
+    1,
+  );
+  db.exec(`
+    INSERT INTO claim_period_locks
+      (id, owner_id, period, status, token)
+    VALUES
+      ('lock-1', 'singleton-owner', '2026-08', 'preparing', 'token-1');
+  `);
+  assert.throws(
+    () =>
+      db.exec(
+        "UPDATE expenses SET merchant = 'Changed' WHERE id = 'expense-1'",
+      ),
+    /claim_period_locked/,
+  );
+  assert.throws(
+    () =>
+      db.exec(`
+        INSERT INTO receipt_intakes
+          (id, owner_id, batch_id, status, original_name,
+           original_object_key, content_type, byte_size, sha256,
+           idempotency_key, service_date)
+        VALUES
+          ('undated-intake', 'singleton-owner', 'batch-1', 'uploaded',
+           'receipt.jpg', 'intakes/receipt.jpg', 'image/jpeg', 128,
+           'undated-sha', 'undated-idempotency', NULL)
+      `),
+    /claim_period_locked/,
+  );
+  assert.equal(
+    db.prepare("SELECT merchant FROM expenses WHERE id = 'expense-1'").get()
+      .merchant,
+    "Synthetic café",
   );
   db.close();
 });

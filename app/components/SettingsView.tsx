@@ -11,7 +11,6 @@ import { StatusMessage, ViewHeader } from "./ui";
 type AiStatus = {
   configured: boolean;
   models: {
-    chat: string;
     receipt: string;
     realtime: string;
     transcription: string;
@@ -195,6 +194,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
               <dl className="policy-details">
                 <div><dt>Source</dt><dd>JSP 752 v66.1, May 2026</dd></div>
                 <div><dt>Daily limit</dt><dd>£30.00 from 1 April 2026</dd></div>
+                <div><dt>Service charge or tip</dt><dd>Permitted within the same £30 limit</dd></div>
                 <div><dt>Currency and country</dt><dd>GBP · United Kingdom (GB)</dd></div>
                 <div><dt>Aggregation</dt><dd>Available for trips of two nights or more</dd></div>
               </dl>

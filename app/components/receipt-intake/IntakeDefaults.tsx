@@ -20,14 +20,13 @@ export function IntakeDefaults({
   }
 
   return (
-    <details className="intake-defaults">
-      <summary>
+    <section className="intake-defaults" aria-labelledby="intake-context-heading">
+      <div className="intake-default-heading">
         <span>
-          <strong>Shared details</strong>
-          <small>Applied to every photo in the next batch</small>
+          <strong id="intake-context-heading">Where and why</strong>
+          <small>Required context, applied to every photo in this batch</small>
         </span>
-        <span aria-hidden="true">⌄</span>
-      </summary>
+      </div>
       <div className="intake-default-fields">
         <label>
           <span>Claim date</span>
@@ -86,6 +85,6 @@ export function IntakeDefaults({
           </select>
         </label>
       </div>
-    </details>
+    </section>
   );
 }

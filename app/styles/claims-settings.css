@@ -81,6 +81,27 @@
   color: var(--muted);
 }
 
+.submission-pack {
+  margin-top: 52px; padding-top: 30px; border-top: 1px solid var(--line);
+}
+.submission-pack > .handoff-copy { max-width: 680px; color: var(--muted); }
+.submission-list { margin: 22px 0 0; padding: 0; list-style: none; }
+.submission-list li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px;
+  padding: 20px 0; border-top: 1px solid var(--line);
+}
+.submission-list li > div:first-child { display: grid; gap: 4px; }
+.submission-list span { color: var(--muted); font-size: .72rem; }
+.submission-list p { margin: 2px 0 0; color: var(--muted); }
+.submission-actions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px;
+}
+
+@media (max-width: 680px) {
+  .submission-list li { grid-template-columns: 1fr; gap: 14px; }
+  .submission-actions { justify-content: flex-start; }
+}
+
 .full-button {
   width: 100%;
   margin-top: 16px;

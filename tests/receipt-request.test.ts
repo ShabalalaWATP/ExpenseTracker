@@ -18,6 +18,7 @@ test("receipt requests prioritise frontier reading quality", () => {
   assert.equal(body.input[0].content[1].detail, "original");
   assert.equal(body.max_output_tokens, 8_000);
   assert.match(body.instructions, /Never apply the £30 allowance/);
+  assert.match(body.instructions, /Include any eligible gratuity/);
   assert.match(body.instructions, /Reconcile items, discounts/);
   assert.equal(body.text.format.strict, true);
 });

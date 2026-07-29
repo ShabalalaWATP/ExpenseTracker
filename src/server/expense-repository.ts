@@ -3,14 +3,16 @@ import { assertDateUnlocked } from "./claim-locks";
 import { database, ensureSchema } from "./db";
 import { mapExpense, type ExpenseRow } from "./models";
 import type { Principal } from "./principal";
-import { auditStatement } from "./audit-repository";
+import {
+  auditStatementAfterChange,
+} from "./audit-repository";
 import type { ExpenseWrite } from "./validation";
 
 const expenseSelect = `SELECT
   e.id, e.service_date, e.merchant, e.location, e.business_reason,
   e.receipt_total_pence, e.eligible_pence, e.gratuity_pence,
   e.currency, e.country, e.trip_id, e.meal_context, e.notes,
-  e.created_at, e.updated_at,
+  e.deleted_at, e.created_at, e.updated_at,
   r.id AS receipt_id, r.content_type, r.byte_size,
   r.created_at AS receipt_created_at
 FROM expenses e
@@ -38,18 +40,33 @@ export async function listExpenses(principal: Principal, period?: string) {
     ? database()
         .prepare(
           `${expenseSelect}
-           WHERE e.owner_id = ? AND e.service_date LIKE ?
+           WHERE e.owner_id = ? AND e.deleted_at IS NULL
+             AND e.service_date LIKE ?
            ORDER BY e.service_date DESC, e.created_at DESC`,
         )
         .bind(principal.ownerId, `${period}-%`)
     : database()
         .prepare(
           `${expenseSelect}
-           WHERE e.owner_id = ?
+           WHERE e.owner_id = ? AND e.deleted_at IS NULL
            ORDER BY e.service_date DESC, e.created_at DESC`,
         )
         .bind(principal.ownerId);
   const result = await query.all<ExpenseRow>();
+  return result.results.map(mapExpense);
+}
+
+export async function listDeletedExpenses(principal: Principal) {
+  await ensureSchema();
+  const result = await database()
+    .prepare(
+      `${expenseSelect}
+       WHERE e.owner_id = ? AND e.deleted_at IS NOT NULL
+       ORDER BY e.deleted_at DESC
+       LIMIT 100`,
+    )
+    .bind(principal.ownerId)
+    .all<ExpenseRow>();
   return result.results.map(mapExpense);
 }
 
@@ -93,7 +110,7 @@ export async function createExpense(principal: Principal, input: ExpenseWrite) {
         input.mealContext,
         input.notes,
       ),
-    auditStatement(principal, {
+    auditStatementAfterChange(principal, {
       action: "expense.created",
       entityType: "expense",
       entityId: id,
@@ -127,6 +144,13 @@ export async function updateExpense(
   if (!existing) {
     throw new ApiError(404, "not_found", "The expense was not found.");
   }
+  if (existing.deletedAt) {
+    throw new ApiError(
+      409,
+      "expense_deleted",
+      "Restore this expense before editing it.",
+    );
+  }
   await assertDateUnlocked(principal.ownerId, existing.serviceDate);
   if (input.serviceDate && input.serviceDate !== existing.serviceDate) {
     await assertDateUnlocked(principal.ownerId, input.serviceDate);
@@ -155,7 +179,7 @@ export async function updateExpense(
          WHERE owner_id = ? AND id = ?`,
       )
       .bind(...values, principal.ownerId, id),
-    auditStatement(principal, {
+    auditStatementAfterChange(principal, {
       action: "expense.updated",
       entityType: "expense",
       entityId: id,
@@ -167,61 +191,62 @@ export async function updateExpense(
 export async function deleteExpense(
   principal: Principal,
   id: string,
-): Promise<string[]> {
+): Promise<void> {
   await ensureSchema();
-  const row = await database()
-    .prepare(
-      `SELECT e.id, r.object_key
-       FROM expenses e
-       LEFT JOIN receipts r
-         ON r.expense_id = e.id
-        AND r.owner_id = e.owner_id
-       WHERE e.owner_id = ? AND e.id = ?`,
-    )
-    .bind(principal.ownerId, id)
-    .first<{ id: string; object_key: string | null }>();
-  if (!row) {
+  const expense = await findExpense(principal, id);
+  if (!expense) {
     throw new ApiError(404, "not_found", "The expense was not found.");
   }
-  const expense = await findExpense(principal, id);
-  await assertDateUnlocked(principal.ownerId, expense!.serviceDate);
-  const intakeObjects = await database()
-    .prepare(
-      `SELECT original_object_key, analysis_object_key
-       FROM receipt_intakes
-       WHERE owner_id = ? AND expense_id = ?`,
-    )
-    .bind(principal.ownerId, id)
-    .all<{
-      original_object_key: string;
-      analysis_object_key: string | null;
-    }>();
-  const objectKeys = new Set<string>();
-  if (row.object_key) objectKeys.add(row.object_key);
-  for (const intake of intakeObjects.results) {
-    objectKeys.add(intake.original_object_key);
-    if (intake.analysis_object_key) {
-      objectKeys.add(intake.analysis_object_key);
-    }
+  if (expense.deletedAt) {
+    return;
   }
+  await assertDateUnlocked(principal.ownerId, expense.serviceDate);
   const db = database();
   await db.batch([
     db
       .prepare(
-        "DELETE FROM receipt_intakes WHERE owner_id = ? AND expense_id = ?",
+        `UPDATE expenses
+         SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE owner_id = ? AND id = ? AND deleted_at IS NULL`,
       )
       .bind(principal.ownerId, id),
-    db
-      .prepare("DELETE FROM expenses WHERE owner_id = ? AND id = ?")
-      .bind(principal.ownerId, id),
-    auditStatement(principal, {
-      action: "expense.deleted",
+    auditStatementAfterChange(principal, {
+      action: "expense.soft_deleted",
       entityType: "expense",
       entityId: id,
-      metadata: {
-        confirmedIntakesRemoved: intakeObjects.results.length,
-      },
     }),
   ]);
-  return [...objectKeys];
+}
+
+export async function restoreExpense(
+  principal: Principal,
+  id: string,
+) {
+  await ensureSchema();
+  const expense = await findExpense(principal, id);
+  if (!expense) {
+    throw new ApiError(404, "not_found", "The expense was not found.");
+  }
+  if (!expense.deletedAt) {
+    return expense;
+  }
+  await assertDateUnlocked(principal.ownerId, expense.serviceDate);
+  const db = database();
+  await db.batch([
+    db
+      .prepare(
+        `UPDATE expenses
+         SET deleted_at = NULL,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE owner_id = ? AND id = ? AND deleted_at IS NOT NULL`,
+      )
+      .bind(principal.ownerId, id),
+    auditStatementAfterChange(principal, {
+      action: "expense.restored",
+      entityType: "expense",
+      entityId: id,
+    }),
+  ]);
+  return (await findExpense(principal, id))!;
 }
