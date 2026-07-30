@@ -277,3 +277,15 @@ This document records meaningful implementation milestones, decisions and verifi
 - Verified this milestone with the production build and all 158 tests,
   `npm run lint`, `npx tsc --noEmit`, `git diff --check`, and a 390 by 844
   mobile navigation check in the local browser.
+- Reworked Statistics from a basic monthly summary into an operational
+  analytics workspace. It now has trip, country and meal filters, previous
+  month movement, average and median spend, a tappable daily trend, daily food
+  allowance heatmap, meal share, receipt-line-item food categories, currency
+  analysis and chart-to-claim drill-down.
+- Replaced country-only dots with an interactive MapLibre street map.
+  Receipt extraction can retain venue, address, city or country coordinates
+  together with the printed evidence used. Venue and address points open at
+  close zoom, repeated points cluster into larger red dots, and older records
+  remain visibly labelled city or country-centre estimates. OpenFreeMap
+  supplies attributed OpenStreetMap-derived tiles only while Statistics is
+  open; claim text and receipt images are not sent to the tile provider.

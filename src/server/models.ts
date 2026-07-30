@@ -34,6 +34,8 @@ export type ExpenseRow = ReceiptRow & {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  intake_extraction_json: string | null;
+  intake_line_items_json: string | null;
 };
 
 export type DayRow = {
@@ -109,6 +111,47 @@ export function mapExpense(row: ExpenseRow) {
       return {};
     }
   };
+  const parseArray = (value: string | null): unknown[] => {
+    try {
+      const parsed = JSON.parse(value ?? "[]") as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+  const extraction = parseJson(row.intake_extraction_json ?? "{}");
+  const rawCoordinates =
+    extraction.locationCoordinates &&
+    typeof extraction.locationCoordinates === "object" &&
+    !Array.isArray(extraction.locationCoordinates)
+      ? (extraction.locationCoordinates as Record<string, unknown>)
+      : null;
+  const latitude = rawCoordinates?.latitude;
+  const longitude = rawCoordinates?.longitude;
+  const precision = rawCoordinates?.precision;
+  const coordinateEvidence =
+    typeof rawCoordinates?.evidence === "string"
+      ? rawCoordinates.evidence.trim()
+      : "";
+  const locationCoordinates =
+    typeof latitude === "number" &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    typeof longitude === "number" &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180 &&
+    ["venue", "address", "city", "country"].includes(String(precision)) &&
+    (!["venue", "address"].includes(String(precision)) ||
+      Boolean(coordinateEvidence))
+      ? {
+          latitude,
+          longitude,
+          precision,
+          evidence: coordinateEvidence || null,
+        }
+      : null;
   return {
     id: row.id,
     serviceDate: row.service_date,
@@ -140,6 +183,8 @@ export function mapExpense(row: ExpenseRow) {
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    locationCoordinates,
+    lineItems: parseArray(row.intake_line_items_json),
     receipt: mapReceipt(row, row.id),
   };
 }

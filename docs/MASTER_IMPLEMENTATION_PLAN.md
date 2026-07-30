@@ -461,6 +461,8 @@ control and the development record contains verification evidence.
 | Repository visibility exposes personal application code | Verify the remote is private before the first push |
 | No proven backup or export exists | Use synthetic data only until a recovery or export route is demonstrated or the owner explicitly accepts the risk |
 | Focused tests miss route or browser regressions | Complete API, upload, accessibility and iPhone gates before deployment |
+| A map dot implies more precision than the receipt supports | Persist a precision label and evidence string, treat the point as an analytics hint, and render older or incomplete records as explicit city or country fallbacks |
+| External basemap requests reveal the visible map area | Load OpenFreeMap only inside Statistics, send no claim text or receipt images, retain attribution, and document the boundary for the owner |
 
 ## 9. Post-MVP priorities
 
@@ -501,6 +503,10 @@ control and the development record contains verification evidence.
 - [x] Add dedicated Audit response and month-scoped Statistics navigation.
 - [x] Add privacy-preserving restaurant, food-style, meal-context, daily-spend
   and country-level location visualisations without live geocoding.
+- [x] Add filters, period comparison, allowance heatmaps, receipt-line-item
+  food analysis, currency analysis and tap-through claim inspection.
+- [x] Add close-detail interactive mapping with evidence-backed receipt
+  coordinates, clustered repeat visits and honest city/country fallbacks.
 
 ### Priority 3: broader use only when justified
 

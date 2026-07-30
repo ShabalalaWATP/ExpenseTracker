@@ -18,12 +18,25 @@ const expenseSelect = `SELECT
   e.translation_json, e.conversion_json,
   e.trip_id, e.trip_leg_id, e.meal_context, e.category, e.notes,
   e.deleted_at, e.created_at, e.updated_at,
+  ri.extraction_json AS intake_extraction_json,
+  ri.line_items_json AS intake_line_items_json,
   r.id AS receipt_id, r.content_type, r.byte_size,
   r.created_at AS receipt_created_at
 FROM expenses e
 LEFT JOIN receipts r
   ON r.expense_id = e.id
- AND r.owner_id = e.owner_id`;
+ AND r.owner_id = e.owner_id
+LEFT JOIN receipt_intakes ri
+  ON ri.id = (
+    SELECT candidate.id
+    FROM receipt_intakes candidate
+    WHERE candidate.owner_id = e.owner_id
+      AND candidate.expense_id = e.id
+      AND candidate.status = 'confirmed'
+    ORDER BY candidate.updated_at DESC, candidate.id DESC
+    LIMIT 1
+  )
+ AND ri.owner_id = e.owner_id`;
 
 async function requireTrip(
   principal: Principal,

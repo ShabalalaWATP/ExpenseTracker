@@ -78,6 +78,18 @@ export interface OriginalReceiptFacts {
   translation?: ReceiptTranslation;
   conversion?: CurrencyConversion;
   tripLegId?: string | null;
+  locationCoordinates?: {
+    latitude: number;
+    longitude: number;
+    precision: "venue" | "address" | "city" | "country";
+    evidence?: string | null;
+  } | null;
+  lineItems?: Array<{
+    description: string;
+    quantity?: number | null;
+    totalPence?: number | null;
+    eligible?: boolean | null;
+  }>;
 }
 
 export interface Expense extends OriginalReceiptFacts {

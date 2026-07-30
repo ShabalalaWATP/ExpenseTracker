@@ -12,6 +12,9 @@ describe("receipt extraction normalisation", () => {
     assert.ok(
       RECEIPT_EXTRACTION_SCHEMA.required.includes("receipt_total_minor"),
     );
+    assert.ok(
+      RECEIPT_EXTRACTION_SCHEMA.required.includes("location_coordinates"),
+    );
   });
 
   it("normalises a complete GBP receipt without changing integer pence", () => {
@@ -52,6 +55,31 @@ describe("receipt extraction normalisation", () => {
     assert.equal(result.lineItems[0]?.totalPence, 2445);
     assert.equal(result.currency, "GBP");
     assert.equal(result.country, "GB");
+  });
+
+  it("keeps evidence-backed venue coordinates and rejects incomplete pairs", () => {
+    const precise = normaliseExtraction({
+      location_coordinates: {
+        latitude: 50.80391,
+        longitude: -1.08744,
+        precision: "venue",
+        evidence: "Printed branch address",
+      },
+    });
+    assert.deepEqual(precise.locationCoordinates, {
+      latitude: 50.80391,
+      longitude: -1.08744,
+      precision: "venue",
+      evidence: "Printed branch address",
+    });
+    assert.equal(normaliseExtraction({
+      location_coordinates: {
+        latitude: 50.8,
+        longitude: null,
+        precision: "venue",
+        evidence: null,
+      },
+    }).locationCoordinates, null);
   });
 
   it("rejects invalid dates, money and confidence without throwing", () => {

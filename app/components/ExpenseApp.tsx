@@ -246,6 +246,7 @@ export function ExpenseApp() {
           data={data}
           claimPeriod={claimPeriod}
           onClaimPeriodChange={setClaimPeriod}
+          onOpenExpense={setSelectedExpense}
         />
       ),
       audit: <AuditView />,

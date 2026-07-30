@@ -14,7 +14,10 @@ import "./styles/international.css";
 import "./styles/itinerary.css";
 import "./styles/calendar.css";
 import "./styles/statistics.css";
+import "./styles/statistics-allowance.css";
+import "./styles/statistics-map-responsive.css";
 import "./styles/responsive.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
