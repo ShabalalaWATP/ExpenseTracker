@@ -289,3 +289,7 @@ This document records meaningful implementation milestones, decisions and verifi
   remain visibly labelled city or country-centre estimates. OpenFreeMap
   supplies attributed OpenStreetMap-derived tiles only while Statistics is
   open; claim text and receipt images are not sent to the tile provider.
+- Corrected the iPhone navigation after production feedback showed that the
+  separate Statistics page was hidden inside More. Statistics now has a
+  permanent bottom tab, while Audit response and Settings remain in More.
+  Six touch targets retain full labels and accessible active-page state.

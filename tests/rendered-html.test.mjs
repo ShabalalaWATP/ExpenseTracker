@@ -59,7 +59,7 @@ test("builds the ExpenseTracker worker and branded client assets", async () => {
 });
 
 test("keeps the site private-ready and free of starter scaffolding", async () => {
-  const [layout, page, packageJson, hosting, analysisLock, intakeModel, app, serviceWorker] = await Promise.all([
+  const [layout, page, packageJson, hosting, analysisLock, intakeModel, app, appShell, serviceWorker] = await Promise.all([
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -73,6 +73,7 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
       "utf8",
     ),
     readFile(new URL("../app/components/ExpenseApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/AppShell.tsx", import.meta.url), "utf8"),
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
 
@@ -82,6 +83,14 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
   assert.match(page, /<ExpenseApp \/>/);
   assert.match(app, /function closeSettings\(\)/);
   assert.match(app, /parseNavigationHash\(window\.location\.hash\)/);
+  assert.match(
+    appShell,
+    /const mobileNav[\s\S]*id: "statistics", label: "Statistics"[\s\S]*];/,
+  );
+  assert.doesNotMatch(
+    appShell,
+    /More navigation[\s\S]*id: "statistics"/,
+  );
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(analysisLock, /status IN \('uploaded', 'needs_review', 'ready', 'failed'\)/);
   assert.doesNotMatch(analysisLock, /status <> 'analysing'/);

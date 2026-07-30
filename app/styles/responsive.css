@@ -173,7 +173,7 @@
     inset: auto 0 0;
     display: grid;
     height: calc(76px + env(safe-area-inset-bottom));
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     align-items: start;
     padding: 7px 6px env(safe-area-inset-bottom);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -192,8 +192,10 @@
     gap: 3px;
     background: transparent;
     color: inherit;
-    font-size: 0.72rem;
+    font-size: clamp(0.58rem, 2.6vw, 0.7rem);
     font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
   }
 
   .mobile-nav .nav-mark {
