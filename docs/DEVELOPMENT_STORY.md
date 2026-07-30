@@ -314,3 +314,11 @@ This document records meaningful implementation milestones, decisions and verifi
   calendar months, three-calendar-month windows and calendar years. Every
   chart, map, ranking and KPI now uses the selected range, with an equivalent
   preceding-period comparison and axis labels that adapt to the time span.
+- Restored the five-item iPhone bottom navigation after owner feedback that six
+  destinations felt cramped. Statistics now sits with Audit response and
+  Settings under More, while desktop navigation remains unchanged.
+- Made Realtime trip creation lead the conversation naturally. It now opens by
+  asking the owner to describe the trip, extracts all supported facts from
+  their account, actively gathers only the missing details, reads the complete
+  result back, and creates the trip immediately after a clear final approval
+  such as “I’m happy with that”.

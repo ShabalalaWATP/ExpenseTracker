@@ -32,8 +32,8 @@ export function TripVoicePanel({
           <p className="eyebrow">OpenAI Realtime voice</p>
           <h3>Trip assistant</h3>
           <p>
-            A live voice conversation collects each stop and date, then reads
-            everything back before saving.
+            Describe the trip naturally. The assistant gathers each detail,
+            reads it back, then creates the trip when you say you are happy.
           </p>
         </div>
         {active ? (

@@ -154,6 +154,8 @@ test("saving requires a clear affirmative answer to the final question", () => {
   assert.equal(isExplicitTripSaveConfirmation("Yes, please."), true);
   assert.equal(isExplicitTripSaveConfirmation("Save this trip"), true);
   assert.equal(isExplicitTripSaveConfirmation("Go ahead and save it"), true);
+  assert.equal(isExplicitTripSaveConfirmation("I'm happy with that."), true);
+  assert.equal(isExplicitTripSaveConfirmation("That sounds good"), true);
   assert.equal(
     isExplicitTripSaveConfirmation("Oui, enregistrez ce voyage."),
     true,
@@ -182,7 +184,8 @@ test("save confirmation is armed only after the final readback response complete
   gate = reduceTripSaveGate(gate, {
     type: "assistant_transcript",
     responseId: "response-summary",
-    transcript: "London training, 10 to 12 August. Shall I save this trip?",
+    transcript:
+      "London training, 10 to 12 August. Does that all sound right, and are you happy for me to create this trip now?",
   });
 
   assert.equal(
@@ -254,7 +257,7 @@ test("only the subsequent user item and its later response can save", () => {
   gate = reduceTripSaveGate(gate, {
     type: "user_transcript",
     itemId: "save-answer",
-    transcript: "Yes, please save it.",
+    transcript: "I'm happy with that.",
   });
 
   assert.equal(
@@ -339,11 +342,14 @@ test("trip voice uses a server-minted ephemeral credential and explicit save too
     "Realtime function tools must not include the unsupported strict field",
   );
   assert.match(server, /confirm_trip/);
-  assert.match(server, /explicitly says yes/);
+  assert.match(server, /Please tell me about your trip/);
+  assert.match(server, /are you happy for me to create this trip now/);
+  assert.match(server, /Call confirm_trip immediately/);
   assert.doesNotMatch(server, /language: "en"/);
   assert.match(client, /Authorization: `Bearer \$\{session\.value\}`/);
   assert.match(client, /peer\.ontrack/);
   assert.match(client, /audioRef\.current\.play\(\)/);
+  assert.match(client, /Please tell me about your trip/);
   const clientUi = `${client}\n${panel}`;
   assert.match(clientUi, /OpenAI Realtime voice/);
   assert.match(clientUi, />\s*Type instead\s*</);

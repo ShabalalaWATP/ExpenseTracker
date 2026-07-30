@@ -17,7 +17,7 @@ export function tripVoiceStatus(state: VoiceState): string {
     connecting: "Connecting securely",
     listening: "Listening",
     speaking: "Assistant speaking",
-    review: "Ready for your confirmation",
+    review: "Ready for your approval",
     saving: "Saving confirmed trip",
     saved: "Trip saved",
     error: "Voice paused",
@@ -134,6 +134,10 @@ function includesFinalSaveQuestion(transcript: string): boolean {
     .trim();
   return [
     "shall i save this trip",
+    "are you happy for me to create this trip",
+    "are you happy for me to create this trip now",
+    "are you happy for me to create the trip",
+    "does that all sound right and are you happy for me to create this trip",
     "dois je enregistrer ce voyage",
     "voulez vous que j enregistre ce voyage",
     "guardo este viaje",

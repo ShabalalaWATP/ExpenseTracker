@@ -251,6 +251,7 @@ export function isExplicitTripSaveConfirmation(value: unknown): boolean {
   const clean = value
     .trim()
     .toLowerCase()
+    .replace(/[’']/g, "")
     .replace(/[.,!?]+/g, "")
     .replace(/\s+/g, " ");
   return new Set([
@@ -269,6 +270,17 @@ export function isExplicitTripSaveConfirmation(value: unknown): boolean {
     "go ahead",
     "go ahead and save it",
     "go ahead and save the trip",
+    "im happy",
+    "im happy with that",
+    "i am happy",
+    "i am happy with that",
+    "happy with that",
+    "that sounds good",
+    "sounds good",
+    "that looks good",
+    "looks good to me",
+    "thats right",
+    "that is right",
     "oui",
     "oui enregistrez le voyage",
     "oui enregistrez ce voyage",

@@ -20,8 +20,10 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Supports JSP 752 aggregation for trips of at least two nights.
 - Supports multi-country trips as ordered itinerary legs, including
   country-aware automatic receipt linking and multi-stop OpenAI Realtime
-  speech-to-speech entry. The main Create a trip action starts the conversation
-  directly, while Type instead opens the complete manual form.
+  speech-to-speech entry. The main Create a trip action opens with a natural
+  invitation to describe the trip, actively gathers any missing details and
+  creates the record after the final readback when the user says they are
+  happy. Type instead opens the complete manual form.
 - Includes permitted gratuities and service charges within the £30 limit.
 - Keeps deletions recoverable without removing private receipt evidence.
 - Provides copy-ready where-and-why text and receipt downloads for submission.
@@ -38,6 +40,8 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Filters every statistic, chart and map by week, calendar month, a
   three-calendar-month window or calendar year, with like-for-like comparison
   against the immediately preceding period.
+- Keeps the five frequent mobile actions spacious in the bottom navigation,
+  with Statistics, Audit response and Settings grouped under More.
 - Prepares an immutable August claim snapshot and records submission status.
 - Downloads complete, size-bounded claim ZIP parts with PDF, CSV, manifest and
   original receipts.

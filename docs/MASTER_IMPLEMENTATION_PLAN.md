@@ -200,6 +200,8 @@ private provisional beta rather than a formal system of record.
   Expenses, Trips, Claims and Settings views.
 - [x] Persistent current-view context and strong active navigation states,
   including an explicit Settings label on mobile.
+- [x] Five-item mobile bottom navigation for frequent actions, with Statistics,
+  Audit response and Settings available through More.
 - [x] Working-week, week and month calendar modes with daily claim totals,
   receipt evidence links and date-led receipt capture.
 - [x] iPhone-oriented camera or Photo Library input with a local preview.
@@ -220,6 +222,8 @@ private provisional beta rather than a formal system of record.
   confirmation, with the complete manual form retained as fallback.
 - [x] One-action Realtime trip creation with spoken questions, a typed fallback
   that preserves partial progress, and a separate recorded-trip ledger.
+- [x] Natural Realtime trip opening, proactive missing-detail collection and
+  immediate creation after the complete readback receives clear approval.
 - [x] Multilingual receipt extraction with ISO currency, country and language
   detection, structured English translation and original minor-unit values.
 - [x] Deterministic foreign-currency conversion using a bounded official ECB

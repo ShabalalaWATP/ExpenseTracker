@@ -36,7 +36,6 @@ const mobileNav: NavItem[] = [
   { id: "capture", label: "Add", icon: <PlusIcon /> },
   { id: "trips", label: "Trips", icon: <RouteIcon /> },
   { id: "claims", label: "Claims", icon: <FileCheckIcon /> },
-  { id: "statistics", label: "Statistics", icon: <ChartIcon /> },
 ];
 
 interface AppShellProps {
@@ -107,7 +106,7 @@ export function AppShell({
         <details
           key={active}
           className={`mobile-more ${
-            ["audit", "settings"].includes(active) ? "active" : ""
+            ["statistics", "audit", "settings"].includes(active) ? "active" : ""
           }`}
         >
           <summary aria-label="Open more navigation">
@@ -116,6 +115,7 @@ export function AppShell({
           </summary>
           <nav aria-label="More navigation">
             {[
+              { id: "statistics" as const, label: "Statistics", icon: <ChartIcon /> },
               { id: "audit" as const, label: "Audit response", icon: <AuditIcon /> },
               { id: "settings" as const, label: "Settings", icon: <SlidersIcon /> },
             ].map((item) => (

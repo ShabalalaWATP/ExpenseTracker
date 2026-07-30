@@ -141,7 +141,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
           issues,
         },
         complete
-          ? "Read the complete trip summary aloud, then ask exactly: Shall I save this trip? Do not call confirm_trip until the user explicitly agrees."
+          ? "Read the complete trip summary aloud, then ask exactly: Does that all sound right, and are you happy for me to create this trip now? After a clear approval, call confirm_trip immediately without asking again."
           : "Ask one short follow-up question for the first issue. Do not ask again for a valid fact already in the draft.",
       );
       return;
@@ -174,7 +174,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
         { saved: false, issues },
         issues.length
           ? "The trip is incomplete. Ask for the first missing or invalid detail."
-          : "Ask exactly: Shall I save this trip? Wait for a new, explicit answer.",
+          : "Ask exactly: Does that all sound right, and are you happy for me to create this trip now? Wait for a new, clear answer.",
       );
       return;
     }
@@ -285,7 +285,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
             type: "response.create",
             response: {
               instructions:
-                "Greet the user briefly, explain that nothing is saved until they confirm the final summary, then ask for the trip title. Collect every itinerary leg in order, including country, location and date range.",
+                "Start speaking immediately with exactly: Please tell me about your trip, including where you went and when. Do not give a setup explanation and do not ask only for a title. Invite the user to describe the trip naturally, extract every supported detail from their answer, then actively ask one concise question at a time for anything still needed.",
             },
           }),
         );
