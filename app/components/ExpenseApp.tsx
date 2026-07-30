@@ -6,7 +6,7 @@ import { AppShell } from "./AppShell";
 import { AuditView } from "./AuditView";
 import { CalendarView } from "./CalendarView";
 import { CaptureView } from "./CaptureView";
-import { ClaimsView } from "./ClaimsView";
+import { ClaimSubmissionPanel } from "./ClaimSubmissionPanel";
 import { ExpenseEditor } from "./ExpenseEditor";
 import { ExpensesView } from "./ExpensesView";
 import { SettingsView } from "./SettingsView";
@@ -28,7 +28,7 @@ const titles: Record<ViewName, string> = {
   calendar: "Calendar",
   expenses: "Expenses",
   trips: "Trips",
-  claims: "Submit",
+  claims: "Expenses",
   statistics: "Statistics",
   audit: "Audit response",
   settings: "Settings",
@@ -195,6 +195,24 @@ export function ExpenseApp() {
         onSaved={changed}
       />
     );
+    const claimSubmission = (
+      <ClaimSubmissionPanel
+        data={data}
+        navigate={navigate}
+        navigateTarget={navigateTarget}
+        onChanged={changed}
+        claimPeriod={claimPeriod}
+        onClaimPeriodChange={setClaimPeriod}
+      />
+    );
+    const expensesWorkspace = (
+      <ExpensesView
+        data={data}
+        navigate={navigate}
+        onChanged={changed}
+        claimSubmission={claimSubmission}
+      />
+    );
     const views: Record<ViewName, React.ReactNode> = {
       today: (
         <TodayView
@@ -221,7 +239,7 @@ export function ExpenseApp() {
           supportedPeriod={claimPeriod}
         />
       ),
-      expenses: <ExpensesView data={data} navigate={navigate} onChanged={changed} />,
+      expenses: expensesWorkspace,
       trips: (
         <TripsView
           data={data}
@@ -231,16 +249,7 @@ export function ExpenseApp() {
           onChanged={changed}
         />
       ),
-      claims: (
-        <ClaimsView
-          data={data}
-          navigate={navigate}
-          navigateTarget={navigateTarget}
-          onChanged={changed}
-          claimPeriod={claimPeriod}
-          onClaimPeriodChange={setClaimPeriod}
-        />
-      ),
+      claims: expensesWorkspace,
       statistics: (
         <StatisticsView
           data={data}

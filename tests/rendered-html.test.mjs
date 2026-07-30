@@ -92,6 +92,10 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
     appShell,
     /const mobileNav[\s\S]*id: "statistics", label: "Statistics"[\s\S]*];/,
   );
+  assert.match(
+    appShell,
+    /const mobileNav[\s\S]*id: "audit", label: "Audit"[\s\S]*];/,
+  );
   assert.match(packageJson, /"leaflet": "1\.9\.4"/);
   assert.doesNotMatch(packageJson, /maplibre-gl/);
   assert.match(detailedMap, /tile\.openstreetmap\.org/);
@@ -170,7 +174,7 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     confirmation,
     processing,
     claimPackage,
-    claimsView,
+    claimPanel,
     editableFacts,
     locationMap,
     appShell,
@@ -180,7 +184,7 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     readFile(new URL("../src/server/receipt-intake-confirmation.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/server/receipt-intake-processing.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/server/claim-package.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/components/ClaimsView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/ClaimSubmissionPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/receipt-intake/IntakeEditableFacts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/DetailedLocationMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/AppShell.tsx", import.meta.url), "utf8"),
@@ -201,11 +205,15 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
   );
   assert.match(claimPackage, /MAX_CLAIM_PART_BYTES/);
   assert.match(claimPackage, /partitionByByteSize/);
-  assert.match(claimsView, /<ClaimPackageDownloads/);
-  assert.match(claimsView, /Before you submit/);
-  assert.doesNotMatch(claimsView, />Readiness</);
+  assert.match(claimPanel, /<ClaimPackageDownloads/);
+  assert.match(claimPanel, /Before you submit/);
+  assert.doesNotMatch(claimPanel, />Readiness</);
   assert.match(locationMap, /dark_all/);
   assert.match(locationMap, /rastertiles\/voyager/);
   assert.match(locationMap, /Choose map layer/);
-  assert.match(appShell, /id: "claims", label: "Submit"/);
+  assert.doesNotMatch(appShell, /id: "claims"/);
+  assert.doesNotMatch(
+    appShell,
+    /More navigation[\s\S]*id: "audit" as const/,
+  );
 });

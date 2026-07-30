@@ -265,6 +265,21 @@
 }
 
 @media (max-width: 700px) {
+  .expense-claim-workspace > summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    padding: 16px 0;
+  }
+
+  .expense-claim-workspace > summary > span:last-child {
+    justify-items: start;
+  }
+
+  .expense-claim-workspace > summary::after {
+    margin-left: auto;
+  }
+
   .ledger-toolbar {
     align-items: stretch;
     flex-direction: column;

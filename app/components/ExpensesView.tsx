@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { restoreExpense } from "./api";
 import { ExpenseEditor } from "./ExpenseEditor";
 import {
@@ -19,10 +19,12 @@ export function ExpensesView({
   data,
   navigate,
   onChanged,
+  claimSubmission,
 }: {
   data: DashboardData;
   navigate: (view: ViewName) => void;
   onChanged: () => Promise<void>;
+  claimSubmission: ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -120,6 +122,8 @@ export function ExpensesView({
           ))}
         </div>
       </section>
+
+      {claimSubmission}
 
       {expenses.length ? (
         <section aria-label="Expense records">

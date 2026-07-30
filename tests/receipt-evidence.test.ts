@@ -133,10 +133,10 @@ describe("receipt evidence endpoint", () => {
 });
 
 describe("receipt evidence navigation", () => {
-  it("opens claim evidence in the expense editor and returns to Claims", async () => {
-    const [claimsView, expenseApp] = await Promise.all([
+  it("opens claim evidence in the expense editor and returns to Expenses", async () => {
+    const [claimPanel, expenseApp] = await Promise.all([
       readFile(
-        new URL("../app/components/ClaimsView.tsx", import.meta.url),
+        new URL("../app/components/ClaimSubmissionPanel.tsx", import.meta.url),
         "utf8",
       ),
       readFile(
@@ -146,10 +146,10 @@ describe("receipt evidence navigation", () => {
     ]);
 
     assert.match(
-      claimsView,
-      /navigateTarget\(\{\s*view: "claims",\s*expenseId: expense\.id,/,
+      claimPanel,
+      /navigateTarget\(\{\s*view: "expenses",\s*expenseId: expense\.id,/,
     );
-    assert.match(claimsView, /href=\{evidenceUrls\.download\}/);
+    assert.match(claimPanel, /href=\{evidenceUrls\.download\}/);
     assert.match(expenseApp, /const next = \{ view: target\.view \}/);
   });
 });

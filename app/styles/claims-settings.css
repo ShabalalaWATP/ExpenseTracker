@@ -1,3 +1,56 @@
+.expense-claim-workspace {
+  margin: 8px 0 34px;
+  border-block: 1px solid var(--line);
+}
+
+.expense-claim-workspace > summary {
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.expense-claim-workspace > summary::-webkit-details-marker {
+  display: none;
+}
+
+.expense-claim-workspace > summary > span {
+  display: grid;
+  gap: 3px;
+}
+
+.expense-claim-workspace > summary > span:last-child {
+  justify-items: end;
+}
+
+.expense-claim-workspace > summary small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.expense-claim-workspace > summary strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 550;
+}
+
+.expense-claim-workspace > summary::after {
+  color: var(--teal-dark);
+  content: "＋";
+  font-size: 1.25rem;
+}
+
+.expense-claim-workspace[open] > summary::after {
+  content: "−";
+}
+
+.claim-workspace-body {
+  padding-bottom: 38px;
+}
+
 .claim-totals {
   padding: 36px 0;
   border-bottom: 1px solid var(--line);

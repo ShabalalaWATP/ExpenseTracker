@@ -27,8 +27,9 @@ function safeDate(value: string | null): string | undefined {
 
 export function parseNavigationHash(hash: string): NavigationTarget {
   const [rawView, rawQuery = ""] = hash.replace(/^#/, "").split("?", 2);
-  const view = views.has(rawView as ViewName)
-    ? (rawView as ViewName)
+  const migratedView = rawView === "claims" ? "expenses" : rawView;
+  const view = views.has(migratedView as ViewName)
+    ? (migratedView as ViewName)
     : "capture";
   const query = new URLSearchParams(rawQuery);
   return {

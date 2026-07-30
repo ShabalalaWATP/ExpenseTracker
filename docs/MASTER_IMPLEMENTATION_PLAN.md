@@ -197,11 +197,12 @@ private provisional beta rather than a formal system of record.
 ### Interface and workflow
 
 - [x] Responsive mobile and desktop shell with receipt Capture, Calendar,
-  Expenses, Trips, Submit and Settings views.
+  Expenses, Trips, Audit response and Settings views.
 - [x] Persistent current-view context and strong active navigation states,
   including an explicit Settings label on mobile.
-- [x] Five-item mobile bottom navigation for frequent actions, with Statistics,
-  Audit response and Settings available through More.
+- [x] Five-item mobile bottom navigation for frequent actions, with Audit
+  response directly available and Statistics and Settings available through
+  More.
 - [x] Working-week, week and month calendar modes with daily claim totals,
   receipt evidence links and date-led receipt capture.
 - [x] iPhone-oriented camera or Photo Library input with a local preview.
@@ -424,12 +425,13 @@ control and the development record contains verification evidence.
   correction or superseding-snapshot workflow yet.
 - Only one snapshot may exist for August 2026. A prepared claim cannot be
   replaced through the current product.
-- The Submit view provides private receipt View and Download actions and
-  copy-ready where-and-why descriptions. Direct sharing is not used because a
-  private authenticated URL is unsuitable for an external recipient.
-- Submit totals are period-scoped rather than Today-only. An uploaded receipt
-  remains a pending estimate until it is confirmed as an expense, so pending
-  and confirmed figures are deliberately presented separately.
+- The Expenses view includes the routine monthly claim-package workflow,
+  private receipt View and Download actions and copy-ready where-and-why
+  descriptions. Direct sharing is not used because a private authenticated URL
+  is unsuitable for an external recipient.
+- Monthly claim totals are period-scoped rather than Today-only. An uploaded
+  receipt remains a pending estimate until it is confirmed as an expense, so
+  pending and confirmed figures are deliberately presented separately.
 - JSON, CSV and portable multipart recovery ZIP exports are available.
   Automatic restore, delete-all and scheduled off-site backups remain
   deliberately unavailable.

@@ -332,3 +332,8 @@ This document records meaningful implementation milestones, decisions and verifi
   retained as a third choice. The selection is stored only on the device,
   attribution changes with the layer, and interactive receipt dots continue
   to work over the local fallback when an external basemap is unavailable.
+- Removed the separate Claims or Submit destination after owner feedback showed
+  that it duplicated the purpose of Expenses and was easily confused with
+  Audit response. Monthly claim preparation now sits in a compact expandable
+  section inside Expenses. Audit response replaces Claims in the iPhone bottom
+  navigation, while old `#claims` links migrate safely to Expenses.

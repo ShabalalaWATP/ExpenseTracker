@@ -44,3 +44,16 @@ test("dedicated audit and statistics tabs have safe hash routes", () => {
   assert.equal(navigationHash({ view: "audit" }), "#audit");
   assert.equal(navigationHash({ view: "statistics" }), "#statistics");
 });
+
+test("legacy Claims links open the consolidated Expenses workspace", () => {
+  assert.equal(parseNavigationHash("#claims").view, "expenses");
+  assert.deepEqual(parseNavigationHash("#claims?expense=expense-123"), {
+    view: "expenses",
+    intakeId: undefined,
+    expenseId: "expense-123",
+    tripId: undefined,
+    date: undefined,
+    startDate: undefined,
+    endDate: undefined,
+  });
+});

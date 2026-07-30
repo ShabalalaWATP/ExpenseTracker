@@ -11,9 +11,9 @@ import {
 } from "./claim-handoff";
 import { formatDate, formatMoney } from "./format";
 import type { DashboardData, NavigationTarget, ViewName } from "./types";
-import { EmptyState, StatusMessage, ViewHeader } from "./ui";
+import { EmptyState, StatusMessage } from "./ui";
 
-export function ClaimsView({
+export function ClaimSubmissionPanel({
   data,
   navigate,
   navigateTarget,
@@ -84,13 +84,19 @@ export function ClaimsView({
   }
 
   return (
-    <div className="view page-enter">
-      <ViewHeader
-        eyebrow={claimPeriodLabel}
-        title="Submit your expenses"
-        detail="Expenses is your receipt ledger. This page fixes anything missing, locks the month and creates the submission package."
-      />
-      <div className="claim-period-control">
+    <details className="expense-claim-workspace">
+      <summary>
+        <span>
+          <small>Monthly claim package</small>
+          <strong>{claimPeriodLabel}</strong>
+        </span>
+        <span>
+          <strong>{formatMoney(data.claimablePence)}</strong>
+          <small>ready to claim</small>
+        </span>
+      </summary>
+      <div className="claim-workspace-body">
+        <div className="claim-period-control">
         <label htmlFor="claim-period">Claim month</label>
         <input
           id="claim-period"
@@ -105,9 +111,9 @@ export function ClaimsView({
           }}
         />
         <small>Everything below covers this whole month, not just today.</small>
-      </div>
-      {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
-      {message ? <StatusMessage tone="success">{message}</StatusMessage> : null}
+        </div>
+        {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
+        {message ? <StatusMessage tone="success">{message}</StatusMessage> : null}
 
       <section className="claim-totals" aria-labelledby="claim-totals-heading">
         <p className="eyebrow" id="claim-totals-heading">Your submission</p>
@@ -213,7 +219,7 @@ export function ClaimsView({
                         type="button"
                         onClick={() =>
                           navigateTarget({
-                            view: "claims",
+                            view: "expenses",
                             expenseId: expense.id,
                           })
                         }
@@ -229,6 +235,7 @@ export function ClaimsView({
           </ol>
         </section>
       ) : null}
-    </div>
+      </div>
+    </details>
   );
 }

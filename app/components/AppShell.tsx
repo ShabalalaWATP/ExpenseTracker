@@ -8,7 +8,6 @@ import {
   ChartIcon,
   CameraIcon,
   AuditIcon,
-  FileCheckIcon,
   HomeIcon,
   PlusIcon,
   ReceiptIcon,
@@ -25,7 +24,6 @@ const desktopNav: NavItem[] = [
   { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
   { id: "expenses", label: "Expenses", icon: <ReceiptIcon /> },
   { id: "trips", label: "Trips", icon: <RouteIcon /> },
-  { id: "claims", label: "Submit", icon: <FileCheckIcon /> },
   { id: "statistics", label: "Statistics", icon: <ChartIcon /> },
   { id: "audit", label: "Audit response", icon: <AuditIcon /> },
 ];
@@ -35,7 +33,7 @@ const mobileNav: NavItem[] = [
   { id: "expenses", label: "Expenses", icon: <ReceiptIcon /> },
   { id: "capture", label: "Add", icon: <PlusIcon /> },
   { id: "trips", label: "Trips", icon: <RouteIcon /> },
-  { id: "claims", label: "Submit", icon: <FileCheckIcon /> },
+  { id: "audit", label: "Audit", icon: <AuditIcon /> },
 ];
 
 interface AppShellProps {
@@ -106,7 +104,7 @@ export function AppShell({
         <details
           key={active}
           className={`mobile-more ${
-            ["statistics", "audit", "settings"].includes(active) ? "active" : ""
+            ["statistics", "settings"].includes(active) ? "active" : ""
           }`}
         >
           <summary aria-label="Open more navigation">
@@ -116,7 +114,6 @@ export function AppShell({
           <nav aria-label="More navigation">
             {[
               { id: "statistics" as const, label: "Statistics", icon: <ChartIcon /> },
-              { id: "audit" as const, label: "Audit response", icon: <AuditIcon /> },
               { id: "settings" as const, label: "Settings", icon: <SlidersIcon /> },
             ].map((item) => (
               <button

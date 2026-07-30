@@ -41,7 +41,8 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
   three-calendar-month window or calendar year, with like-for-like comparison
   against the immediately preceding period.
 - Keeps the five frequent mobile actions spacious in the bottom navigation,
-  with Statistics, Audit response and Settings grouped under More.
+  with Audit response directly available and Statistics and Settings grouped
+  under More.
 - Prepares an immutable August claim snapshot and records submission status.
 - Downloads complete, size-bounded claim ZIP parts with PDF, CSV, manifest and
   original receipts.
@@ -134,10 +135,11 @@ preference. The map uses DOM and SVG rendering rather than WebGL, and its dots
 remain interactive against a local grid if the external street background is
 unavailable.
 
-The Expenses view is the editable receipt ledger. Submit is deliberately
-separate: it scopes the ledger to one month, shows the amount ready to claim
-and any missing evidence, locks the completed period, and creates the
-downloadable claim package.
+The Expenses view is the editable receipt ledger and the home of routine claim
+preparation. Its compact monthly claim section shows the amount ready, any
+missing evidence, locks the completed period and creates the downloadable
+package. Audit response remains separate because it answers a later audit
+query for an arbitrary date range and produces an AI-assisted Word response.
 
 The international evidence and itinerary design is recorded in
 [`docs/adr/0001-international-receipts-and-multi-country-trips.md`](docs/adr/0001-international-receipts-and-multi-country-trips.md).
