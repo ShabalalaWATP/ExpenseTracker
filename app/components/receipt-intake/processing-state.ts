@@ -30,6 +30,23 @@ export type ReceiptProcessingSummary = {
   visible: boolean;
 };
 
+export function receiptAnalysisCompletion(intake: {
+  errorCode: string | null;
+  error: string | null;
+}): {
+  stage: "completed" | "failed";
+  error?: string;
+} {
+  const failed =
+    intake.errorCode === "ai_daily_limit" ||
+    intake.errorCode === "receipt_processing_interrupted" ||
+    intake.errorCode?.startsWith("openai_") ||
+    intake.errorCode?.startsWith("analysis_");
+  return failed && intake.error
+    ? { stage: "failed", error: intake.error }
+    : { stage: "completed" };
+}
+
 export function beginProcessingBatch(
   current: readonly ReceiptProcessingJob[],
   files: readonly { id: string; name: string; waiting?: boolean }[],

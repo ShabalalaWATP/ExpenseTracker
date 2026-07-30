@@ -6,12 +6,42 @@ import * as processing from "../app/components/receipt-intake/processing-state.t
 const {
   beginProcessingBatch,
   dismissBlockedJobs,
+  receiptAnalysisCompletion,
   removeProcessingJobs,
   summariseReceiptProcessing,
   updateProcessingJob,
 } = processing;
 
 describe("receipt batch processing state", () => {
+  it("reports an AI exception as failed instead of completed", () => {
+    assert.deepEqual(
+      receiptAnalysisCompletion({
+        errorCode: "openai_failed",
+        error: "AI could not analyse this receipt.",
+      }),
+      {
+        stage: "failed",
+        error: "AI could not analyse this receipt.",
+      },
+    );
+    assert.deepEqual(receiptAnalysisCompletion({
+      errorCode: null,
+      error: null,
+    }), {
+      stage: "completed",
+    });
+  });
+
+  it("keeps a successful analysis requiring review out of the failure state", () => {
+    assert.deepEqual(
+      receiptAnalysisCompletion({
+        errorCode: "receipt_auto_review_required",
+        error: "Check the low-confidence fields before confirming.",
+      }),
+      { stage: "completed" },
+    );
+  });
+
   it("tracks batch progress without counting analysis as another receipt", () => {
     let jobs = beginProcessingBatch([], [
       { id: "a", name: "one.jpg" },

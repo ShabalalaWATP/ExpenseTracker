@@ -12,6 +12,8 @@ export type IntakeStatus =
   | "confirmed"
   | "failed";
 
+export type ReceiptAnalysisResult = "completed" | "pending" | "failed";
+
 export type ReceiptRecheckField =
   | "merchant"
   | "service_date"
@@ -109,6 +111,7 @@ export interface ReceiptIntake extends OriginalReceiptFacts {
   clarificationQuestions: string[];
   aiModel: string | null;
   hasAnalysisCopy: boolean;
+  errorCode: string | null;
   error: string | null;
   createdAt: string;
   updatedAt: string;

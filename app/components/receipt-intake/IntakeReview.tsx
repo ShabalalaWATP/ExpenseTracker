@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
 import { parsePence } from "../format";
-import type { DashboardData, ExpenseCategory, MealContext } from "../types";
+import type { ExpenseCategory, MealContext } from "../types";
 import { IntakeEditableFacts } from "./IntakeEditableFacts";
 import { IntakeOptionalContext } from "./IntakeOptionalContext";
 import { IntakeOriginFallback } from "./IntakeOriginFallback";
@@ -12,22 +12,12 @@ import { IntakeReviewFooter } from "./IntakeReviewFooter";
 import { IntakeReviewHeader } from "./IntakeReviewHeader";
 import { ReceiptFactSummary } from "./ReceiptFactSummary";
 import { ReceiptImageAdjuster } from "./ReceiptImageAdjuster";
-import {
-  buildIntakePatch,
-  pounds,
-  validateIntakeReview,
-} from "./intake-review-validation";
-import {
-  confidenceLabel,
-  fieldFlagged,
-} from "./receipt-field-state";
+import { buildIntakePatch, pounds, validateIntakeReview } from "./intake-review-validation";
+import type { IntakeReviewProps } from "./intake-review-props";
+import { buildPreRecheckPatch, currentIntakePatch } from "./pre-recheck-patch";
+import { confidenceLabel, fieldFlagged } from "./receipt-field-state";
 import { confirmIntake, patchIntake } from "./receiptApi";
-import type {
-  ImageEdits,
-  ReceiptIntake,
-  ReceiptRecheckField,
-} from "./types";
-
+import type { ReceiptIntake } from "./types";
 export function IntakeReview({
   intake,
   data,
@@ -41,20 +31,7 @@ export function IntakeReview({
   onReanalyse,
   onAnalyseWithEdits,
   onConfirmed,
-}: {
-  intake: ReceiptIntake;
-  data: DashboardData;
-  voiceAvailable: boolean;
-  canRetryAnalysis: boolean;
-  canReanalyse: boolean;
-  analysisBusy: boolean;
-  analysisModel: string;
-  onUpdate: (next: ReceiptIntake) => void;
-  onRetryAnalysis: () => Promise<void>;
-  onReanalyse: (fields: ReceiptRecheckField[]) => Promise<void>;
-  onAnalyseWithEdits: (edits: ImageEdits) => Promise<void>;
-  onConfirmed: () => Promise<void>;
-}) {
+}: IntakeReviewProps) {
   const [merchant, setMerchant] = useState(intake.merchant ?? "");
   const [date, setDate] = useState(intake.serviceDate ?? "");
   const [total, setTotal] = useState(pounds(intake.receiptTotalPence));
@@ -192,16 +169,24 @@ export function IntakeReview({
       setBusy("");
     }
   }
-
-  async function afterSaving(action: () => Promise<void>) {
+  async function afterSaving(action: IntakeReviewProps["onRetryAnalysis"]) {
     setBusy("saving");
-    setMessage("Saving your current corrections before the re-check…");
+    setMessage("Preparing the receipt re-check…");
     try {
-      const updated = await patchIntake(intake.id, fields());
-      onUpdate(updated);
-      acceptSaved(updated);
-      await action();
-      setMessage("Corrections saved and re-check completed.");
+      const patch = buildPreRecheckPatch(fields(), currentIntakePatch(intake));
+      if (Object.keys(patch).length > 0) {
+        const updated = await patchIntake(intake.id, patch);
+        onUpdate(updated);
+        acceptSaved(updated);
+      }
+      const result = await action();
+      setMessage(
+        result === "completed"
+          ? "Re-check completed."
+          : result === "pending"
+            ? "Receipt read. Automatic saving is still finishing."
+            : "The receipt could not be read. The original is safe; try again.",
+      );
     } catch (caught) {
       setMessage(
         caught instanceof Error
@@ -212,7 +197,6 @@ export function IntakeReview({
       setBusy("");
     }
   }
-
   const preview =
     intake.previewUrl ||
     `/api/receipt-intakes/${encodeURIComponent(intake.id)}/image`;

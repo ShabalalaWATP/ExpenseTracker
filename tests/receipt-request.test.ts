@@ -2,6 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { RECEIPT_IMAGE_DETAIL, RECEIPT_REASONING_EFFORT, receiptRequestBody } from "../src/server/receipt-request.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
+import { RECEIPT_EXTRACTION_SCHEMA } from "../src/server/receipt-extraction-schema.ts";
+
+function collectSchemaKeys(value: unknown, keys = new Set<string>()): Set<string> {
+  if (!value || typeof value !== "object") return keys;
+  for (const [key, child] of Object.entries(value)) {
+    keys.add(key);
+    collectSchemaKeys(child, keys);
+  }
+  return keys;
+}
 
 test("receipt requests prioritise frontier reading quality", () => {
   const body = receiptRequestBody(
@@ -27,4 +38,9 @@ test("receipt requests prioritise frontier reading quality", () => {
   assert.match(body.instructions, /ISO 3166-1 alpha-2 country/);
   assert.match(body.instructions, /original Unicode script/);
   assert.equal(body.text.format.strict, true);
+});
+
+test("receipt structured output schema uses OpenAI-supported keywords", () => {
+  const keys = collectSchemaKeys(RECEIPT_EXTRACTION_SCHEMA);
+  assert.equal(keys.has("uniqueItems"), false);
 });

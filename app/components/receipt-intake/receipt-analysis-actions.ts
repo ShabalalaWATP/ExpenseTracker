@@ -9,6 +9,7 @@ import {
 } from "./receiptApi";
 import type {
   ImageEdits,
+  ReceiptAnalysisResult,
   ReceiptIntake,
   ReceiptRecheckField,
 } from "./types";
@@ -17,6 +18,7 @@ import {
   AutoConfirmationPendingError,
   pollAutoConfirmation,
 } from "./auto-confirm-polling";
+import { receiptAnalysisCompletion } from "./processing-state";
 
 type ProcessingTracker = ReturnType<typeof useReceiptProcessingTracker>;
 
@@ -61,7 +63,7 @@ export function createReceiptAnalysisActions({
     start: "preparing" | "analysing",
     action: (jobId: string) => Promise<ReceiptIntake>,
     fallback: string,
-  ) {
+  ): Promise<ReceiptAnalysisResult> {
     const jobId = `analysis:${intake.id}`;
     processing.begin([{ id: jobId, name: intake.originalName }]);
     processing.mark(jobId, start, { secured: true });
@@ -75,18 +77,26 @@ export function createReceiptAnalysisActions({
       );
       updateIntake(analysed);
       if (analysed.status === "confirmed") await confirmed(analysed.id);
-      processing.mark(jobId, "completed", { secured: true });
+      const completion = receiptAnalysisCompletion(analysed);
+      if (completion.error) setError(completion.error);
+      processing.mark(jobId, completion.stage, {
+        secured: true,
+        error: completion.error,
+      });
+      return completion.stage === "completed" ? "completed" : "failed";
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : fallback;
+      const pending = caught instanceof AutoConfirmationPendingError;
       setError(message);
       processing.mark(
         jobId,
-        caught instanceof AutoConfirmationPendingError ? "pending" : "failed",
+        pending ? "pending" : "failed",
         {
-        secured: true,
-        error: message,
+          secured: true,
+          error: message,
         },
       );
+      return pending ? "pending" : "failed";
     } finally {
       setProcessingIds((ids) => ids.filter((id) => id !== intake.id));
     }
@@ -126,8 +136,8 @@ export function createReceiptAnalysisActions({
     },
     retryAnalysis: async (intake: ReceiptIntake) => {
       const file = analysisFiles.current.get(intake.id);
-      if (!file) return;
-      await run(
+      if (!file) return "failed";
+      return run(
         intake,
         "preparing",
         async (jobId) => {

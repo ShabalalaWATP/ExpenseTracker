@@ -518,6 +518,9 @@ control and the development record contains verification evidence.
 - [x] Recover interrupted receipt analysis on removal using a guarded
   operation lease, while preserving active-work, claim-lock, late-result and
   tombstone-backed evidence deletion safeguards.
+- [x] Keep the strict receipt schema within OpenAI's supported JSON Schema
+  subset, report provider failures truthfully, and let incomplete receipts be
+  re-read without first saving invalid blank fields.
 - [x] Add dedicated Audit response and month-scoped Statistics navigation.
 - [x] Add an owner-only, sourced JSP 752 Policy assistant under More on mobile.
 - [x] Store the complete official JSP 752 v66.1 PDF and searchable 663-page

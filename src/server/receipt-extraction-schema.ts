@@ -147,7 +147,6 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
     food_style_tags: {
       type: "array",
       maxItems: 3,
-      uniqueItems: true,
       items: { type: "string", enum: FOOD_STYLE_TAGS },
     },
     line_items: {

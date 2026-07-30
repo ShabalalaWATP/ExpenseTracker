@@ -2,28 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { receiptAnalysisImage } from "./image";
-import {
-  analyseIntake,
-  ReceiptApiError,
-  uploadIntake,
-} from "./receiptApi";
+import { analyseIntake, ReceiptApiError, uploadIntake } from "./receiptApi";
 import type { AiStatus, BatchDefaults, LocalUpload, ReceiptIntake } from "./types";
-import {
-  currentBatchDefaults,
-  initialBatchDefaultState,
-  upsertReceiptIntake,
-} from "./upload-queue";
-import { useReceiptProcessingTracker } from "./useReceiptProcessingTracker";
+import { currentBatchDefaults, initialBatchDefaultState, upsertReceiptIntake } from "./upload-queue";
 import { createReceiptAnalysisActions, finishReceiptAnalysis } from "./receipt-analysis-actions";
 import { createReceiptQueueActions } from "./receipt-queue-actions";
 import { AutoConfirmationPendingError } from "./auto-confirm-polling";
 import { enqueueReceiptFiles } from "./receipt-file-queue";
+import { receiptAnalysisCompletion } from "./processing-state";
 import { useLocalUploadQueue } from "./useLocalUploadQueue";
-import {
-  cancelReceiptRequests,
-  finishReceiptRequest,
-  newReceiptRequestControl,
-} from "./request-control";
+import { useReceiptProcessingTracker } from "./useReceiptProcessingTracker";
+import { cancelReceiptRequests, finishReceiptRequest, newReceiptRequestControl } from "./request-control";
 import { useInitialReceiptInbox } from "./useInitialReceiptInbox";
 
 export function useReceiptInbox({
@@ -185,7 +174,12 @@ export function useReceiptInbox({
       } else {
         analysisFiles.current.delete(intake.id);
       }
-      processing.mark(local.id, "completed", { secured: true });
+      const completion = receiptAnalysisCompletion(analysed);
+      if (completion.error) setError(completion.error);
+      processing.mark(local.id, completion.stage, {
+        secured: true,
+        error: completion.error,
+      });
       await removeLocal(local.id);
     } catch (caught) {
       if (

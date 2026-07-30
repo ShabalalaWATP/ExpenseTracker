@@ -178,6 +178,7 @@ export function publicIntake(row: ReceiptIntakeRow) {
     aiModel: row.ai_model,
     hasAnalysisCopy: Boolean(row.analysis_object_key),
     expenseId: row.expense_id,
+    errorCode: row.error_code,
     error: row.error_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

@@ -10,6 +10,7 @@ test("normalises missing receipt collections from older API records", () => {
     originalCountry: "GB",
   });
 
+  assert.equal(intake.errorCode, null);
   assert.deepEqual(intake.analysisHistory, []);
   assert.deepEqual(intake.clarificationQuestions, []);
   assert.deepEqual(intake.duplicateCandidates, []);
@@ -19,6 +20,14 @@ test("normalises missing receipt collections from older API records", () => {
   assert.deepEqual(intake.confidence, {});
   assert.deepEqual(intake.correctionProvenance, {});
   assert.deepEqual(intake.imageEdits, {});
+});
+
+test("normalises the typed receipt failure code", () => {
+  const intake = normaliseReceiptIntake({
+    errorCode: "openai_failed",
+    error: "AI could not analyse this receipt.",
+  });
+  assert.equal(intake.errorCode, "openai_failed");
 });
 
 test("normalises incomplete analysis history entries before rendering", () => {

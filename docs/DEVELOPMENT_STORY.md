@@ -362,3 +362,9 @@ This document records meaningful implementation milestones, decisions and verifi
   results cannot overwrite or resurrect a removed receipt, and failed object
   cleanup remains discoverable and retryable. Legacy tokenless jobs retain a
   conservative recovery window.
+- Fixed a clear receipt being secured but rejected before model inference. The
+  strict extraction schema used an unsupported `uniqueItems` keyword, so the
+  Responses API refused the request before reading the image. Receipt failures
+  now remain visibly failed instead of being labelled complete, and Read again
+  no longer sends blank review values through the stricter save endpoint before
+  retrying the secured image.

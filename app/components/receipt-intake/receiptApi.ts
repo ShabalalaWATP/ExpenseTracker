@@ -109,6 +109,7 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
       item.correctionProvenance,
     ) as ReceiptIntake["correctionProvenance"],
     imageEdits: record(item.imageEdits) as ReceiptIntake["imageEdits"],
+    errorCode: text(item.errorCode) ?? null,
     originalCurrency: text(item.originalCurrency) ?? "UNKNOWN",
     originalCountry: text(item.originalCountry) ?? "UNKNOWN",
     originalLanguage: text(item.originalLanguage),
