@@ -2,6 +2,7 @@ import {
   answerPolicyQuestion,
   parsePolicyConversation,
 } from "@/src/server/policy-assistant";
+import { consumeAiQuota } from "@/src/server/ai-quota";
 import { PolicyContractError } from "@/src/server/policy-assistant-contract";
 import {
   ApiError,
@@ -17,6 +18,7 @@ export async function POST(request: Request): Promise<Response> {
     requireSameOrigin(request);
     const principal = await requirePrincipal();
     const messages = parsePolicyConversation(await readJson(request));
+    await consumeAiQuota(principal, "policyQuestion", crypto.randomUUID());
     return json(await answerPolicyQuestion(principal, messages));
   } catch (error) {
     return errorResponse(

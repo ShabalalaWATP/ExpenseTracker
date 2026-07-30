@@ -25,7 +25,6 @@ export type PolicyAnswer = {
   answer: string;
   citations: PolicyCitation[];
   model: string;
-  policyVersion: string;
 };
 
 function cleanMessage(value: unknown): PolicyConversationMessage {
@@ -77,7 +76,16 @@ function allowedGovernmentUrl(value: unknown): string | null {
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
-    return url.protocol === "https:" && (host === "gov.uk" || host.endsWith(".gov.uk"))
+    const publicationPath =
+      "/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances";
+    const isPublication =
+      (host === "gov.uk" || host === "www.gov.uk") &&
+      url.pathname.replace(/\/$/, "") === publicationPath;
+    const isReviewedPdf =
+      host === "assets.publishing.service.gov.uk" &&
+      url.pathname ===
+        "/media/69fc755e8cc72d2f863ea5af/JSP752_v66_May26.pdf";
+    return url.protocol === "https:" && (isPublication || isReviewedPdf)
       ? url.toString()
       : null;
   } catch {
@@ -144,7 +152,6 @@ export function extractPolicyAnswer(
         answer,
         citations: citations.slice(0, 12),
         model: typeof root.model === "string" ? root.model : fallbackModel,
-        policyVersion: "JSP 752 v66.1, May 2026",
       };
     }
   }

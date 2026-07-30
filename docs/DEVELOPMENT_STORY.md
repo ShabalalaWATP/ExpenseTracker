@@ -346,3 +346,11 @@ This document records meaningful implementation milestones, decisions and verifi
   searches current official GOV.UK material on every answer, rejects
   non-government citations and keeps the conversation out of D1 and R2. It
   cannot inspect or mutate claims.
+- Stored the complete official JSP 752 v66.1 May 2026 PDF and a generated,
+  hashed, per-page full-text corpus in the release. The policy route now ranks
+  the locally stored pages for each question, supplies the strongest passages
+  to the model as reference data, and still requires live GOV.UK verification.
+  The UI identifies the stored source and links directly to every page used.
+  Regeneration uses a hashed `pypdf` dependency and a byte-for-byte
+  reproducibility check. Exact JSP source citation allowlisting and an atomic
+  private daily quota protect policy integrity and AI cost.

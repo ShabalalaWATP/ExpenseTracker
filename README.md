@@ -47,8 +47,11 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
   find missing evidence and prepare the monthly claim package. Search, each
   filter, the ledger and the package explain what they do and why they matter.
 - Adds a Policy assistant under More on mobile. It answers JSP 752 questions
-  with the frontier `gpt-5.6-sol` model, searches only official GOV.UK sources
-  and displays its citations as links. It cannot see or change the ledger.
+  with the frontier `gpt-5.6-sol` model. The complete 663-page JSP 752 v66.1
+  PDF and a searchable per-page corpus are stored in the app. Each answer
+  retrieves the most relevant stored pages, checks the current GOV.UK source
+  and displays both the page numbers used and official citations. It cannot
+  see or change the ledger.
 - Prepares an immutable August claim snapshot and records submission status.
 - Downloads complete, size-bounded claim ZIP parts with PDF, CSV, manifest and
   original receipts.
@@ -153,11 +156,36 @@ query for an arbitrary date range and produces an AI-assisted Word response.
 The Policy assistant is a separate owner-authenticated route. The browser sends
 only the bounded recent policy conversation to `/api/ai/policy`; receipt,
 expense and trip data are never included. The server calls the OpenAI Responses
-API with `store: false`, a privacy-preserving owner identifier and required web
-search restricted to GOV.UK. Returned citations are allowlisted again on the
-server before the UI renders them as clickable links. The conversation remains
-in component memory and disappears on reload. Answers are explanatory, not an
-entitlement decision, and the official JSP 752 remains authoritative.
+API with `store: false`, a privacy-preserving owner identifier and relevant
+passages retrieved locally from the complete versioned corpus. Required web
+search is restricted to GOV.UK so the stored release is checked for currency.
+Returned citations are allowlisted again on the server before the UI renders
+them as clickable links. The conversation remains in component memory and
+disappears on reload. Answers are explanatory, not an entitlement decision,
+and a newer official JSP 752 overrides the stored copy.
+
+### Stored JSP 752 knowledge
+
+- `public/policy/JSP752_v66.1_May_2026.pdf` is the unchanged official PDF that
+  the owner can open from the Policy assistant.
+- `src/policy/jsp752-v66.1-pages.json` is the generated full-text, per-page
+  retrieval corpus used on the server. It contains all 663 pages plus source
+  and text SHA-256 hashes.
+- `src/policy/jsp752-v66.1-manifest.json` is the small generated metadata file
+  used by the interface, so displayed versions and links stay aligned with the
+  server corpus.
+- `src/server/jsp752-retrieval.ts` performs local BM25-style retrieval without
+  a vector database or another external service.
+- `scripts/build-jsp752-corpus.py` regenerates the corpus after an authorised
+  maintainer downloads a newer official PDF. Install the hashed dependency with
+  `python -m pip install --require-hashes -r scripts/requirements-policy.txt`,
+  update the reviewed PDF hash and versioned filenames, regenerate both
+  outputs, then use `npm run policy:verify` to byte-compare a fresh extraction
+  with the committed corpus.
+- Tests verify the stored PDF hash, page count and retrieval of the aggregation,
+  service-charge and receipt-evidence provisions. The policy route also has a
+  private daily request limit to constrain accidental or compromised-session
+  AI usage.
 
 The international evidence and itinerary design is recorded in
 [`docs/adr/0001-international-receipts-and-multi-country-trips.md`](docs/adr/0001-international-receipts-and-multi-country-trips.md).

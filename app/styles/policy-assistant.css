@@ -2,6 +2,12 @@
   max-width: 1120px;
 }
 
+.policy-assistant-view .header-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .policy-boundary {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -100,6 +106,11 @@
   font-size: 0.66rem;
 }
 
+.stored-policy-pages a {
+  color: var(--teal-dark);
+  font-weight: 750;
+}
+
 .inline-citation {
   margin-left: 2px;
   color: var(--teal-dark);
@@ -192,6 +203,16 @@
 }
 
 @media (max-width: 640px) {
+  .policy-assistant-view .header-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .policy-assistant-view .header-action a {
+    width: 100%;
+    text-align: center;
+  }
+
   .policy-boundary {
     grid-template-columns: 1fr;
   }

@@ -374,7 +374,7 @@ control and the development record contains verification evidence.
 - [x] Configure owner-only Sites access and verify an unauthorised account cannot
   reach pages, APIs or receipt objects.
 - [x] Enforce the verified Sites principal against a server-side owner allowlist.
-- [ ] Confirm the applicable JSP 752 release immediately before launch.
+- [x] Confirm the applicable JSP 752 release immediately before launch.
 - [ ] Test camera capture, Photo Library selection, JPEG and a real iPhone HEIC
   receipt on iPhone 16 Safari.
 - [ ] Test upload retry after Safari backgrounding or a simulated network
@@ -449,10 +449,12 @@ control and the development record contains verification evidence.
   confirmation, microphone denial and the manual fallback still require
   real-device end-to-end verification.
 - ExpenseTracker has no general-purpose chat feature. Its bounded Policy
-  assistant answers JSP 752 questions without ledger access, uses
-  `OPENAI_POLICY_MODEL`, requires official GOV.UK search and exposes clickable
-  source citations. Receipt extraction and Realtime voice remain separate
-  purpose-limited model workflows.
+  assistant answers JSP 752 questions without ledger access. The complete
+  663-page v66.1 PDF and a hashed per-page text corpus are stored in the
+  release. It retrieves relevant local pages before calling
+  `OPENAI_POLICY_MODEL`, requires a current official GOV.UK search and exposes
+  both stored page links and official source citations. Receipt extraction and
+  Realtime voice remain separate purpose-limited model workflows.
 - Receipt extraction now requests `gpt-5.6-sol` with original image detail and
   high reasoning effort. This deliberately prioritises quality over the lower
   latency and cost of the previous Luna configuration.
@@ -515,6 +517,9 @@ control and the development record contains verification evidence.
   metadata-stripped analysis preparation, and clear exact-duplicate feedback.
 - [x] Add dedicated Audit response and month-scoped Statistics navigation.
 - [x] Add an owner-only, sourced JSP 752 Policy assistant under More on mobile.
+- [x] Store the complete official JSP 752 v66.1 PDF and searchable 663-page
+  corpus in the app, verify the source hash, and retrieve local passages before
+  each live GOV.UK-checked answer.
 - [x] Explain the three Expenses jobs, active filters, receipt ledger and
   monthly package in short plain English.
 - [x] Add privacy-preserving restaurant, food-style, meal-context, daily-spend

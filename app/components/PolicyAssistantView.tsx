@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
+import policyManifest from "@/src/policy/jsp752-v66.1-manifest.json";
 import {
   askPolicyAssistant,
+  type PolicyAssistantAnswer,
   type PolicyAssistantCitation,
 } from "./api";
 import { StatusMessage, ViewHeader } from "./ui";
 
 const POLICY_URL =
   "https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances";
+const STORED_POLICY_URL = policyManifest.localPdfPath;
 
 const starters = [
   "How does the £30 daily limit work?",
@@ -22,6 +25,8 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   citations?: PolicyAssistantCitation[];
+  storedPages?: number[];
+  storedSource?: PolicyAssistantAnswer["storedSource"];
   model?: string;
 };
 
@@ -29,7 +34,7 @@ const welcome: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Ask me about JSP 752 Day Subsistence, receipts, the £30 limit, aggregation or eligible food and drink. I check current official GOV.UK sources before answering.",
+    `Ask me about JSP 752 Day Subsistence, receipts, the £30 limit, aggregation or eligible food and drink. I search the complete ${policyManifest.pageCount}-page JSP stored in this app, then check the current official GOV.UK source.`,
 };
 
 function citedText(text: string, citations: PolicyAssistantCitation[]): ReactNode[] {
@@ -92,6 +97,8 @@ export function PolicyAssistantView() {
           role: "assistant",
           content: answer.answer,
           citations: answer.citations,
+          storedPages: answer.storedPages,
+          storedSource: answer.storedSource,
           model: answer.model,
         },
       ]);
@@ -114,19 +121,24 @@ export function PolicyAssistantView() {
   return (
     <div className="view page-enter policy-assistant-view">
       <ViewHeader
-        eyebrow="JSP 752 · official sources"
+        eyebrow="Stored JSP 752 · live official check"
         title="Policy assistant"
-        detail="Ask a question and get a short, sourced explanation in plain English."
+        detail="Ask a question and get a plain-English answer from the complete stored policy, checked against current GOV.UK sources."
         action={
-          <a className="secondary-button" href={POLICY_URL} target="_blank" rel="noreferrer">
-            Open official policy
-          </a>
+          <>
+            <a className="secondary-button" href={STORED_POLICY_URL} target="_blank" rel="noreferrer">
+              Open stored JSP
+            </a>
+            <a className="text-button" href={POLICY_URL} target="_blank" rel="noreferrer">
+              Check GOV.UK
+            </a>
+          </>
         }
       />
 
       <div className="policy-boundary">
-        <strong>Explains policy</strong>
-        <span>It cannot approve a claim, change expenses or see your receipts and ledger.</span>
+        <strong>Complete policy stored</strong>
+        <span>{policyManifest.version}, all {policyManifest.pageCount} pages, is included in this release. The assistant cannot approve a claim, change expenses or see your receipts and ledger.</span>
       </div>
 
       <div className="policy-chat" aria-label="Policy conversation">
@@ -162,13 +174,26 @@ export function PolicyAssistantView() {
                   </ol>
                 </details>
               ) : null}
+              {message.storedPages?.length ? (
+                <small className="stored-policy-pages">
+                  Retrieved {message.storedSource?.version ?? "stored JSP 752"} pages supplied to the assistant:{" "}
+                  {message.storedPages.map((page, index) => (
+                    <span key={page}>
+                      {index ? ", " : ""}
+                      <a href={`${STORED_POLICY_URL}#page=${page}`} target="_blank" rel="noreferrer">
+                        {page}
+                      </a>
+                    </span>
+                  ))}
+                </small>
+              ) : null}
               {message.model ? <small>Answered by {message.model}</small> : null}
             </li>
           ))}
           {busy ? (
             <li className="assistant policy-thinking">
               <span>Policy assistant</span>
-              <p>Checking the latest official JSP 752…</p>
+              <p>Searching the stored JSP, then checking GOV.UK…</p>
             </li>
           ) : null}
         </ol>

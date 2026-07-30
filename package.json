@@ -11,6 +11,7 @@
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs tests/migration.test.mjs && node --experimental-strip-types --test tests/*.test.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "policy:verify": "python scripts/build-jsp752-corpus.py public/policy/JSP752_v66.1_May_2026.pdf src/policy/jsp752-v66.1-pages.json --manifest src/policy/jsp752-v66.1-manifest.json --check",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

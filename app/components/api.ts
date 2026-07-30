@@ -315,6 +315,13 @@ export type PolicyAssistantAnswer = {
   citations: PolicyAssistantCitation[];
   model: string;
   policyVersion: string;
+  storedPages: number[];
+  storedSource: {
+    title: string;
+    version: string;
+    pageCount: number;
+    localPdfPath: string;
+  };
 };
 
 export async function askPolicyAssistant(
