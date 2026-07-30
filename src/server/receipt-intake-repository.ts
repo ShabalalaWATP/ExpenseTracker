@@ -180,7 +180,7 @@ export async function createReceiptIntake(
     throw new ApiError(
       409,
       "receipt_duplicate",
-      "This receipt image has already been uploaded.",
+      "This receipt has already been added.",
       {
         existingId: duplicateIntake?.id ?? duplicateReceipt?.id,
         existingKind: duplicateIntake ? "intake" : "expense",
@@ -259,7 +259,7 @@ export async function createReceiptIntake(
       throw new ApiError(
         409,
         "receipt_duplicate",
-        "This receipt image has already been uploaded.",
+        "This receipt has already been added.",
         { existingId: concurrentDuplicate.id, existingKind: "intake" },
       );
     }

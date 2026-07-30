@@ -107,6 +107,24 @@ describe("receipt batch processing state", () => {
     assert.deepEqual(dismissBlockedJobs(jobs), []);
   });
 
+  it("presents an exact duplicate as a dismissible stop, not a retry", () => {
+    let jobs = beginProcessingBatch([], [
+      { id: "a", name: "already-added.jpg" },
+    ]);
+    jobs = updateProcessingJob(jobs, "a", {
+      stage: "duplicate",
+      secured: true,
+      error: "This receipt has already been added.",
+    });
+
+    const summary = summariseReceiptProcessing(jobs);
+    assert.equal(summary.stage, "duplicate");
+    assert.equal(summary.running, 0);
+    assert.equal(summary.blocked, 1);
+    assert.equal(summary.visible, true);
+    assert.deepEqual(dismissBlockedJobs(jobs), []);
+  });
+
   it("removes cancelled jobs without affecting the rest of the batch", () => {
     const jobs = beginProcessingBatch([], [
       { id: "a", name: "cancel.jpg" },

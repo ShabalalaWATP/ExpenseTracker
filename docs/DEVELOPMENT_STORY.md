@@ -389,3 +389,9 @@ This document records meaningful implementation milestones, decisions and verifi
   one transient server or network response failure, without uploading the
   receipt or running extraction again. The retry is deliberately bounded and
   permanent review decisions remain authoritative.
+- Made exact duplicate receipt handling explicit on mobile. A receipt photo
+  that is still present in the private inbox or ledger is stopped before another
+  AI read and shown in a dedicated full-screen state saying it has already been
+  added. The state is dismissible but not retryable. Deleting an unconfirmed
+  inbox receipt continues to remove its duplicate block so it can be added
+  again intentionally.

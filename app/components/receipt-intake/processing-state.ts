@@ -7,6 +7,7 @@ export type ReceiptProcessingStage =
   | "validating"
   | "confirming"
   | "pending"
+  | "duplicate"
   | "completed"
   | "failed";
 
@@ -84,7 +85,8 @@ export function dismissBlockedJobs(
     (job) =>
       job.stage !== "failed" &&
       job.stage !== "waiting" &&
-      job.stage !== "pending",
+      job.stage !== "pending" &&
+      job.stage !== "duplicate",
   );
 }
 
@@ -104,6 +106,7 @@ const STAGE_PRIORITY: ReceiptProcessingStage[] = [
   "confirming",
   "pending",
   "waiting",
+  "duplicate",
   "failed",
   "completed",
 ];
@@ -117,6 +120,7 @@ export function summariseReceiptProcessing(
     (job) =>
       job.stage === "waiting" ||
       job.stage === "pending" ||
+      job.stage === "duplicate" ||
       job.stage === "failed",
   ).length;
   const running = jobs.length - completed - blocked;

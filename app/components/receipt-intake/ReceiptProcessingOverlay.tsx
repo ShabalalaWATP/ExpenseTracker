@@ -42,6 +42,11 @@ const STAGE_COPY = {
     title: "Waiting for a connection",
     detail: "The original is still on this device and is not yet secured.",
   },
+  duplicate: {
+    title: "This receipt has already been added",
+    detail:
+      "ExpenseTracker stopped before reading it again. The existing receipt remains unchanged.",
+  },
   failed: {
     title: "Some receipts need another try",
     detail: "Completed originals remain secured. Retry the interrupted items.",
@@ -110,6 +115,7 @@ export function ReceiptProcessingOverlay({
   if (!mounted || !processing.visible) return null;
   const copy = STAGE_COPY[processing.stage];
   const blocked = processing.blocked > 0 && processing.running === 0;
+  const duplicate = processing.stage === "duplicate";
   const activeLabel =
     processing.running > 1
       ? `${processing.running} receipts active`
@@ -177,7 +183,13 @@ export function ReceiptProcessingOverlay({
             {processing.secured === 1 ? "" : "s"} secured
           </span>
         </div>
-        {blocked ? (
+        {blocked && duplicate ? (
+          <div className="receipt-processing-actions">
+            <button className="primary-button" type="button" onClick={onReturn}>
+              Return to receipt inbox
+            </button>
+          </div>
+        ) : blocked ? (
           <div className="receipt-processing-actions">
             <button className="primary-button" type="button" onClick={onRetry}>
               Retry {processing.blocked === 1 ? "receipt" : "receipts"}

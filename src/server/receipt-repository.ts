@@ -116,7 +116,11 @@ export async function attachReceipt(
     .bind(principal.ownerId, hash)
     .first<{ id: string }>();
   if (duplicate) {
-    throw new ApiError(409, "receipt_duplicate", "This receipt image has already been uploaded.");
+    throw new ApiError(
+      409,
+      "receipt_duplicate",
+      "This receipt has already been added.",
+    );
   }
   const id = crypto.randomUUID();
   const extension =

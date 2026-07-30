@@ -103,10 +103,12 @@ export function useReceiptInbox({
         caught.code === "receipt_duplicate"
       ) {
         await removeLocal(local.id);
-        processing.remove([local.id]);
-        setError(
-          `${local.file.name} was stopped because this exact receipt is already stored.`,
-        );
+        const duplicateMessage = "This receipt has already been added.";
+        processing.mark(local.id, "duplicate", {
+          secured: true,
+          error: duplicateMessage,
+        });
+        setError(duplicateMessage);
         finishReceiptRequest(requestControl, local.id);
         return;
       }
