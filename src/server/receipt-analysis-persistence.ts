@@ -21,6 +21,10 @@ import type { ReceiptIntakeRow } from "./receipt-intake-model";
 import { refreshDuplicateCandidates } from "./receipt-duplicates";
 import { receiptRevisionStatement } from "./receipt-intake-revisions";
 import { resolveReceiptTripLink } from "./receipt-trip-link";
+import {
+  convertReceiptToGbp,
+  type ReceiptConversion,
+} from "./fx-conversion";
 export async function persistReceiptExtraction(
   principal: Principal,
   row: ReceiptIntakeRow,
@@ -58,21 +62,21 @@ export async function persistReceiptExtraction(
     targeted,
     "transaction_time",
   );
-  const receiptTotalPence = chosen<number | null>(
+  const extractedReceiptTotal = chosen<number | null>(
     row,
     extraction,
     priorProvenance,
     targeted,
     "receipt_total",
   );
-  let eligiblePence = chosen<number | null>(
+  const extractedEligible = chosen<number | null>(
     row,
     extraction,
     priorProvenance,
     targeted,
     "eligible_amount",
   );
-  const gratuityPence = chosen<number>(
+  const extractedGratuity = chosen<number>(
     row,
     extraction,
     priorProvenance,
@@ -121,9 +125,83 @@ export async function persistReceiptExtraction(
   const tripLink = await resolveReceiptTripLink(principal, {
     serviceDate,
     tripId: row.trip_id,
+    tripLegId: row.trip_leg_id,
+    originalCountry: targeted.size
+      ? row.original_country
+      : extraction.country,
     provenance: updateProvenance(priorProvenance, extraction, targeted),
   });
-  const { provenance, tripId } = tripLink;
+  const { provenance, tripId, tripLegId } = tripLink;
+  const originalCurrency = targeted.size
+    ? row.original_currency
+    : extraction.currency;
+  const originalCountry = targeted.size
+    ? row.original_country
+    : extraction.country;
+  const originalLanguage = targeted.size
+    ? row.original_language
+    : extraction.language ?? "und";
+  const originalMinorUnitDigits = targeted.size
+    ? row.original_minor_unit_digits
+    : extraction.minorUnitDigits ?? null;
+  const originalReceiptTotalMinor =
+    targeted.size && !targeted.has("receipt_total")
+      ? row.original_receipt_total_minor
+      : extractedReceiptTotal;
+  const originalEligibleMinor =
+    targeted.size && !targeted.has("eligible_amount")
+      ? row.original_eligible_minor
+      : extractedEligible;
+  const originalGratuityMinor =
+    targeted.size
+      ? row.original_gratuity_minor
+      : extractedGratuity;
+  const conversionMustRefresh =
+    !targeted.size ||
+    targeted.has("service_date") ||
+    targeted.has("receipt_total") ||
+    targeted.has("eligible_amount");
+  let receiptTotalPence = row.receipt_total_pence;
+  let eligiblePence = row.eligible_pence;
+  let gratuityPence = row.gratuity_pence;
+  let exchangeRateQuoteId = row.exchange_rate_quote_id;
+  let conversionJson = row.conversion_json;
+  if (conversionMustRefresh) {
+    let conversion: ReceiptConversion | null = null;
+    try {
+      if (
+        originalCurrency !== "UNKNOWN" &&
+        serviceDate &&
+        originalMinorUnitDigits !== null &&
+        originalReceiptTotalMinor !== null &&
+        originalEligibleMinor !== null
+      ) {
+        conversion = await convertReceiptToGbp(principal, {
+          originalCurrency,
+          serviceDate,
+          originalMinorUnitDigits,
+          receiptTotalMinor: originalReceiptTotalMinor,
+          eligibleMinor: originalEligibleMinor,
+          gratuityMinor: originalGratuityMinor,
+        });
+      }
+    } catch {
+      // A missing public reference rate is a review condition. The frozen
+      // original receipt facts remain available for a later retry.
+    }
+    receiptTotalPence = conversion?.receiptTotalPence ?? null;
+    eligiblePence = conversion?.eligiblePence ?? null;
+    gratuityPence = conversion?.gratuityPence ?? 0;
+    exchangeRateQuoteId = conversion?.quoteId ?? null;
+    conversionJson = JSON.stringify(
+      conversion ?? {
+        status: "unavailable",
+        requestedDate: serviceDate,
+        originalCurrency,
+        targetCurrency: "GBP",
+      },
+    );
+  }
 
   const missing = new Set(
     targeted.size
@@ -171,9 +249,9 @@ export async function persistReceiptExtraction(
   uncertain.delete("transaction_time");
   uncertain.delete("meal_context");
   if (
-    receiptTotalPence !== null &&
-    eligiblePence !== null &&
-    eligiblePence > receiptTotalPence
+    originalReceiptTotalMinor !== null &&
+    originalEligibleMinor !== null &&
+    originalEligibleMinor > originalReceiptTotalMinor
   ) {
     eligiblePence = null;
     uncertain.add("eligible_amount");
@@ -220,9 +298,9 @@ export async function persistReceiptExtraction(
     merchant,
     serviceDate,
     transactionTime,
-    receiptTotalPence,
-    eligiblePence,
-    gratuityPence,
+    receiptTotalPence: originalReceiptTotalMinor,
+    eligiblePence: originalEligibleMinor,
+    gratuityPence: originalGratuityMinor,
     locationHint: location,
     businessReason,
     mealContext,
@@ -235,7 +313,7 @@ export async function persistReceiptExtraction(
     },
   );
   const history = appendAnalysisHistory(row, extraction, model, targeted);
-  const tripMatchAmbiguous = tripLink.resolution.status === "ambiguous";
+  const tripMatchAmbiguous = Boolean(tripLink.errorCode);
   const unresolvedCount =
     missing.size +
     uncertain.size +
@@ -248,8 +326,14 @@ export async function persistReceiptExtraction(
         `UPDATE receipt_intakes
          SET status = ?, merchant = ?, service_date = ?,
              receipt_total_pence = ?, eligible_pence = ?,
-             gratuity_pence = ?, location = ?, business_reason = ?,
-             meal_context = ?, category = ?, trip_id = ?,
+             gratuity_pence = ?, currency = 'GBP',
+             original_currency = ?, original_country = ?,
+             original_language = ?, original_receipt_total_minor = ?,
+             original_eligible_minor = ?, original_gratuity_minor = ?,
+             original_minor_unit_digits = ?, exchange_rate_quote_id = ?,
+             translation_json = ?, conversion_json = ?,
+             location = ?, business_reason = ?,
+             meal_context = ?, category = ?, trip_id = ?, trip_leg_id = ?,
              line_items_json = ?, confidence_json = ?,
              missing_fields_json = ?, uncertain_fields_json = ?,
              alcohol_suspected = ?, alcohol_reviewed = 0,
@@ -268,11 +352,24 @@ export async function persistReceiptExtraction(
         receiptTotalPence,
         eligiblePence,
         gratuityPence,
+        originalCurrency,
+        originalCountry,
+        originalLanguage,
+        originalReceiptTotalMinor,
+        originalEligibleMinor,
+        originalGratuityMinor,
+        originalMinorUnitDigits,
+        exchangeRateQuoteId,
+        targeted.size
+          ? row.translation_json
+          : JSON.stringify(extraction.translation ?? {}),
+        conversionJson,
         location,
         businessReason,
         mealContext,
         category,
         tripId,
+        tripLegId,
         targeted.size
           ? row.line_items_json
           : JSON.stringify(extraction.lineItems),
@@ -361,6 +458,8 @@ export async function persistReceiptExtraction(
   await refreshDuplicateCandidates(principal, row.id, {
     merchant,
     serviceDate,
-    receiptTotalPence,
+    receiptTotalPence: originalReceiptTotalMinor,
+    originalCurrency,
+    originalAmountMinor: originalReceiptTotalMinor,
   });
 }

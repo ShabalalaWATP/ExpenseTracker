@@ -1,4 +1,8 @@
-import type { ExpenseCategory, MealContext } from "../types";
+import type {
+  ExpenseCategory,
+  MealContext,
+  OriginalReceiptFacts,
+} from "../types";
 
 export type IntakeStatus =
   | "uploaded"
@@ -22,8 +26,11 @@ export type ReceiptRecheckField =
 
 export interface ReceiptLineItem {
   description: string;
+  descriptionEnglish?: string;
+  originalDescription?: string;
   quantity: number | null;
   totalPence: number | null;
+  originalTotalMinor?: number | null;
   eligible: boolean | null;
   alcoholSuspected: boolean;
   confidence?: number;
@@ -63,7 +70,7 @@ export interface AnalysisHistoryEntry {
   };
 }
 
-export interface ReceiptIntake {
+export interface ReceiptIntake extends OriginalReceiptFacts {
   id: string;
   batchId: string;
   status: IntakeStatus;
@@ -81,7 +88,10 @@ export interface ReceiptIntake {
   businessReason: string | null;
   mealContext: MealContext | null;
   category: ExpenseCategory | null;
+  originalCurrency: string;
+  originalCountry: string;
   tripId: string | null;
+  tripLegId: string | null;
   tripMatchStatus: "none" | "automatic" | "explicit" | "ambiguous";
   tripMatchException: string | null;
   lineItems: ReceiptLineItem[];
@@ -146,9 +156,13 @@ export type IntakePatch = Partial<{
   businessReason: string | null;
   mealContext: MealContext | null;
   category: ExpenseCategory | null;
+  originalCurrency: string;
+  originalCountry: string;
   tripId: string | null;
+  tripLegId: string | null;
   leaveTripUnlinked: boolean;
   alcoholReviewed: boolean;
   duplicateReviewed: boolean;
   reconciliationReviewed: boolean;
+  conversionReviewed: boolean;
 }>;

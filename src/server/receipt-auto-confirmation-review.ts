@@ -5,8 +5,10 @@ const REVIEW_MESSAGE: Record<string, string> = {
   alcohol: "Possible alcohol must be reviewed by the owner.",
   duplicate: "A possible duplicate receipt needs review.",
   acknowledgement: "This receipt needs owner confirmation after review.",
-  currency: "The receipt currency could not be confirmed as GBP.",
-  country: "The purchase could not be confirmed as taking place in the UK.",
+  currency: "The receipt currency could not be confirmed.",
+  country: "The purchase country could not be confirmed.",
+  conversion:
+    "A deterministic GBP exchange-rate conversion is unavailable.",
   trip_ambiguous: "More than one confirmed eligible trip matches this date.",
   trip_invalid: "The selected trip is no longer available.",
   owner_evidence:

@@ -32,8 +32,16 @@ export type ReceiptExtraction = {
   receiptTotalPence: number | null;
   eligiblePence: number | null;
   gratuityPence: number;
-  currency: "GBP" | "UNKNOWN";
-  country: "GB" | "UNKNOWN";
+  currency: string;
+  country: string;
+  language?: string | null;
+  minorUnitDigits?: number | null;
+  translation?: {
+    merchant: string | null;
+    locationHint: string | null;
+    businessReason: string | null;
+    lineItemDescriptions: string[];
+  };
   locationHint: string | null;
   businessReason: string | null;
   mealContext: "breakfast" | "lunch" | "dinner" | "snack" | "mixed" | null;
@@ -62,11 +70,46 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
       type: ["string", "null"],
       pattern: "^([01]\\d|2[0-3]):[0-5]\\d$",
     },
-    receipt_total_pence: nullableInteger,
-    eligible_pence: nullableInteger,
-    gratuity_pence: { type: "integer", minimum: 0 },
-    currency: { type: "string", enum: ["GBP", "UNKNOWN"] },
-    country: { type: "string", enum: ["GB", "UNKNOWN"] },
+    receipt_total_minor: nullableInteger,
+    eligible_minor: nullableInteger,
+    gratuity_minor: { type: "integer", minimum: 0 },
+    currency: {
+      type: "string",
+      pattern: "^(?:[A-Z]{3}|UNKNOWN)$",
+    },
+    country: {
+      type: "string",
+      pattern: "^(?:[A-Z]{2}|UNKNOWN)$",
+    },
+    language: {
+      type: ["string", "null"],
+      pattern: "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$",
+    },
+    minor_unit_digits: {
+      type: ["integer", "null"],
+      minimum: 0,
+      maximum: 4,
+    },
+    english_translation: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        merchant: nullableString,
+        location_hint: nullableString,
+        business_reason: nullableString,
+        line_item_descriptions: {
+          type: "array",
+          maxItems: 100,
+          items: { type: "string" },
+        },
+      },
+      required: [
+        "merchant",
+        "location_hint",
+        "business_reason",
+        "line_item_descriptions",
+      ],
+    },
     location_hint: nullableString,
     business_reason: nullableString,
     meal_context: {
@@ -86,7 +129,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
         properties: {
           description: { type: "string" },
           quantity: { type: ["number", "null"], minimum: 0 },
-          total_pence: nullableSignedInteger,
+          total_minor: nullableSignedInteger,
           eligible: { type: ["boolean", "null"] },
           alcohol_suspected: { type: "boolean" },
           confidence: { type: "number", minimum: 0, maximum: 1 },
@@ -94,7 +137,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
         required: [
           "description",
           "quantity",
-          "total_pence",
+          "total_minor",
           "eligible",
           "alcohol_suspected",
           "confidence",
@@ -145,11 +188,14 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
     "merchant",
     "service_date",
     "transaction_time",
-    "receipt_total_pence",
-    "eligible_pence",
-    "gratuity_pence",
+    "receipt_total_minor",
+    "eligible_minor",
+    "gratuity_minor",
     "currency",
     "country",
+    "language",
+    "minor_unit_digits",
+    "english_translation",
     "location_hint",
     "business_reason",
     "meal_context",
@@ -189,6 +235,71 @@ function optionalText(value: unknown): string | null {
   return typeof value === "string" && value.trim()
     ? value.trim().slice(0, 300)
     : null;
+}
+
+export function canonicalCurrency(value: unknown): string {
+  if (value === "UNKNOWN") return "UNKNOWN";
+  if (typeof value !== "string" || !/^[A-Z]{3}$/.test(value)) {
+    return "UNKNOWN";
+  }
+  try {
+    const supported = (
+      Intl as typeof Intl & {
+        supportedValuesOf?: (key: "currency") => string[];
+      }
+    ).supportedValuesOf?.("currency");
+    if (supported && !supported.includes(value)) return "UNKNOWN";
+    new Intl.NumberFormat("en", { style: "currency", currency: value });
+    return value;
+  } catch {
+    return "UNKNOWN";
+  }
+}
+
+export function canonicalCountry(value: unknown): string {
+  if (value === "UNKNOWN") return "UNKNOWN";
+  if (typeof value !== "string" || !/^[A-Z]{2}$/.test(value)) {
+    return "UNKNOWN";
+  }
+  try {
+    const canonical = new Intl.Locale(`und-${value}`).region;
+    const display = new Intl.DisplayNames(["en"], { type: "region" }).of(value);
+    return canonical === value &&
+        display &&
+        display !== value &&
+        display !== "Unknown Region"
+      ? value
+      : "UNKNOWN";
+  } catch {
+    return "UNKNOWN";
+  }
+}
+
+export function canonicalLanguage(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    return Intl.getCanonicalLocales(value.trim())[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function currencyMinorUnitDigits(currency: string): number | null {
+  if (currency === "UNKNOWN") return null;
+  try {
+    const digits = new Intl.NumberFormat("en", {
+      style: "currency",
+      currency,
+    }).resolvedOptions().maximumFractionDigits;
+    return typeof digits === "number" &&
+      Number.isInteger(digits) &&
+      digits >= 0 &&
+      digits <= 4
+      ? digits
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function validDate(value: unknown): string | null {
@@ -258,15 +369,47 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
       ? value.category
       : null;
   const transactionTime = normaliseTransactionTime(value.transaction_time);
+  const currency = canonicalCurrency(value.currency);
+  const rawTranslation =
+    value.english_translation &&
+    typeof value.english_translation === "object" &&
+    !Array.isArray(value.english_translation)
+      ? (value.english_translation as Record<string, unknown>)
+      : {};
+  const translatedDescriptions = Array.isArray(
+    rawTranslation.line_item_descriptions,
+  )
+    ? rawTranslation.line_item_descriptions
+        .slice(0, 100)
+        .map(optionalText)
+        .filter((item): item is string => Boolean(item))
+    : [];
   return {
     merchant: optionalText(value.merchant),
     serviceDate: validDate(value.service_date),
     transactionTime,
-    receiptTotalPence: money(value.receipt_total_pence),
-    eligiblePence: money(value.eligible_pence),
-    gratuityPence: money(value.gratuity_pence) ?? 0,
-    currency: value.currency === "GBP" ? "GBP" : "UNKNOWN",
-    country: value.country === "GB" ? "GB" : "UNKNOWN",
+    receiptTotalPence: money(
+      value.receipt_total_minor ?? value.receipt_total_pence,
+    ),
+    eligiblePence: money(value.eligible_minor ?? value.eligible_pence),
+    gratuityPence:
+      money(value.gratuity_minor ?? value.gratuity_pence) ?? 0,
+    currency,
+    country: canonicalCountry(value.country),
+    language: canonicalLanguage(value.language) ?? "und",
+    minorUnitDigits:
+      currencyMinorUnitDigits(currency) ??
+      (Number.isInteger(value.minor_unit_digits) &&
+      Number(value.minor_unit_digits) >= 0 &&
+      Number(value.minor_unit_digits) <= 4
+        ? Number(value.minor_unit_digits)
+        : null),
+    translation: {
+      merchant: optionalText(rawTranslation.merchant),
+      locationHint: optionalText(rawTranslation.location_hint),
+      businessReason: optionalText(rawTranslation.business_reason),
+      lineItemDescriptions: translatedDescriptions,
+    },
     locationHint: optionalText(value.location_hint),
     businessReason: optionalText(value.business_reason),
     mealContext: mealContextFromTime(
@@ -288,7 +431,7 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
           item.quantity >= 0
             ? item.quantity
             : null,
-        totalPence: signedMoney(item.total_pence),
+        totalPence: signedMoney(item.total_minor ?? item.total_pence),
         eligible:
           typeof item.eligible === "boolean" ? item.eligible : null,
         alcoholSuspected: item.alcohol_suspected === true,

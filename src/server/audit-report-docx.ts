@@ -17,6 +17,20 @@ export type AuditClaimSummary = {
   claimablePence: number;
 };
 
+export type AuditTripSummary = {
+  id: string;
+  name: string;
+  purpose: string | null;
+  startDate: string;
+  endDate: string;
+  legs: readonly {
+    countryCode: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+  }[];
+};
+
 function money(pence: number): string {
   return `£${(pence / 100).toFixed(2)}`;
 }
@@ -27,10 +41,36 @@ function categoryLabel(category: string): string {
   );
 }
 
+function originalMoney(
+  minor: number,
+  currency: string,
+  digits: number,
+): string {
+  const exponent =
+    Number.isSafeInteger(digits) && digits >= 0 && digits <= 4 ? digits : 2;
+  return `${currency} ${(minor / 10 ** exponent).toFixed(exponent)}`;
+}
+
+function conversionSummary(expense: AuditExpense): string {
+  if (expense.originalCurrency === "GBP") return "GBP identity conversion";
+  const source =
+    expense.conversion.provider ??
+    expense.conversion.source ??
+    "Conversion source not recorded";
+  const date = expense.conversion.observationDate
+    ? `, observation ${expense.conversion.observationDate}`
+    : "";
+  const rate = expense.conversion.rateDisplay
+    ? `, 1 ${expense.originalCurrency} = ${expense.conversion.rateDisplay} GBP`
+    : "";
+  return `${source}${date}${rate}, ${expense.conversion.rounding ?? "half-up"} rounding`;
+}
+
 export function composeAuditDocx(input: {
   ownerEmail: string;
   range: AuditRange;
   expenses: readonly AuditExpense[];
+  trips?: readonly AuditTripSummary[];
   claims: readonly AuditClaimSummary[];
   calculation: PolicyCalculation;
   policyVersion: string;
@@ -71,7 +111,7 @@ export function composeAuditDocx(input: {
     text:
       `This report covers every recorded expense with a service date between ${period}. ` +
       "Each expense was captured with its original receipt image where available, and amounts were " +
-      "extracted at intake and confirmed by the claimant before entering the ledger.",
+      "extracted at intake, independently verified where automatically accepted, and preserved in the original currency alongside the frozen GBP policy value.",
   });
   blocks.push({
     kind: "paragraph",
@@ -83,6 +123,28 @@ export function composeAuditDocx(input: {
   if (input.ai.used && input.ai.summary) {
     blocks.push({ kind: "heading", level: 2, text: "AI reviewer summary" });
     blocks.push({ kind: "paragraph", text: input.ai.summary });
+  }
+  const itinerary = (input.trips ?? []).filter(
+    (trip) =>
+      trip.endDate >= input.range.startDate &&
+      trip.startDate <= input.range.endDate,
+  );
+  if (itinerary.length) {
+    blocks.push({ kind: "heading", level: 2, text: "Trip itineraries" });
+    blocks.push({
+      kind: "table",
+      header: ["Trip", "Country and location legs", "Overall dates"],
+      rows: itinerary.map((trip) => [
+        trip.name,
+        trip.legs
+          .map(
+            (leg) =>
+              `${leg.countryCode}: ${leg.location} (${leg.startDate} to ${leg.endDate})`,
+          )
+          .join("; "),
+        `${trip.startDate} to ${trip.endDate}`,
+      ]),
+    });
   }
 
   blocks.push({ kind: "heading", level: 1, text: "2. Financial summary" });
@@ -131,13 +193,26 @@ export function composeAuditDocx(input: {
   if (input.expenses.length) {
     blocks.push({
       kind: "table",
-      header: ["Date", "Merchant", "Category", "Eligible", "Claimable", "Receipt"],
+      header: [
+        "Date",
+        "Merchant",
+        "Country",
+        "Original eligible",
+        "Eligible GBP",
+        "Claimable",
+        "Receipt",
+      ],
       rows: [...input.expenses]
         .sort((a, b) => a.serviceDate.localeCompare(b.serviceDate))
         .map((expense) => [
           expense.serviceDate,
           expense.merchant,
-          categoryLabel(expense.category),
+          expense.originalCountry,
+          originalMoney(
+            expense.originalEligibleMinor,
+            expense.originalCurrency,
+            expense.originalMinorUnitDigits,
+          ),
           money(expense.eligiblePence),
           money(expense.claimablePence),
           expense.hasReceipt ? "Stored" : "Missing",
@@ -227,8 +302,33 @@ export function composeAuditDocx(input: {
     blocks.push({
       kind: "pair",
       label: "Expense",
-      value: `${categoryLabel(expense.category)}, ${money(expense.eligiblePence)} eligible`,
+      value:
+        `${categoryLabel(expense.category)}, ` +
+        `${originalMoney(
+          expense.originalEligibleMinor,
+          expense.originalCurrency,
+          expense.originalMinorUnitDigits,
+        )} original; ${money(expense.eligiblePence)} GBP policy equivalent`,
     });
+    blocks.push({
+      kind: "pair",
+      label: "Receipt locale",
+      value:
+        `${expense.originalCountry}, language ${expense.originalLanguage}; ` +
+        conversionSummary(expense),
+    });
+    const englishSummary =
+      expense.translation.summaryEnglish ??
+      expense.translation.businessReason ??
+      expense.translation.locationEnglish ??
+      expense.translation.locationHint;
+    if (englishSummary) {
+      blocks.push({
+        kind: "pair",
+        label: "English translation",
+        value: englishSummary,
+      });
+    }
     if (evidence?.original) {
       blocks.push({
         kind: "pair",

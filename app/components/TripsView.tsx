@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { createTrip, updateTrip } from "./tripApi";
 import { TripVoiceCreator } from "./TripVoiceCreator";
-import { daysBetween, formatDate } from "./format";
-import type { DashboardData } from "./types";
+import { countryName, daysBetween, formatDate } from "./format";
+import { TripLegEditor } from "./TripLegEditor";
+import { cleanTripDraft, validateTripDraft } from "./tripDraft";
+import type { DashboardData, TripDraft, TripLeg } from "./types";
 import { EmptyState, Field, StatusMessage, ViewHeader } from "./ui";
 
 export function TripsView({
@@ -26,9 +28,25 @@ export function TripsView({
   );
   const [editingId, setEditingId] = useState(initialTrip?.id ?? "");
   const [title, setTitle] = useState(initialTrip?.title ?? "");
-  const [location, setLocation] = useState(initialTrip?.location ?? "");
   const [startDate, setStartDate] = useState(initialStartDate ?? initialTrip?.startDate ?? "");
   const [endDate, setEndDate] = useState(initialEndDate ?? initialStartDate ?? initialTrip?.endDate ?? "");
+  const [legs, setLegs] = useState<TripLeg[]>(
+    initialTrip?.legs?.length
+      ? initialTrip.legs
+      : [
+          {
+            sequence: 0,
+            countryCode: "GB",
+            location: initialTrip?.location ?? "",
+            startDate: initialStartDate ?? initialTrip?.startDate ?? "",
+            endDate:
+              initialEndDate ??
+              initialStartDate ??
+              initialTrip?.endDate ??
+              "",
+          },
+        ],
+  );
   const [eligibleDates, setEligibleDates] = useState<string[]>(
     initialTrip?.eligibleDates ??
     (initialStartDate
@@ -57,6 +75,18 @@ export function TripsView({
     setAttested(false);
   }
 
+  function updateLegs(nextLegs: TripLeg[]) {
+    const ordered = nextLegs.map((leg, sequence) => ({ ...leg, sequence }));
+    const nextStart = ordered[0]?.startDate ?? "";
+    const nextEnd = ordered.at(-1)?.endDate ?? "";
+    setLegs(ordered);
+    if (nextStart !== startDate || nextEnd !== endDate) {
+      setStartDate(nextStart);
+      setEndDate(nextEnd);
+      syncDates(nextStart, nextEnd);
+    }
+  }
+
   function toggleDate(date: string) {
     setEligibleDates((current) =>
       current.includes(date)
@@ -71,7 +101,7 @@ export function TripsView({
     if (!trip) return;
     setEditingId(trip.id);
     setTitle(trip.title);
-    setLocation(trip.location);
+    setLegs(trip.legs);
     setStartDate(trip.startDate);
     setEndDate(trip.endDate);
     setEligibleDates(trip.eligibleDates ?? []);
@@ -84,7 +114,15 @@ export function TripsView({
   function openNewTrip() {
     setEditingId("");
     setTitle("");
-    setLocation("");
+    setLegs([
+      {
+        sequence: 0,
+        countryCode: "GB",
+        location: "",
+        startDate: "",
+        endDate: "",
+      },
+    ]);
     setStartDate("");
     setEndDate("");
     setEligibleDates([]);
@@ -101,17 +139,9 @@ export function TripsView({
     setError("");
   }
 
-  function applyDraft(draft: {
-    title: string;
-    location: string;
-    startDate: string;
-    endDate: string;
-    eligibleDates: string[];
-    attested: boolean;
-    calculationMethod: "daily" | "aggregate";
-  }) {
+  function applyDraft(draft: TripDraft) {
     setTitle(draft.title);
-    setLocation(draft.location);
+    setLegs(draft.legs);
     setStartDate(draft.startDate);
     setEndDate(draft.endDate);
     setEligibleDates(draft.eligibleDates);
@@ -119,54 +149,18 @@ export function TripsView({
     setMethod(draft.calculationMethod);
   }
 
-  async function persistDraft(draft: {
-    title: string;
-    location: string;
-    country: "GB";
-    startDate: string;
-    endDate: string;
-    eligibleDates: string[];
-    attested: boolean;
-    calculationMethod: "daily" | "aggregate";
-  }) {
-    if (
-      !draft.title.trim() ||
-      !draft.location.trim() ||
-      !draft.startDate ||
-      !draft.endDate ||
-      draft.endDate < draft.startDate
-    ) {
-      throw new Error("Enter a title, UK location and valid date range.");
-    }
-    if (!draft.eligibleDates.length || !draft.attested) {
-      throw new Error(
-        "Confirm at least one eligible date and complete the eligibility attestation.",
-      );
-    }
-    const draftDates = daysBetween(draft.startDate, draft.endDate);
-    if (
-      draft.eligibleDates.some((date) => !draftDates.includes(date))
-    ) {
-      throw new Error("Every eligible date must fall within the trip.");
-    }
-    if (draft.calculationMethod === "aggregate" && draftDates.length < 3) {
-      throw new Error(
-        "Aggregation requires two nights or more. Choose the daily method for this trip.",
-      );
-    }
+  async function persistDraft(draft: TripDraft) {
+    const issue = validateTripDraft(draft);
+    if (issue) throw new Error(issue);
     setSaving(true);
     try {
-      const cleanDraft = {
-        ...draft,
-        title: draft.title.trim(),
-        location: draft.location.trim(),
-      };
+      const cleanDraft = cleanTripDraft(draft);
       if (editingId) await updateTrip(editingId, cleanDraft);
       else await createTrip(cleanDraft);
       await onChanged();
       setCreating(false);
       setTitle("");
-      setLocation("");
+      setLegs([]);
       setStartDate("");
       setEndDate("");
       setEditingId("");
@@ -181,10 +175,11 @@ export function TripsView({
     try {
       await persistDraft({
         title,
-        location,
-        country: "GB",
+        location: legs.map((leg) => leg.location).join(", "),
+        country: legs[0]?.countryCode ?? "",
         startDate,
         endDate,
+        legs,
         eligibleDates,
         attested,
         calculationMethod: method,
@@ -201,7 +196,7 @@ export function TripsView({
       <ViewHeader
         eyebrow={`${data.trips.length} ${data.trips.length === 1 ? "trip" : "trips"}`}
         title="Trips"
-        detail="Group detached duty dates and confirm how the allowance is calculated."
+        detail="Record one or many countries in travel order, then confirm how the allowance is calculated."
         action={!creating ? <button className="primary-button" type="button" onClick={openNewTrip}>New trip</button> : undefined}
       />
 
@@ -221,7 +216,14 @@ export function TripsView({
                   </div>
                   <div className="trip-main">
                     <strong>{trip.title}</strong>
-                    <span>{trip.location} · {trip.country}</span>
+                    <span>
+                      {trip.legs
+                        .map(
+                          (leg) =>
+                            `${leg.location}, ${countryName(leg.countryCode)}`,
+                        )
+                        .join(" → ")}
+                    </span>
                     <small>{formatDate(trip.startDate)} to {formatDate(trip.endDate)}</small>
                   </div>
                   <div className="trip-state">
@@ -234,7 +236,7 @@ export function TripsView({
             </ul>
           ) : (
             <EmptyState title="No duty periods recorded" action={<button className="primary-button" type="button" onClick={openNewTrip}>Create a trip</button>}>
-              Trips make repeated location, purpose and eligible dates easier to confirm.
+              Trips make repeated locations, countries, purposes and eligible dates easier to confirm.
             </EmptyState>
           )}
         </section>
@@ -249,10 +251,11 @@ export function TripsView({
               <TripVoiceCreator
                 draft={{
                   title,
-                  location,
-                  country: "GB",
+                  location: legs.map((leg) => leg.location).join(", "),
+                  country: legs[0]?.countryCode ?? "",
                   startDate,
                   endDate,
+                  legs,
                   eligibleDates,
                   attested,
                   calculationMethod: method,
@@ -276,13 +279,8 @@ export function TripsView({
             ) : (
             <form onSubmit={save}>
               {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
-              <Field label="Trip title" required><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="For example, London training" /></Field>
-              <Field label="Location" required><input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town or duty station" /></Field>
-              <Field label="Country" required><input value="United Kingdom (GB)" readOnly /></Field>
-              <div className="two-fields">
-                <Field label="Start date" required><input type="date" value={startDate} onChange={(event) => { setStartDate(event.target.value); syncDates(event.target.value, endDate); }} /></Field>
-                <Field label="End date" required><input type="date" min={startDate} value={endDate} onChange={(event) => { setEndDate(event.target.value); syncDates(startDate, event.target.value); }} /></Field>
-              </div>
+              <Field label="Trip title" required><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="For example, European training visit" /></Field>
+              <TripLegEditor legs={legs} onChange={updateLegs} />
               {dates.length ? (
                 <fieldset className="date-checks">
                   <legend>Eligible Day Subsistence dates</legend>

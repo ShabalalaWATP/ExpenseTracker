@@ -50,6 +50,12 @@ test("builds the ExpenseTracker worker and branded client assets", async () => {
       import.meta.url,
     ),
   );
+  await access(
+    new URL(
+      "../dist/.openai/drizzle/0007_deep_tomorrow_man.sql",
+      import.meta.url,
+    ),
+  );
 });
 
 test("keeps the site private-ready and free of starter scaffolding", async () => {
@@ -150,6 +156,7 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     processing,
     claimPackage,
     claimsView,
+    editableFacts,
   ] = await Promise.all([
     readFile(new URL("../app/components/receipt-intake/IntakeReview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/receipt-intake/ReceiptImageAdjuster.tsx", import.meta.url), "utf8"),
@@ -157,9 +164,12 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     readFile(new URL("../src/server/receipt-intake-processing.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/server/claim-package.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ClaimsView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/receipt-intake/IntakeEditableFacts.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(intakeReview, /canReanalyse \? <button[^>]+field-reread/);
+  assert.match(intakeReview, /<IntakeEditableFacts/);
+  assert.match(editableFacts, /canReanalyse \? \(/);
+  assert.match(editableFacts, /className="field-reread"/);
   assert.match(imageAdjuster, /canAnalyse \? <>/);
   assert.match(confirmation, /SET status = 'analysing'/);
   assert.match(

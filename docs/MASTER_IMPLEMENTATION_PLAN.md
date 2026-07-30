@@ -22,7 +22,9 @@ immutable submission packages, portable recovery packages and operational
 health checks.
 
 The application is privately deployed. The owner-only Sites boundary and
-unauthenticated denial have been verified. Real iPhone HEIC capture and the
+unauthenticated denial have been verified. International receipt evidence,
+deterministic GBP conversion and multi-country itinerary support are complete
+in code. Real iPhone HEIC capture, multilingual receipt acceptance and the
 recovery position remain manual follow-up items before the app is treated as a
 formal system of record.
 
@@ -35,13 +37,16 @@ product.
 ### Product boundary
 
 - One owner only, with no public registration, invitations or organisations.
-- GBP and UK expenses only in the MVP.
+- The policy ledger remains GBP and UK JSP 752. Receipts may originate in other
+  countries and currencies, with their original evidence preserved beside a
+  frozen GBP policy value.
 - August 2026 remains the initial snapshot period. Claims metrics can be viewed
   for a selected calendar month.
 - Online-first processing with a private on-device IndexedDB queue for
   interrupted receipt uploads. The same idempotency key is reused on resume.
 - iPhone 16 Safari is the launch target. Desktop browsers support review.
-- AI may suggest receipt facts, but it never decides eligibility or allowance.
+- AI may extract and translate receipt facts, but it never decides eligibility,
+  allowance or the exchange rate.
   A staged receipt becomes an expense automatically only when the server proves
   that every required field and confidence, reconciliation, duplicate,
   eligibility and trip-link condition is clean. Every exception requires owner
@@ -73,7 +78,8 @@ product.
 
 - Codex Sites with Vinext and Vite remains the required hosting platform.
 - The production bundle must remain Cloudflare Worker-compatible ESM.
-- D1 is authoritative for trips, expenses, receipt metadata and claim snapshots.
+- D1 is authoritative for trips, itinerary legs, expenses, receipt metadata,
+  immutable exchange-rate quotes and claim snapshots.
 - R2 is authoritative for receipt originals.
 - Browser storage holds only the appearance preference and unfinished receipt
   uploads. Financial ledger records remain server-authoritative.
@@ -89,6 +95,9 @@ product.
 - The permanent OpenAI key is server-only. Safari voice clarification receives
   only a short-lived Realtime client secret. Voice-first trip creation follows
   the same boundary and requires explicit spoken confirmation before saving.
+- Multilingual unattended confirmation requires independent image reads to
+  agree on the original date, amount, currency and country, plus a deterministic
+  conversion and every existing duplicate, arithmetic and trip-link check.
 
 ## 3. Improvement release definition of done
 
@@ -181,6 +190,7 @@ private provisional beta rather than a formal system of record.
 | M13: automated claim capture and auditable evidence | Complete in code | AI-assisted context defaults, receipt viewing and download, receipt images in audit reports, selectable claim periods and clearer claim totals |
 | M14: low-touch capture and voice trip creation | Complete in code | Immersive staged processing, strict server auto-confirm, owner-scoped automatic trip linking and explicitly confirmed Realtime trip drafts |
 | M15: confirmation and evidence race hardening | Complete in code | Image-only verification, HEIC/HEIF preview sidecars, bounded polling and migration 0006 concurrency guards |
+| M16: international evidence and multi-country travel | Complete in code | Multilingual extraction and translation, immutable ECB conversion, original-currency audit evidence, ordered trip legs and country-aware automatic matching |
 
 ## 5. Implemented MVP checklist
 
@@ -203,11 +213,17 @@ private provisional beta rather than a formal system of record.
   uploaded, with a retry route when the upload fails.
 - [x] Expense ledger with text search, readiness filters, receipt viewing,
   complete editing, Recently deleted and restoration.
-- [x] Trip creation with UK dates, eligible-day selection, owner attestation and
-  daily or aggregate method selection.
+- [x] Trip creation with ordered multi-country itinerary legs, eligible-day
+  selection, owner attestation and daily or aggregate method selection.
 - [x] Voice-first trip creation with an ephemeral Realtime credential, strict
-  structured draft, audible readback and explicit spoken save confirmation,
-  with the complete manual form retained as fallback.
+  multi-leg structured draft, audible readback and explicit spoken save
+  confirmation, with the complete manual form retained as fallback.
+- [x] Multilingual receipt extraction with ISO currency, country and language
+  detection, structured English translation and original minor-unit values.
+- [x] Deterministic foreign-currency conversion using a bounded official ECB
+  lookup, immutable quote provenance and exact integer rational arithmetic.
+- [x] Original and GBP amounts, translation and conversion provenance in
+  review, ledger, protected exports, claim packages and audit-response reports.
 - [x] Today summary, period-based claim metrics, attention list and
   claim-readiness display.
 - [x] Read-only policy information and system, light or dark appearance choice.
@@ -484,7 +500,9 @@ control and the development record contains verification evidence.
 ### Priority 3: broader use only when justified
 
 - Additional claim periods and effective-dated policy updates.
-- Multiple currencies and overseas policies.
+- Employer-approved alternatives to ECB reference rates and overseas allowance
+  policies. The current implementation converts evidence into the existing GBP
+  JSP 752 ledger and does not invent a separate overseas entitlement policy.
 - Alternative employer submission templates.
 - Bank matching, accounting integrations or delegated access.
 

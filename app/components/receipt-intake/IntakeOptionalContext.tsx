@@ -1,11 +1,14 @@
 "use client";
 
 import type { DashboardData } from "../types";
+import { countryName, formatDate } from "../format";
 
 export function IntakeOptionalContext({
   data,
   reason,
-  tripId,
+  tripLegId,
+  serviceDate,
+  originalCountry,
   tripMatchStatus,
   tripMatchException,
   tripDecision,
@@ -21,7 +24,9 @@ export function IntakeOptionalContext({
 }: {
   data: DashboardData;
   reason: string;
-  tripId: string;
+  tripLegId: string;
+  serviceDate: string;
+  originalCountry?: string;
   tripMatchStatus: "none" | "automatic" | "explicit" | "ambiguous";
   tripMatchException: string | null;
   tripDecision: "unchanged" | "selected" | "leave_unlinked";
@@ -31,10 +36,27 @@ export function IntakeOptionalContext({
   canReanalyse: boolean;
   busy: boolean;
   onReasonChange: (value: string) => void;
-  onTripChange: (value: string) => void;
+  onTripChange: (tripId: string, tripLegId: string) => void;
   onLeaveTripUnlinked: () => void;
   onReasonRecheck: () => void;
 }) {
+  const eligibleTrips = data.trips
+    .map((trip) => ({
+      ...trip,
+      legs: trip.legs.filter(
+        (leg) =>
+          Boolean(leg.id) &&
+          Boolean(serviceDate) &&
+          trip.attested === true &&
+          trip.eligibleDates?.includes(serviceDate) &&
+          serviceDate >= leg.startDate &&
+          serviceDate <= leg.endDate &&
+          (!originalCountry ||
+            originalCountry === "UNKNOWN" ||
+            leg.countryCode === originalCountry),
+      ),
+    }))
+    .filter((trip) => trip.legs.length > 0);
   return (
     <div className="intake-field-grid">
       <label className={`wide ${reasonFlagged ? "flagged" : ""}`}>
@@ -61,10 +83,16 @@ export function IntakeOptionalContext({
         />
       </label>
       <label>
-        <span>Trip (optional)</span>
+        <span>Trip and itinerary stop (optional)</span>
         <select
-          value={tripId}
-          onChange={(event) => onTripChange(event.target.value)}
+          value={tripLegId}
+          onChange={(event) => {
+            const legId = event.target.value;
+            const trip = eligibleTrips.find((candidate) =>
+              candidate.legs.some((leg) => leg.id === legId),
+            );
+            onTripChange(trip?.id ?? "", legId);
+          }}
           disabled={locked}
         >
           <option value="">
@@ -73,10 +101,15 @@ export function IntakeOptionalContext({
               ? "Choose a trip"
               : "No linked trip"}
           </option>
-          {data.trips.map((trip) => (
-            <option key={trip.id} value={trip.id}>
-              {trip.title}
-            </option>
+          {eligibleTrips.map((trip) => (
+            <optgroup key={trip.id} label={trip.title}>
+              {trip.legs.map((leg) => (
+                <option key={leg.id} value={leg.id}>
+                  {leg.location} · {countryName(leg.countryCode)} ·{" "}
+                  {formatDate(leg.startDate)} to {formatDate(leg.endDate)}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>

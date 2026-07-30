@@ -1,7 +1,7 @@
 "use client";
 
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
-import { formatMoney } from "../format";
+import { formatCurrencyMinor } from "../format";
 import type { ReceiptLineItem } from "./types";
 
 export function ReconciliationCard({
@@ -9,6 +9,8 @@ export function ReconciliationCard({
   receiptTotalPence,
   eligiblePence,
   gratuityPence,
+  currency = "GBP",
+  minorUnitDigits = 2,
   reviewed,
   onReviewed,
   locked,
@@ -17,6 +19,8 @@ export function ReconciliationCard({
   receiptTotalPence: number | null;
   eligiblePence: number | null;
   gratuityPence: number;
+  currency?: string;
+  minorUnitDigits?: number;
   reviewed: boolean;
   onReviewed: (value: boolean) => void;
   locked: boolean;
@@ -45,26 +49,26 @@ export function ReconciliationCard({
       <dl>
         <div>
           <dt>Visible lines</dt>
-          <dd>{formatMoney(result.knownLineTotalPence)}</dd>
+          <dd>{formatCurrencyMinor(result.knownLineTotalPence, currency, minorUnitDigits)}</dd>
         </div>
         <div>
           <dt>Receipt difference</dt>
           <dd>
             {result.receiptDifferencePence === null
               ? "Not enough data"
-              : formatMoney(result.receiptDifferencePence)}
+              : formatCurrencyMinor(result.receiptDifferencePence, currency, minorUnitDigits)}
           </dd>
         </div>
         <div>
           <dt>Eligible lines</dt>
-          <dd>{formatMoney(result.knownEligibleLineTotalPence)}</dd>
+          <dd>{formatCurrencyMinor(result.knownEligibleLineTotalPence, currency, minorUnitDigits)}</dd>
         </div>
         <div>
           <dt>Eligible difference</dt>
           <dd>
             {result.eligibleDifferencePence === null
               ? "Not enough data"
-              : formatMoney(result.eligibleDifferencePence)}
+              : formatCurrencyMinor(result.eligibleDifferencePence, currency, minorUnitDigits)}
           </dd>
         </div>
         <div>

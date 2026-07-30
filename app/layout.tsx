@@ -10,6 +10,8 @@ import "./styles/today.css";
 import "./styles/ledgers.css";
 import "./styles/claims-settings.css";
 import "./styles/intake.css";
+import "./styles/international.css";
+import "./styles/itinerary.css";
 import "./styles/calendar.css";
 import "./styles/responsive.css";
 

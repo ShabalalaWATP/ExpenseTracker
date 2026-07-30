@@ -1,9 +1,15 @@
+export type TripVoiceLeg = {
+  countryCode: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+};
+
 export type TripVoiceDraft = {
   title: string | null;
-  location: string | null;
-  country: "GB" | null;
   startDate: string | null;
   endDate: string | null;
+  legs: TripVoiceLeg[] | null;
   calculationMethod: "daily" | "aggregate" | null;
   eligibleDates: string[] | null;
   eligibilityAttested: boolean | null;
@@ -16,10 +22,9 @@ export type TripVoiceDraftIssue = {
 
 export const EMPTY_TRIP_VOICE_DRAFT: TripVoiceDraft = {
   title: null,
-  location: null,
-  country: null,
   startDate: null,
   endDate: null,
+  legs: null,
   calculationMethod: null,
   eligibleDates: null,
   eligibilityAttested: null,
@@ -54,6 +59,44 @@ function dateSpan(startDate: string, endDate: string): number {
   );
 }
 
+function nextDate(value: string): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function normaliseLegs(value: unknown): TripVoiceLeg[] | null | undefined {
+  if (value === null) return null;
+  if (!Array.isArray(value) || value.length < 1 || value.length > 50) {
+    return undefined;
+  }
+  const legs: TripVoiceLeg[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return undefined;
+    }
+    const leg = item as Record<string, unknown>;
+    const location = cleanText(leg.location, 160);
+    if (
+      typeof location !== "string" ||
+      typeof leg.countryCode !== "string" ||
+      !/^[A-Z]{2}$/.test(leg.countryCode) ||
+      !isDate(leg.startDate) ||
+      !isDate(leg.endDate) ||
+      leg.endDate < leg.startDate
+    ) {
+      return undefined;
+    }
+    legs.push({
+      countryCode: leg.countryCode,
+      location,
+      startDate: leg.startDate,
+      endDate: leg.endDate,
+    });
+  }
+  return legs;
+}
+
 function normaliseField(
   field: keyof TripVoiceDraft,
   value: unknown,
@@ -62,13 +105,11 @@ function normaliseField(
   switch (field) {
     case "title":
       return cleanText(value, 120);
-    case "location":
-      return cleanText(value, 160);
-    case "country":
-      return value === "GB" ? value : undefined;
     case "startDate":
     case "endDate":
       return isDate(value) ? value : undefined;
+    case "legs":
+      return normaliseLegs(value);
     case "calculationMethod":
       return value === "daily" || value === "aggregate" ? value : undefined;
     case "eligibleDates":
@@ -113,10 +154,9 @@ export function tripVoiceDraftIssues(
   const issues: TripVoiceDraftIssue[] = [];
   for (const [field, label] of [
     ["title", "trip title"],
-    ["location", "UK town or duty station"],
-    ["country", "country"],
     ["startDate", "start date"],
     ["endDate", "end date"],
+    ["legs", "complete ordered itinerary"],
     ["calculationMethod", "calculation method"],
     ["eligibleDates", "eligible dates"],
     ["eligibilityAttested", "eligibility confirmation"],
@@ -129,12 +169,6 @@ export function tripVoiceDraftIssues(
     }
   }
 
-  if (draft.country !== null && draft.country !== "GB") {
-    issues.push({
-      field: "country",
-      message: "Only United Kingdom trips are supported.",
-    });
-  }
   if (
     draft.startDate &&
     draft.endDate &&
@@ -153,6 +187,37 @@ export function tripVoiceDraftIssues(
           message: "Every eligible date must fall within the trip.",
         });
         break;
+      }
+    }
+  }
+  if (draft.startDate && draft.endDate && draft.legs?.length) {
+    if (
+      draft.legs[0].startDate !== draft.startDate ||
+      draft.legs[draft.legs.length - 1].endDate !== draft.endDate
+    ) {
+      issues.push({
+        field: "legs",
+        message: "The itinerary must cover the complete trip date range.",
+      });
+    } else {
+      for (let index = 0; index < draft.legs.length; index += 1) {
+        const leg = draft.legs[index];
+        const previous = draft.legs[index - 1];
+        if (
+          leg.startDate < draft.startDate ||
+          leg.endDate > draft.endDate ||
+          leg.endDate < leg.startDate ||
+          (previous &&
+            leg.startDate !== previous.endDate &&
+            leg.startDate !== nextDate(previous.endDate))
+        ) {
+          issues.push({
+            field: "legs",
+            message:
+              "Itinerary legs must be chronological, without gaps or overlaps beyond one transition date.",
+          });
+          break;
+        }
       }
     }
   }
@@ -204,6 +269,24 @@ export function isExplicitTripSaveConfirmation(value: unknown): boolean {
     "go ahead",
     "go ahead and save it",
     "go ahead and save the trip",
+    "oui",
+    "oui enregistrez le voyage",
+    "oui enregistrez ce voyage",
+    "enregistrez le voyage",
+    "sí",
+    "si",
+    "sí guarda el viaje",
+    "si guarda el viaje",
+    "guardar el viaje",
+    "ja",
+    "ja reise speichern",
+    "reise speichern",
+    "sì",
+    "si salva il viaggio",
+    "salva il viaggio",
+    "sim",
+    "sim guarde a viagem",
+    "guarde a viagem",
   ]).has(clean);
 }
 
@@ -212,8 +295,6 @@ export const TRIP_VOICE_DRAFT_SCHEMA = {
   additionalProperties: false,
   properties: {
     title: { type: ["string", "null"], minLength: 1, maxLength: 120 },
-    location: { type: ["string", "null"], minLength: 1, maxLength: 160 },
-    country: { type: ["string", "null"], enum: ["GB", null] },
     startDate: {
       type: ["string", "null"],
       pattern: "^\\d{4}-\\d{2}-\\d{2}$",
@@ -221,6 +302,31 @@ export const TRIP_VOICE_DRAFT_SCHEMA = {
     endDate: {
       type: ["string", "null"],
       pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+    },
+    legs: {
+      type: ["array", "null"],
+      minItems: 1,
+      maxItems: 50,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          countryCode: {
+            type: "string",
+            pattern: "^[A-Z]{2}$",
+          },
+          location: { type: "string", minLength: 1, maxLength: 160 },
+          startDate: {
+            type: "string",
+            pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+          },
+          endDate: {
+            type: "string",
+            pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+          },
+        },
+        required: ["countryCode", "location", "startDate", "endDate"],
+      },
     },
     calculationMethod: {
       type: ["string", "null"],

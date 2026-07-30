@@ -1,0 +1,198 @@
+.international-receipt {
+  overflow: hidden;
+  margin-top: 16px;
+  border: 1px solid #26364f;
+  border-radius: 5px;
+  background: #050b16;
+  color: #eef4ff;
+}
+
+.original-receipt-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #26364f;
+}
+
+.original-receipt-heading h4 {
+  margin: 2px 0 0;
+  font-size: 1rem;
+}
+
+.original-receipt-heading > span {
+  color: #92a3bd;
+  font-size: 0.68rem;
+  font-weight: 720;
+  text-align: right;
+}
+
+.original-text-facts,
+.original-money-facts,
+.conversion-provenance {
+  display: grid;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.original-text-facts {
+  grid-template-columns: 1fr 1fr;
+}
+
+.original-money-facts {
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid #26364f;
+}
+
+.original-text-facts div,
+.original-money-facts div,
+.conversion-provenance div {
+  min-width: 0;
+  padding: 12px 0;
+}
+
+.original-text-facts div + div,
+.original-money-facts div + div {
+  padding-left: 14px;
+  border-left: 1px solid #26364f;
+}
+
+.international-receipt dt {
+  color: #71819b;
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.international-receipt dd {
+  overflow-wrap: anywhere;
+  margin: 3px 0 0;
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.original-text-facts small {
+  display: block;
+  margin-top: 3px;
+  color: #9babc2;
+  font-size: 0.7rem;
+}
+
+.receipt-translation-summary {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0 16px 12px;
+  color: #aab8cc;
+  font-size: 0.72rem;
+}
+
+.receipt-translation-summary strong {
+  color: #dbe6f8;
+}
+
+.gbp-policy-values {
+  padding: 13px 16px;
+  border-top: 1px solid #26364f;
+  background: #0b1526;
+}
+
+.gbp-policy-values > p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 9px;
+  font-size: 0.7rem;
+}
+
+.gbp-policy-values > p span {
+  color: #8292aa;
+}
+
+.gbp-policy-values dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+}
+
+.gbp-policy-values dl div {
+  padding-right: 12px;
+}
+
+.conversion-provenance {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0 12px;
+  border-top: 1px solid #26364f;
+}
+
+.conversion-provenance dd {
+  color: #b6c5da;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.international-receipt.compact {
+  margin-bottom: 20px;
+}
+
+.international-receipt.compact .receipt-translation-summary {
+  padding-top: 12px;
+}
+
+.exception-correction-heading {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.exception-correction-heading h3 {
+  margin: 3px 0 5px;
+  font: 500 1.35rem var(--font-display);
+}
+
+.exception-correction-heading > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.expense-main .original-script {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.money-stack strong {
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .original-receipt-heading,
+  .gbp-policy-values > p {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .original-receipt-heading > span {
+    text-align: left;
+  }
+
+  .original-text-facts,
+  .original-money-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .original-text-facts div + div,
+  .original-money-facts div + div {
+    padding-left: 0;
+    border-top: 1px solid #26364f;
+    border-left: 0;
+  }
+
+  .gbp-policy-values dl,
+  .conversion-provenance {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}

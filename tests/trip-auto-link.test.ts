@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { decideAutomaticTripLink, eligibleTripIdsOnDate, isExplicitTripSelectionChange, type AutomaticTripCandidate } from "../src/domain/trip-auto-link.ts";
+import { decideAutomaticTripLegLink, decideAutomaticTripLink, eligibleTripIdsOnDate, isExplicitTripSelectionChange, type AutomaticTripCandidate, type AutomaticTripLegCandidate } from "../src/domain/trip-auto-link.ts";
 
 function candidate(
   id: string,
@@ -124,6 +124,143 @@ test("an unchanged form value is not mistaken for an explicit trip decision", ()
   );
   assert.equal(isExplicitTripSelectionChange(null, "trip-1"), true);
   assert.equal(isExplicitTripSelectionChange("trip-auto", null), true);
+});
+
+function leg(
+  tripId: string,
+  tripLegId: string,
+  countryCode: string,
+  overrides: Partial<AutomaticTripLegCandidate> = {},
+): AutomaticTripLegCandidate {
+  return {
+    tripId,
+    tripLegId,
+    ownerId: "owner-1",
+    countryCode,
+    startDate: "2026-08-10",
+    endDate: "2026-08-12",
+    eligible: true,
+    confirmed: true,
+    ...overrides,
+  };
+}
+
+test("receipt linking returns an exact trip and leg using date and country", () => {
+  assert.deepEqual(
+    decideAutomaticTripLegLink(
+      {
+        ownerId: "owner-1",
+        serviceDate: "2026-08-11",
+        originalCountry: "FR",
+        tripId: null,
+        tripLegId: null,
+        explicitlySelected: false,
+      },
+      [
+        leg("trip-1", "leg-gb", "GB"),
+        leg("trip-1", "leg-fr", "FR"),
+      ],
+    ),
+    { status: "matched", tripId: "trip-1", tripLegId: "leg-fr" },
+  );
+});
+
+test("an explicit leg must still match the receipt date, country and eligible day", () => {
+  const input = {
+    ownerId: "owner-1",
+    serviceDate: "2026-08-20",
+    originalCountry: "FR",
+    tripId: "trip-1",
+    tripLegId: "leg-de",
+    explicitlySelected: true,
+  };
+  for (const candidate of [
+    leg("trip-1", "leg-de", "DE", {
+      startDate: "2026-08-01",
+      endDate: "2026-08-03",
+    }),
+    leg("trip-1", "leg-de", "FR", { eligible: false }),
+    leg("trip-1", "leg-de", "FR", { confirmed: false }),
+  ]) {
+    assert.deepEqual(
+      decideAutomaticTripLegLink(input, [candidate]),
+      {
+        status: "invalid",
+        tripId: "trip-1",
+        tripLegId: "leg-de",
+      },
+    );
+  }
+});
+
+test("an explicit valid leg resolves a same-trip itinerary ambiguity", () => {
+  assert.deepEqual(
+    decideAutomaticTripLegLink(
+      {
+        ownerId: "owner-1",
+        serviceDate: "2026-08-11",
+        originalCountry: null,
+        tripId: "trip-1",
+        tripLegId: "leg-fr",
+        explicitlySelected: true,
+      },
+      [
+        leg("trip-1", "leg-gb", "GB"),
+        leg("trip-1", "leg-fr", "FR"),
+      ],
+    ),
+    {
+      status: "explicit",
+      tripId: "trip-1",
+      tripLegId: "leg-fr",
+    },
+  );
+});
+
+test("receipt linking reports country conflict and same-trip leg ambiguity", () => {
+  const candidates = [
+    leg("trip-1", "leg-gb", "GB"),
+    leg("trip-1", "leg-fr", "FR"),
+  ];
+  assert.deepEqual(
+    decideAutomaticTripLegLink(
+      {
+        ownerId: "owner-1",
+        serviceDate: "2026-08-11",
+        originalCountry: "DE",
+        tripId: null,
+        tripLegId: null,
+        explicitlySelected: false,
+      },
+      candidates,
+    ),
+    {
+      status: "country_conflict",
+      tripId: null,
+      tripLegId: null,
+      candidateCountryCodes: ["FR", "GB"],
+      candidateTripLegIds: ["leg-fr", "leg-gb"],
+    },
+  );
+  assert.deepEqual(
+    decideAutomaticTripLegLink(
+      {
+        ownerId: "owner-1",
+        serviceDate: "2026-08-11",
+        originalCountry: null,
+        tripId: null,
+        tripLegId: null,
+        explicitlySelected: false,
+      },
+      candidates,
+    ),
+    {
+      status: "leg_ambiguous",
+      tripId: "trip-1",
+      tripLegId: null,
+      candidateTripLegIds: ["leg-fr", "leg-gb"],
+    },
+  );
 });
 
 test("receipt matching runs under the analysing lock used by claim preparation", async () => {

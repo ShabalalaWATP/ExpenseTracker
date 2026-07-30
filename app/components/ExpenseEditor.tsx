@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { deleteExpense, updateExpense } from "./api";
 import { parsePence, penceInput } from "./format";
 import { ReceiptEvidence } from "./ReceiptAttachment";
+import { InternationalReceiptFacts } from "./receipt-intake/InternationalReceiptFacts";
 import {
   EXPENSE_CATEGORY_OPTIONS,
   type Expense,
@@ -43,6 +44,10 @@ export function ExpenseEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const hasOriginalReceipt =
+    expense.receiptStatus === "stored" &&
+    (expense.originalReceiptTotalMinor !== undefined ||
+      Boolean(expense.originalCurrency || expense.originalCountry));
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -71,13 +76,17 @@ export function ExpenseEditor({
     setError("");
     try {
       await updateExpense(expense.id, {
-        date,
-        merchant: merchant.trim(),
+        ...(hasOriginalReceipt
+          ? {}
+          : {
+              date,
+              merchant: merchant.trim(),
+              location: location.trim(),
+            }),
         receiptTotalPence: totalPence,
         eligibleAmountPence: eligiblePence,
         gratuityPence,
-        country: "GB",
-        location: location.trim(),
+        country: expense.country,
         reason: reason.trim(),
         mealContext: category === "food" ? mealContext : "",
         category,
@@ -116,24 +125,48 @@ export function ExpenseEditor({
         <button className="round-button" type="button" onClick={onClose} aria-label="Close editor">×</button>
       </div>
       <ReceiptEvidence expense={expense} />
+      <InternationalReceiptFacts
+        facts={expense}
+        merchant={expense.merchant}
+        location={expense.location}
+        receiptTotalPence={expense.receiptTotalPence}
+        eligiblePence={expense.eligibleAmountPence}
+        gratuityPence={expense.gratuityPence}
+        compact
+      />
       {expense.locked ? (
         <StatusMessage tone="warning">Prepared claim records are frozen. Prepare a correction rather than changing this item.</StatusMessage>
       ) : (
         <form onSubmit={save}>
           {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
-          <Field label="Date" required><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></Field>
-          <Field label="Merchant" required><input value={merchant} onChange={(event) => setMerchant(event.target.value)} /></Field>
+          {hasOriginalReceipt ? (
+            <div className="exception-correction-heading">
+              <p className="eyebrow">Exception correction</p>
+              <h3>GBP policy ledger</h3>
+              <p>
+                Original receipt facts stay unchanged. Correct only the frozen
+                GBP values or policy context when an exception is identified.
+              </p>
+            </div>
+          ) : (
+            <>
+              <Field label="Date" required><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></Field>
+              <Field label="Merchant" required><input value={merchant} onChange={(event) => setMerchant(event.target.value)} /></Field>
+            </>
+          )}
           <div className="two-fields">
-            <Field label="Receipt total" required><div className="money-input"><span>£</span><input inputMode="decimal" value={total} onChange={(event) => setTotal(event.target.value)} /></div></Field>
-            <Field label="Eligible" required><div className="money-input"><span>£</span><input inputMode="decimal" value={eligible} onChange={(event) => setEligible(event.target.value)} /></div></Field>
+            <Field label={hasOriginalReceipt ? "GBP receipt total" : "Receipt total"} required><div className="money-input"><span>£</span><input inputMode="decimal" value={total} onChange={(event) => setTotal(event.target.value)} /></div></Field>
+            <Field label={hasOriginalReceipt ? "GBP eligible" : "Eligible"} required><div className="money-input"><span>£</span><input inputMode="decimal" value={eligible} onChange={(event) => setEligible(event.target.value)} /></div></Field>
           </div>
           <Field label="Category" required>
             <select value={category} onChange={(event) => setCategory(event.target.value as ExpenseCategory)}>
               {EXPENSE_CATEGORY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </Field>
-          <Field label="Service charge or tip" hint={category === "food" ? "Included in the eligible amount and subject to the £30 daily limit." : "Included in the eligible amount. Travel and parking are claimed at actuals, outside the daily limit."}><div className="money-input"><span>£</span><input inputMode="decimal" value={gratuity} onChange={(event) => setGratuity(event.target.value)} /></div></Field>
-          <Field label="Location" required><input value={location} onChange={(event) => setLocation(event.target.value)} /></Field>
+          <Field label={hasOriginalReceipt ? "GBP service charge or tip" : "Service charge or tip"} hint={category === "food" ? "Included in the eligible amount and subject to the £30 daily limit." : "Included in the eligible amount. Travel and parking are claimed at actuals, outside the daily limit."}><div className="money-input"><span>£</span><input inputMode="decimal" value={gratuity} onChange={(event) => setGratuity(event.target.value)} /></div></Field>
+          {!hasOriginalReceipt ? (
+            <Field label="Location" required><input value={location} onChange={(event) => setLocation(event.target.value)} /></Field>
+          ) : null}
           <Field label="Why was it necessary?" required><textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
           <div className="two-fields">
             {category === "food" ? (

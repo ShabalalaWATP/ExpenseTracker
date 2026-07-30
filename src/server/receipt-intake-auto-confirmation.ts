@@ -56,14 +56,21 @@ async function markReview(
   principal: Principal,
   id: string,
   reasons: readonly string[],
-  trip: { tripId: string | null; provenance: Provenance },
+  trip: {
+    tripId: string | null;
+    tripLegId: string | null;
+    provenance: Provenance;
+    errorCode: string | null;
+    errorMessage: string | null;
+  },
   leaseToken: string,
 ) {
-  const detail = autoConfirmationReviewMessage(reasons);
+  const detail =
+    trip.errorMessage ?? autoConfirmationReviewMessage(reasons);
   await database()
     .prepare(
       `UPDATE receipt_intakes
-       SET status = 'needs_review', trip_id = ?,
+       SET status = 'needs_review', trip_id = ?, trip_leg_id = ?,
            correction_provenance_json = ?, error_code = ?, error_message = ?,
            auto_confirm_token = NULL, auto_confirm_lease_expires_at = NULL,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -74,10 +81,9 @@ async function markReview(
     )
     .bind(
       trip.tripId,
+      trip.tripLegId,
       JSON.stringify(trip.provenance),
-      reasons.includes("trip_ambiguous")
-        ? "receipt_trip_ambiguous"
-        : "receipt_auto_review_required",
+      trip.errorCode ?? "receipt_auto_review_required",
       detail,
       principal.ownerId,
       id,
@@ -169,42 +175,37 @@ export async function attemptAutoConfirmReceiptIntake(
   }
 
   let reservationFingerprint: string | null = null;
-  let activeTrip: { tripId: string | null; provenance: Provenance } | null =
-    null;
+  let activeTrip: {
+    tripId: string | null;
+    tripLegId: string | null;
+    provenance: Provenance;
+    errorCode: string | null;
+    errorMessage: string | null;
+  } | null = null;
   try {
     const row = await requireIntake(principal, id);
     const trip = await resolveReceiptTripLink(principal, {
       serviceDate: row.service_date,
       tripId: row.trip_id,
+      tripLegId: row.trip_leg_id,
+      originalCountry: row.original_country,
       provenance: safeJson(row.correction_provenance_json, {}),
     });
-    let tripStatus:
-      | "explicit"
-      | "matched"
-      | "none"
-      | "ambiguous"
-      | "invalid" = trip.resolution.status;
-    if (trip.tripId) {
-      const currentTrip = await database()
-        .prepare(
-          "SELECT id, country FROM trips WHERE owner_id = ? AND id = ?",
-        )
-        .bind(principal.ownerId, trip.tripId)
-        .first<{ id: string; country: string }>();
-      if (!currentTrip || currentTrip.country !== "GB") tripStatus = "invalid";
-    }
+    const tripStatus = trip.resolution.status;
     activeTrip = trip;
     const duplicates = await duplicateCandidateState(principal, id, {
       merchant: row.merchant,
       serviceDate: row.service_date,
       receiptTotalPence: row.receipt_total_pence,
+      originalCurrency: row.original_currency,
+      originalAmountMinor: row.original_receipt_total_minor,
     });
     const lines = lineItems(row.line_items_json);
     const reconciliation = reconcileReceipt(
       lines,
-      row.receipt_total_pence,
-      row.eligible_pence,
-      row.gratuity_pence,
+      row.original_receipt_total_minor,
+      row.original_eligible_minor,
+      row.original_gratuity_minor,
     );
     const extraction = safeJson<Partial<ReceiptExtraction>>(
       row.extraction_json,
@@ -254,8 +255,15 @@ export async function attemptAutoConfirmReceiptIntake(
         ),
         reconciliation: Boolean(row.reconciliation_reviewed),
       },
-      extractedCurrency: extraction.currency ?? null,
-      extractedCountry: extraction.country ?? null,
+      extractedCurrency: row.original_currency,
+      extractedCountry: row.original_country,
+      originalReceiptTotalMinor: row.original_receipt_total_minor,
+      originalEligibleMinor: row.original_eligible_minor,
+      conversionAvailable:
+        row.receipt_total_pence !== null &&
+        row.eligible_pence !== null &&
+        safeJson<{ status?: string }>(row.conversion_json, {}).status !==
+          "unavailable",
       tripStatus,
       provenance,
       verification: verified.verification,
@@ -272,6 +280,8 @@ export async function attemptAutoConfirmReceiptIntake(
       merchant: row.merchant!,
       serviceDate: row.service_date!,
       receiptTotalPence: row.receipt_total_pence!,
+      originalCurrency: row.original_currency,
+      originalAmountMinor: row.original_receipt_total_minor!,
     });
     if (
       !(await reserveAutomaticConfirmation(
@@ -298,6 +308,7 @@ export async function attemptAutoConfirmReceiptIntake(
       {
         ...row,
         trip_id: trip.tripId,
+        trip_leg_id: trip.tripLegId,
         correction_provenance_json: JSON.stringify(trip.provenance),
       },
       {

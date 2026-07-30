@@ -1,9 +1,14 @@
+import { formatCurrencyMinor } from "../format";
 import type { ReceiptLineItem } from "./types";
 
 export function ReceiptLineItems({
   items,
+  currency = "GBP",
+  minorUnitDigits = 2,
 }: {
   items: readonly ReceiptLineItem[];
+  currency?: string;
+  minorUnitDigits?: number;
 }) {
   if (!items.length) return null;
   return (
@@ -12,15 +17,26 @@ export function ReceiptLineItems({
       <ul>
         {items.map((item, index) => (
           <li key={`${item.description}-${index}`}>
-            <span>
-              {(item.quantity ?? 0) > 1 ? `${item.quantity} × ` : ""}
-              {item.description}
+            <span className="line-item-description">
+              <span>
+                {(item.quantity ?? 0) > 1 ? `${item.quantity} × ` : ""}
+                {item.originalDescription || item.description}
+              </span>
+              {item.descriptionEnglish &&
+              item.descriptionEnglish !==
+                (item.originalDescription || item.description) ? (
+                <small>{item.descriptionEnglish}</small>
+              ) : null}
             </span>
             {item.alcoholSuspected ? <em>Check alcohol</em> : null}
             <strong>
-              {item.totalPence === null
+              {item.originalTotalMinor === null && item.totalPence === null
                 ? "—"
-                : `£${(item.totalPence / 100).toFixed(2)}`}
+                : formatCurrencyMinor(
+                    item.originalTotalMinor ?? item.totalPence,
+                    currency,
+                    minorUnitDigits,
+                  )}
             </strong>
           </li>
         ))}

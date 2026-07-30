@@ -48,7 +48,7 @@
 
 .table-head {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 130px 110px 96px;
+  grid-template-columns: minmax(240px, 1fr) 130px 150px 96px;
   gap: 18px;
   padding: 18px 0 8px 58px;
   color: var(--muted);
@@ -58,7 +58,7 @@
 }
 
 .expense-list.full li {
-  grid-template-columns: 44px minmax(180px, 1fr) 130px 110px 96px;
+  grid-template-columns: 44px minmax(180px, 1fr) 130px 150px 96px;
 }
 
 .state-label {

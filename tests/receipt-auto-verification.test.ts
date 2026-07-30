@@ -6,10 +6,16 @@ import { normaliseReceiptAutoVerification } from "../src/domain/receipt-auto-ver
 function verifierOutput(): Record<string, unknown> {
   return {
     service_date: "2026-07-30",
-    receipt_total_pence: 1_250,
-    eligible_pence: 1_250,
+    receipt_total_minor: 1_250,
+    eligible_minor: 1_250,
     currency: "GBP",
     country: "GB",
+    language: "en",
+    english_translation: {
+      merchant: "Example",
+      location_hint: "London",
+      line_item_descriptions: ["Lunch"],
+    },
     is_receipt: true,
     instruction_like_text_detected: false,
     evidence: {
@@ -57,10 +63,10 @@ describe("receipt auto-verifier output validation", () => {
 
   it("rejects currencies, countries, amounts and confidence outside schema", () => {
     for (const patch of [
-      { currency: "EUR" },
-      { country: "FR" },
+      { currency: "ZZZ" },
+      { country: "ZZ" },
       { service_date: "2026-02-30" },
-      { eligible_pence: -1 },
+      { eligible_minor: -1 },
       {
         confidence: {
           ...(verifierOutput().confidence as Record<string, unknown>),

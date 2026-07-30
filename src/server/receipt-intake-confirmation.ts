@@ -113,6 +113,20 @@ export async function confirmReceiptIntake(
       );
     }
     if (
+      row.original_currency === "UNKNOWN" ||
+      row.original_country === "UNKNOWN" ||
+      row.original_receipt_total_minor === null ||
+      row.original_eligible_minor === null ||
+      safeJson<{ status?: string }>(row.conversion_json, {}).status ===
+        "unavailable"
+    ) {
+      throw new ApiError(
+        409,
+        "receipt_conversion_required",
+        "Confirm the original currency, country and deterministic GBP conversion before adding this expense.",
+      );
+    }
+    if (
       row.eligible_pence > row.receipt_total_pence ||
       row.gratuity_pence > row.eligible_pence
     ) {
@@ -124,9 +138,9 @@ export async function confirmReceiptIntake(
     }
     const reconciliation = reconcileReceipt(
       reconciliationLines(row.line_items_json),
-      row.receipt_total_pence,
-      row.eligible_pence,
-      row.gratuity_pence,
+      row.original_receipt_total_minor,
+      row.original_eligible_minor,
+      row.original_gratuity_minor,
     );
     if (
       reconciliation.status === "mismatch" &&
@@ -143,28 +157,35 @@ export async function confirmReceiptIntake(
       merchant: row.merchant,
       serviceDate: row.service_date,
       receiptTotalPence: row.receipt_total_pence,
+      originalCurrency: row.original_currency,
+      originalAmountMinor: row.original_receipt_total_minor,
     });
     await assertDateUnlocked(principal.ownerId, row.service_date);
     const tripLink = await resolveReceiptTripLink(principal, {
       serviceDate: row.service_date,
       tripId: row.trip_id,
+      tripLegId: row.trip_leg_id,
+      originalCountry: row.original_country,
       provenance: safeJson<Provenance>(
         row.correction_provenance_json,
         {},
       ),
     });
-    if (tripLink.resolution.status === "ambiguous") {
+    if (tripLink.errorCode) {
       await database()
         .prepare(
           `UPDATE receipt_intakes
-           SET trip_id = NULL,
+           SET trip_id = ?, trip_leg_id = ?,
                correction_provenance_json = ?,
-               error_code = 'receipt_trip_ambiguous',
+               error_code = ?,
                error_message = ?
            WHERE owner_id = ? AND id = ? AND status = 'analysing'`,
         )
         .bind(
+          tripLink.tripId,
+          tripLink.tripLegId,
           JSON.stringify(tripLink.provenance),
+          tripLink.errorCode,
           tripLink.errorMessage,
           principal.ownerId,
           id,
@@ -172,7 +193,7 @@ export async function confirmReceiptIntake(
         .run();
       throw new ApiError(
         409,
-        "receipt_trip_ambiguous",
+        tripLink.errorCode,
         tripLink.errorMessage ??
           "Select the correct trip, or explicitly leave this receipt unlinked.",
       );
@@ -191,6 +212,7 @@ export async function confirmReceiptIntake(
       {
         ...row,
         trip_id: tripLink.tripId,
+        trip_leg_id: tripLink.tripLegId,
         correction_provenance_json: JSON.stringify(tripLink.provenance),
       },
       { automatic: false },

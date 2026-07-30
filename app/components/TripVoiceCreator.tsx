@@ -233,7 +233,7 @@ export function TripVoiceCreator({
     setAssistant("");
     saveGateRef.current = emptyTripSaveGate(saveGateRef.current.order);
     draftRef.current =
-      draft.title || draft.location || draft.startDate
+      draft.title || draft.legs.some((leg) => leg.location) || draft.startDate
         ? voiceDraftFromTrip(draft)
         : EMPTY_TRIP_VOICE_DRAFT;
     try {
@@ -263,7 +263,7 @@ export function TripVoiceCreator({
             type: "response.create",
             response: {
               instructions:
-                "Greet the user briefly, explain that nothing is saved until they confirm the final summary, then ask for the trip title.",
+                "Greet the user briefly, explain that nothing is saved until they confirm the final summary, then ask for the trip title. Collect every itinerary leg in order, including country, location and date range.",
             },
           }),
         );

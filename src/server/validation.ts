@@ -5,6 +5,16 @@ import {
 } from "@/src/domain/expense-categories";
 import { isIsoCalendarMonth, ukCalendarMonth } from "@/src/domain/calendar";
 import { ApiError } from "./http";
+import {
+  parseTripLegs,
+  validateTripLegCoverage,
+  type TripLegWrite,
+} from "./trip-leg-validation";
+
+export {
+  validateTripLegCoverage,
+  type TripLegWrite,
+} from "./trip-leg-validation";
 
 export type ExpenseWrite = {
   serviceDate?: string;
@@ -36,6 +46,7 @@ export type TripWrite = {
   startDate?: string;
   endDate?: string;
   aggregateElection?: boolean;
+  legs?: TripLegWrite[];
   days?: DayWrite[];
 };
 
@@ -223,7 +234,23 @@ export function parseTrip(value: unknown, partial = false): TripWrite {
     }
     result.aggregateElection = input.aggregateElection;
   } else if (!partial) result.aggregateElection = false;
+  if ("legs" in input) result.legs = parseTripLegs(input.legs);
+  else if (!partial) {
+    throw new ApiError(400, "validation_failed", "Missing legs.");
+  }
   if ("days" in input) result.days = parseDays(input.days);
+  if (result.startDate && result.endDate) {
+    if (result.endDate < result.startDate) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "endDate cannot precede startDate.",
+      );
+    }
+    if (result.legs) {
+      validateTripLegCoverage(result.legs, result.startDate, result.endDate);
+    }
+  }
   if (partial && Object.keys(result).length === 0) {
     throw new ApiError(400, "validation_failed", "No supported fields were provided.");
   }

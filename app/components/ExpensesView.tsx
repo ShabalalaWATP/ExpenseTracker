@@ -3,7 +3,12 @@
 import { useMemo, useState } from "react";
 import { restoreExpense } from "./api";
 import { ExpenseEditor } from "./ExpenseEditor";
-import { formatDate, formatMoney } from "./format";
+import {
+  countryName,
+  formatCurrencyMinor,
+  formatDate,
+  formatMoney,
+} from "./format";
 import { ReceiptAttachment } from "./ReceiptAttachment";
 import { categoryLabel, type DashboardData, type Expense, type ViewName } from "./types";
 import { EmptyState, StatusMessage, ViewHeader } from "./ui";
@@ -42,13 +47,26 @@ export function ExpensesView({
         if (!needle) return true;
         return [
           expense.merchant,
+          expense.translation?.merchantEnglish,
           expense.location,
+          expense.translation?.locationEnglish,
+          expense.originalCurrency,
+          expense.originalCountry
+            ? countryName(expense.originalCountry)
+            : undefined,
           expense.reason,
           expense.mealContext,
           expense.category,
           categoryLabel(expense.category),
           expense.date,
           formatMoney(expense.eligibleAmountPence),
+          expense.originalEligibleMinor !== undefined
+            ? formatCurrencyMinor(
+                expense.originalEligibleMinor,
+                expense.originalCurrency,
+                expense.originalMinorUnitDigits,
+              )
+            : undefined,
         ].some((value) => value?.toLocaleLowerCase("en-GB").includes(needle));
       })
       .sort((a, b) => b.date.localeCompare(a.date));
@@ -111,14 +129,46 @@ export function ExpensesView({
               <li key={expense.id}>
                 <span className="date-stamp">{expense.date.slice(8, 10)}<small>{formatDate(expense.date).split(" ")[1]}</small></span>
                 <div className="expense-main">
-                  <strong>{expense.merchant}</strong>
-                  <span>{expense.location || "Location needed"} · {expense.category === "food" || !expense.category ? (expense.mealContext || "Unlabelled") : categoryLabel(expense.category)}</span>
+                  <strong>{expense.translation?.merchantEnglish || expense.merchant}</strong>
+                  {expense.translation?.merchantEnglish &&
+                  expense.translation.merchantEnglish !== expense.merchant ? (
+                    <small className="original-script">{expense.merchant}</small>
+                  ) : null}
+                  <span>
+                    {expense.translation?.locationEnglish ||
+                      expense.location ||
+                      "Location needed"}{" "}
+                    ·{" "}
+                    {expense.originalCountry
+                      ? countryName(expense.originalCountry)
+                      : expense.category === "food" || !expense.category
+                        ? expense.mealContext || "Unlabelled"
+                        : categoryLabel(expense.category)}
+                  </span>
                   <small>{expense.reason || "Reason needed"}</small>
                 </div>
                 <span className={`state-label ${expense.receiptStatus === "stored" ? "success" : "warning"}`}>
                   {filter === "deleted" ? expense.locked ? "Claim locked" : "Recoverable" : expense.receiptStatus === "stored" ? "Receipt stored" : "Receipt needed"}
                 </span>
-                <div className="money-stack"><strong>{formatMoney(expense.eligibleAmountPence)}</strong>{expense.receiptTotalPence !== expense.eligibleAmountPence ? <small>of {formatMoney(expense.receiptTotalPence)}</small> : null}</div>
+                <div className="money-stack">
+                  <strong>
+                    {expense.originalEligibleMinor !== undefined
+                      ? formatCurrencyMinor(
+                          expense.originalEligibleMinor,
+                          expense.originalCurrency,
+                          expense.originalMinorUnitDigits,
+                        )
+                      : formatMoney(expense.eligibleAmountPence)}
+                  </strong>
+                  {expense.originalEligibleMinor !== undefined ? (
+                    <small>
+                      {formatMoney(expense.eligibleAmountPence)} GBP policy
+                    </small>
+                  ) : expense.receiptTotalPence !==
+                    expense.eligibleAmountPence ? (
+                    <small>of {formatMoney(expense.receiptTotalPence)}</small>
+                  ) : null}
+                </div>
                 <div className="row-actions">
                   {expense.receiptStatus === "stored" ? <button className="round-button" type="button" onClick={() => setSelected(expense)} aria-label={`View receipt for ${expense.merchant}`}>↗</button> : null}
                   {filter !== "deleted" && expense.receiptStatus !== "stored" ? (

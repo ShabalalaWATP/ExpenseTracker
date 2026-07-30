@@ -27,10 +27,16 @@ export function tripVoiceStatus(state: VoiceState): string {
 export function voiceDraftFromTrip(draft: TripDraft): TripVoiceDraft {
   return {
     title: draft.title.trim() || null,
-    location: draft.location.trim() || null,
-    country: draft.country || null,
     startDate: draft.startDate || null,
     endDate: draft.endDate || null,
+    legs: draft.legs.length
+      ? draft.legs.map((leg) => ({
+          countryCode: leg.countryCode,
+          location: leg.location.trim(),
+          startDate: leg.startDate,
+          endDate: leg.endDate,
+        }))
+      : null,
     calculationMethod: draft.calculationMethod || null,
     eligibleDates: draft.eligibleDates.length ? draft.eligibleDates : null,
     eligibilityAttested: draft.attested || null,
@@ -38,12 +44,17 @@ export function voiceDraftFromTrip(draft: TripDraft): TripVoiceDraft {
 }
 
 export function tripDraftFromVoice(draft: TripVoiceDraft): TripDraft {
+  const legs = (draft.legs ?? []).map((leg, sequence) => ({
+    ...leg,
+    sequence,
+  }));
   return {
     title: draft.title ?? "",
-    location: draft.location ?? "",
-    country: "GB",
+    location: legs.map((leg) => leg.location).join(", "),
+    country: legs[0]?.countryCode ?? "",
     startDate: draft.startDate ?? "",
     endDate: draft.endDate ?? "",
+    legs,
     calculationMethod: draft.calculationMethod ?? "daily",
     eligibleDates: draft.eligibleDates ?? [],
     attested: draft.eligibilityAttested === true,
@@ -121,7 +132,19 @@ function includesFinalSaveQuestion(transcript: string): boolean {
     .replace(/[’']/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-  return clean.includes("shall i save this trip");
+  return [
+    "shall i save this trip",
+    "dois je enregistrer ce voyage",
+    "voulez vous que j enregistre ce voyage",
+    "guardo este viaje",
+    "quieres que guarde este viaje",
+    "soll ich diese reise speichern",
+    "soll ich die reise speichern",
+    "devo salvare questo viaggio",
+    "vuoi che salvi questo viaggio",
+    "devo guardar esta viagem",
+    "quer que eu guarde esta viagem",
+  ].some((question) => clean.includes(question));
 }
 
 export function reduceTripSaveGate(

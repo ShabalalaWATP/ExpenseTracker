@@ -8,6 +8,87 @@ import type {
 } from "./types";
 
 type Envelope<T> = { data: T };
+type RecordValue = Record<string, unknown>;
+
+function record(value: unknown): RecordValue {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as RecordValue)
+    : {};
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === "string" && value ? value : undefined;
+}
+
+function optionalInteger(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) ? (value as number) : undefined;
+}
+
+export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
+  const item = record(value);
+  const translationValue = record(item.translation);
+  const conversionValue = record(item.conversion);
+  const translation = {
+    merchantEnglish: text(
+      translationValue.merchantEnglish ?? translationValue.merchant,
+    ),
+    locationEnglish: text(
+      translationValue.locationEnglish ?? translationValue.locationHint,
+    ),
+    summaryEnglish: text(
+      translationValue.summaryEnglish ?? translationValue.businessReason,
+    ),
+  };
+  const conversion = {
+    status: text(conversionValue.status),
+    source: text(conversionValue.source ?? conversionValue.provider) ?? "",
+    observationDate: text(conversionValue.observationDate) ?? "",
+    rateDisplay: text(conversionValue.rateDisplay) ?? "",
+    providerReference: text(conversionValue.providerReference) ?? "",
+    rounding: text(conversionValue.rounding) ?? "",
+  };
+  const translatedDescriptions = Array.isArray(
+    translationValue.lineItemDescriptions,
+  )
+    ? translationValue.lineItemDescriptions
+    : [];
+  const lineItems = Array.isArray(item.lineItems)
+    ? item.lineItems.map((line, index) => {
+        const entry = record(line);
+        return {
+          ...entry,
+          description: text(entry.description) ?? "",
+          descriptionEnglish:
+            text(entry.descriptionEnglish) ??
+            text(translatedDescriptions[index]),
+          originalDescription:
+            text(entry.originalDescription) ?? text(entry.description),
+          originalTotalMinor:
+            optionalInteger(entry.originalTotalMinor) ??
+            optionalInteger(entry.totalMinor) ??
+            optionalInteger(entry.totalPence),
+        };
+      })
+    : [];
+  return {
+    ...(item as unknown as ReceiptIntake),
+    lineItems: lineItems as ReceiptIntake["lineItems"],
+    originalCurrency: text(item.originalCurrency) ?? "UNKNOWN",
+    originalCountry: text(item.originalCountry) ?? "UNKNOWN",
+    originalLanguage: text(item.originalLanguage),
+    originalReceiptTotalMinor: optionalInteger(item.originalReceiptTotalMinor),
+    originalEligibleMinor: optionalInteger(item.originalEligibleMinor),
+    originalGratuityMinor: optionalInteger(item.originalGratuityMinor),
+    originalMinorUnitDigits: optionalInteger(item.originalMinorUnitDigits),
+    translation: Object.values(translation).some(Boolean)
+      ? translation
+      : undefined,
+    conversion: Object.values(conversion).some(Boolean)
+      ? conversion
+      : undefined,
+    tripLegId: text(item.tripLegId) ?? null,
+  };
+}
 
 export type AutoConfirmResult = {
   outcome: "confirmed" | "needs_review" | "in_progress";
@@ -60,10 +141,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listIntakes(): Promise<ReceiptIntake[]> {
-  const result = await request<Envelope<{ intakes: ReceiptIntake[] }>>(
+  const result = await request<Envelope<{ intakes: unknown[] }>>(
     "/api/receipt-intakes",
   );
-  return result.data.intakes;
+  return result.data.intakes.map(normaliseReceiptIntake);
 }
 
 export async function getAiStatus(): Promise<AiStatus> {
@@ -92,7 +173,7 @@ export async function uploadIntake(
       body: file,
     },
   );
-  return result.data.intake;
+  return normaliseReceiptIntake(result.data.intake);
 }
 
 export async function analyseIntake(
@@ -111,7 +192,7 @@ export async function analyseIntake(
       body: image,
     },
   );
-  return result.data.intake;
+  return normaliseReceiptIntake(result.data.intake);
 }
 
 export async function reanalyseIntake(
@@ -126,7 +207,7 @@ export async function reanalyseIntake(
       body: JSON.stringify({ fields }),
     },
   );
-  return result.data.intake;
+  return normaliseReceiptIntake(result.data.intake);
 }
 
 export async function patchIntake(
@@ -141,7 +222,7 @@ export async function patchIntake(
       body: JSON.stringify(fields),
     },
   );
-  return result.data.intake;
+  return normaliseReceiptIntake(result.data.intake);
 }
 
 export async function confirmIntake(
@@ -155,7 +236,7 @@ export async function confirmIntake(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ attested }),
   });
-  return result.data.intake;
+  return normaliseReceiptIntake(result.data.intake);
 }
 
 export async function autoConfirmIntake(id: string): Promise<AutoConfirmResult> {
@@ -163,7 +244,10 @@ export async function autoConfirmIntake(id: string): Promise<AutoConfirmResult> 
     `/api/receipt-intakes/${encodeURIComponent(id)}/auto-confirm`, {
     method: "POST",
   });
-  return result.data;
+  return {
+    ...result.data,
+    intake: normaliseReceiptIntake(result.data.intake),
+  };
 }
 
 export async function deleteIntake(id: string): Promise<void> {
@@ -184,7 +268,7 @@ export async function submitClarification(
       body: JSON.stringify(fields),
     },
   );
-  return result.data.intake;
+  return normaliseReceiptIntake(result.data.intake);
 }
 
 export async function createRealtimeSession(

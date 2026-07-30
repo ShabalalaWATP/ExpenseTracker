@@ -5,7 +5,7 @@ import {
 import { database } from "./db";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
-import { safeJson, type Provenance } from "./receipt-analysis-merge";
+import { assertReceiptConversionIntegrity } from "./receipt-conversion-integrity";
 import { publicIntake, type ReceiptIntakeRow } from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
 
@@ -25,12 +25,10 @@ export async function commitReceiptIntakeExpense(
     verificationAudit?: AutoConfirmationAudit;
   },
 ) {
+  await assertReceiptConversionIntegrity(principal, row);
   const expenseId = crypto.randomUUID();
   const receiptId = crypto.randomUUID();
   const category = row.category ?? "food";
-  const explicitTripSelection =
-    safeJson<Provenance>(row.correction_provenance_json, {}).trip_id ===
-    "owner";
   const notes = row.ai_model
     ? options.automatic
       ? `Receipt details suggested by ${row.ai_model} and automatically confirmed after strict checks.`
@@ -43,9 +41,15 @@ export async function commitReceiptIntakeExpense(
           `INSERT INTO expenses (
             id, owner_id, service_date, merchant, location, business_reason,
             receipt_total_pence, eligible_pence, gratuity_pence,
-            currency, country, trip_id, meal_context, category, notes
+            currency, country, original_currency, original_country,
+            original_language, original_receipt_total_minor,
+            original_eligible_minor, original_gratuity_minor,
+            original_minor_unit_digits, exchange_rate_quote_id,
+            translation_json, conversion_json, trip_id, trip_leg_id,
+            meal_context, category, notes
           )
-          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', 'GB', ?, ?, ?, ?
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', ?, ?, ?, ?, ?, ?, ?, ?,
+                 ?, ?, ?, ?, ?, ?, ?, ?, ?
           WHERE EXISTS (
             SELECT 1 FROM receipt_auto_confirm_reservations
             WHERE owner_id = ? AND fingerprint = ? AND receipt_intake_id = ?
@@ -58,16 +62,17 @@ export async function commitReceiptIntakeExpense(
               AND auto_confirm_lease_expires_at >
                 strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
           ) AND (
-            ? IS NULL OR EXISTS (
-              SELECT 1 FROM trips
-              WHERE owner_id = ? AND id = ? AND country = 'GB'
-                AND (
-                  ? = 1 OR EXISTS (
-                    SELECT 1 FROM trip_days
-                    WHERE owner_id = ? AND trip_id = ? AND date = ?
-                      AND eligible = 1 AND confirmed = 1
-                  )
-                )
+            (? IS NULL AND ? IS NULL) OR EXISTS (
+              SELECT 1
+              FROM trip_legs leg
+              JOIN trip_days day
+                ON day.owner_id = leg.owner_id
+               AND day.trip_id = leg.trip_id
+               AND day.date = ?
+              WHERE leg.owner_id = ? AND leg.trip_id = ? AND leg.id = ?
+                AND ? BETWEEN leg.start_date AND leg.end_date
+                AND (? = 'UNKNOWN' OR leg.country_code = ?)
+                AND day.eligible = 1 AND day.confirmed = 1
             )
           )`,
         )
@@ -81,7 +86,19 @@ export async function commitReceiptIntakeExpense(
           row.receipt_total_pence,
           row.eligible_pence,
           row.gratuity_pence,
+          "GB",
+          row.original_currency,
+          row.original_country,
+          row.original_language,
+          row.original_receipt_total_minor,
+          row.original_eligible_minor,
+          row.original_gratuity_minor,
+          row.original_minor_unit_digits,
+          row.exchange_rate_quote_id,
+          row.translation_json,
+          row.conversion_json,
           row.trip_id,
+          row.trip_leg_id,
           category === "food" ? row.meal_context : null,
           category,
           notes,
@@ -93,20 +110,41 @@ export async function commitReceiptIntakeExpense(
           row.id,
           options.leaseToken ?? "",
           row.trip_id,
-          principal.ownerId,
-          row.trip_id,
-          Number(explicitTripSelection),
-          principal.ownerId,
-          row.trip_id,
+          row.trip_leg_id,
           row.service_date,
+          principal.ownerId,
+          row.trip_id,
+          row.trip_leg_id,
+          row.service_date,
+          row.original_country,
+          row.original_country,
         )
     : db
         .prepare(
           `INSERT INTO expenses (
             id, owner_id, service_date, merchant, location, business_reason,
             receipt_total_pence, eligible_pence, gratuity_pence,
-            currency, country, trip_id, meal_context, category, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', 'GB', ?, ?, ?, ?)`,
+            currency, country, original_currency, original_country,
+            original_language, original_receipt_total_minor,
+            original_eligible_minor, original_gratuity_minor,
+            original_minor_unit_digits, exchange_rate_quote_id,
+            translation_json, conversion_json, trip_id, trip_leg_id,
+            meal_context, category, notes
+          )
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', ?, ?, ?, ?, ?, ?, ?, ?,
+                 ?, ?, ?, ?, ?, ?, ?, ?, ?
+          WHERE (? IS NULL AND ? IS NULL) OR EXISTS (
+            SELECT 1
+            FROM trip_legs leg
+            JOIN trip_days day
+              ON day.owner_id = leg.owner_id
+             AND day.trip_id = leg.trip_id
+             AND day.date = ?
+            WHERE leg.owner_id = ? AND leg.trip_id = ? AND leg.id = ?
+              AND ? BETWEEN leg.start_date AND leg.end_date
+              AND (? = 'UNKNOWN' OR leg.country_code = ?)
+              AND day.eligible = 1 AND day.confirmed = 1
+          )`,
         )
         .bind(
           expenseId,
@@ -118,10 +156,31 @@ export async function commitReceiptIntakeExpense(
           row.receipt_total_pence,
           row.eligible_pence,
           row.gratuity_pence,
+          "GB",
+          row.original_currency,
+          row.original_country,
+          row.original_language,
+          row.original_receipt_total_minor,
+          row.original_eligible_minor,
+          row.original_gratuity_minor,
+          row.original_minor_unit_digits,
+          row.exchange_rate_quote_id,
+          row.translation_json,
+          row.conversion_json,
           row.trip_id,
+          row.trip_leg_id,
           category === "food" ? row.meal_context : null,
           category,
           notes,
+          row.trip_id,
+          row.trip_leg_id,
+          row.service_date,
+          principal.ownerId,
+          row.trip_id,
+          row.trip_leg_id,
+          row.service_date,
+          row.original_country,
+          row.original_country,
         );
   const receiptInsert = options.automatic
     ? db
@@ -185,7 +244,7 @@ export async function commitReceiptIntakeExpense(
   const update = db
     .prepare(
       `UPDATE receipt_intakes
-       SET status = 'confirmed', expense_id = ?, trip_id = ?,
+       SET status = 'confirmed', expense_id = ?, trip_id = ?, trip_leg_id = ?,
            correction_provenance_json = ?,
            error_code = NULL, error_message = NULL,
            auto_confirm_token = NULL, auto_confirm_lease_expires_at = NULL,
@@ -212,6 +271,7 @@ export async function commitReceiptIntakeExpense(
     .bind(
       expenseId,
       row.trip_id,
+      row.trip_leg_id,
       row.correction_provenance_json,
       principal.ownerId,
       row.id,
@@ -285,6 +345,17 @@ export async function commitReceiptIntakeExpense(
       location: row.location,
       businessReason: row.business_reason,
       tripId: row.trip_id,
+      tripLegId: row.trip_leg_id,
+      originalCurrency: row.original_currency,
+      originalCountry: row.original_country,
+      originalLanguage: row.original_language,
+      originalReceiptTotalMinor: row.original_receipt_total_minor,
+      originalEligibleMinor: row.original_eligible_minor,
+      originalGratuityMinor: row.original_gratuity_minor,
+      originalMinorUnitDigits: row.original_minor_unit_digits,
+      exchangeRateQuoteId: row.exchange_rate_quote_id,
+      translation: JSON.parse(row.translation_json),
+      conversion: JSON.parse(row.conversion_json),
       mealContext: category === "food" ? row.meal_context : null,
       category,
       receipt: {

@@ -95,8 +95,17 @@ export function QueueItem({
             />
           </span>
           <span className="intake-summary">
-            <strong>{intake.merchant || intake.originalName}</strong>
+            <strong>
+              {intake.translation?.merchantEnglish ||
+                intake.merchant ||
+                intake.originalName}
+            </strong>
             <small>
+              {intake.translation?.merchantEnglish &&
+              intake.merchant &&
+              intake.translation.merchantEnglish !== intake.merchant
+                ? `${intake.merchant} · `
+                : ""}
               {intake.serviceDate || "Date not found"}
               {issueCount ? ` · ${issueCount} to check` : ""}
             </small>

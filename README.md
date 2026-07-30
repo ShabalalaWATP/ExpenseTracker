@@ -11,10 +11,15 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
   at a time for reliable mobile use.
 - Suggests receipt fields with OpenAI vision and offers voice clarification only
   when a required detail is unresolved.
+- Reads multilingual and foreign-currency receipts, preserves the original
+  evidence, produces an English translation, and freezes the dated conversion
+  used by the GBP claim ledger.
 - Records the merchant, date, location, business reason and eligible amount.
 - Stores expense and trip records in D1 and receipt images in private R2.
 - Applies a £30 allowance for each confirmed eligible day.
 - Supports JSP 752 aggregation for trips of at least two nights.
+- Supports multi-country trips as ordered itinerary legs, including
+  country-aware automatic receipt linking and multi-stop Realtime voice entry.
 - Includes permitted gratuities and service charges within the £30 limit.
 - Keeps deletions recoverable without removing private receipt evidence.
 - Provides copy-ready where-and-why text and receipt downloads for submission.
@@ -79,11 +84,23 @@ client assets and migration package.
 - R2 for private receipt objects
 - Drizzle schema and generated migrations
 
-All money is stored as integer pence. Mutation routes require same-origin
-requests, every route validates the private owner, receipt uploads are bounded
-and signature-checked, and API responses use `no-store`. The permanent OpenAI
-API key is used only by server routes. Safari voice sessions receive a
-short-lived Realtime client secret.
+Original receipt money is stored as an integer in the currency's declared minor
+unit. The JSP 752 ledger remains integer GBP pence. Foreign conversions use an
+immutable, owner-scoped ECB reference-rate quote and exact rational arithmetic,
+never a model-calculated rate. The original value, translation, quote date,
+source and rounded GBP result remain together in exports and audit evidence.
+If the AI cannot identify an origin code, the exception screen permits a
+bounded owner correction and retries conversion. If the ECB has no rate for a
+supported currency, an explicitly acknowledged owner-supplied GBP equivalent
+is retained as owner evidence rather than being presented as an official rate.
+
+Mutation routes require same-origin requests, every route validates the private
+owner, receipt uploads are bounded and signature-checked, and API responses use
+`no-store`. The permanent OpenAI API key is used only by server routes. Safari
+voice sessions receive a short-lived Realtime client secret.
+
+The international evidence and itinerary design is recorded in
+[`docs/adr/0001-international-receipts-and-multi-country-trips.md`](docs/adr/0001-international-receipts-and-multi-country-trips.md).
 
 ## Deployment
 

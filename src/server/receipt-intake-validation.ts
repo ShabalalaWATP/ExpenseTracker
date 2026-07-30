@@ -1,6 +1,8 @@
 import { ApiError } from "./http";
 import { isExpenseCategory } from "../domain/expense-categories";
 import { isReceiptAttested } from "./receipt-attestation";
+import { currencyMinorUnitDigits } from "./receipt-extraction";
+import { canonicalCountryCode } from "./trip-leg-validation";
 import { validDate } from "./validation";
 
 export type IntakeDefaults = {
@@ -73,11 +75,15 @@ export type IntakePatch = {
   businessReason?: string;
   mealContext?: string | null;
   category?: string | null;
+  originalCurrency?: string;
+  originalCountry?: string;
   tripId?: string | null;
+  tripLegId?: string | null;
   leaveTripUnlinked?: boolean;
   alcoholReviewed?: boolean;
   duplicateReviewed?: boolean;
   reconciliationReviewed?: boolean;
+  conversionReviewed?: boolean;
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -155,11 +161,51 @@ export function parseIntakePatch(value: unknown): IntakePatch {
       result.category = category;
     }
   }
+  if ("originalCurrency" in input) {
+    const currency = text(input.originalCurrency, "originalCurrency", 3)
+      .toUpperCase();
+    if (
+      !/^[A-Z]{3}$/.test(currency) ||
+      currencyMinorUnitDigits(currency) === null
+    ) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "originalCurrency must be a supported three-letter currency code.",
+      );
+    }
+    result.originalCurrency = currency;
+  }
+  if ("originalCountry" in input) {
+    const country = text(input.originalCountry, "originalCountry", 2)
+      .toUpperCase();
+    if (!canonicalCountryCode(country)) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "originalCountry must be a canonical two-letter country code.",
+      );
+    }
+    result.originalCountry = country;
+  }
   if ("tripId" in input) {
     result.tripId =
       input.tripId === null || input.tripId === ""
         ? null
         : text(input.tripId, "tripId", 100);
+  }
+  if ("tripLegId" in input) {
+    result.tripLegId =
+      input.tripLegId === null || input.tripLegId === ""
+        ? null
+        : text(input.tripLegId, "tripLegId", 100);
+  }
+  if (result.tripLegId && !result.tripId) {
+    throw new ApiError(
+      400,
+      "validation_failed",
+      "A selected itinerary stop must include its trip.",
+    );
   }
   if ("leaveTripUnlinked" in input) {
     if (typeof input.leaveTripUnlinked !== "boolean") {
@@ -178,7 +224,10 @@ export function parseIntakePatch(value: unknown): IntakePatch {
       "A receipt cannot select a trip and be left unlinked.",
     );
   }
-  if (result.leaveTripUnlinked) result.tripId = null;
+  if (result.leaveTripUnlinked) {
+    result.tripId = null;
+    result.tripLegId = null;
+  }
   if ("alcoholReviewed" in input) {
     if (typeof input.alcoholReviewed !== "boolean") {
       throw new ApiError(
@@ -208,6 +257,16 @@ export function parseIntakePatch(value: unknown): IntakePatch {
       );
     }
     result.reconciliationReviewed = input.reconciliationReviewed;
+  }
+  if ("conversionReviewed" in input) {
+    if (typeof input.conversionReviewed !== "boolean") {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "conversionReviewed must be true or false.",
+      );
+    }
+    result.conversionReviewed = input.conversionReviewed;
   }
   if (Object.keys(result).length === 0) {
     throw new ApiError(400, "validation_failed", "No review fields were provided.");

@@ -28,10 +28,10 @@ function assessment(
 ) {
   const exactAgreement =
     verification.serviceDate === row.service_date &&
-    verification.receiptTotalPence === row.receipt_total_pence &&
-    verification.eligiblePence === row.eligible_pence &&
-    verification.currency === "GBP" &&
-    verification.country === "GB";
+    verification.receiptTotalPence === row.original_receipt_total_minor &&
+    verification.eligiblePence === row.original_eligible_minor &&
+    verification.currency === row.original_currency &&
+    verification.country === row.original_country;
   const evidenceComplete = Object.values(verification.evidence).every(Boolean);
   const safe =
     verification.isReceipt && !verification.instructionLikeTextDetected;

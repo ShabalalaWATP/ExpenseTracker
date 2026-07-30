@@ -11,7 +11,12 @@ import type { ExpenseWrite } from "./validation";
 const expenseSelect = `SELECT
   e.id, e.service_date, e.merchant, e.location, e.business_reason,
   e.receipt_total_pence, e.eligible_pence, e.gratuity_pence,
-  e.currency, e.country, e.trip_id, e.meal_context, e.category, e.notes,
+  e.currency, e.country, e.original_currency, e.original_country,
+  e.original_language, e.original_receipt_total_minor,
+  e.original_eligible_minor, e.original_gratuity_minor,
+  e.original_minor_unit_digits, e.exchange_rate_quote_id,
+  e.translation_json, e.conversion_json,
+  e.trip_id, e.trip_leg_id, e.meal_context, e.category, e.notes,
   e.deleted_at, e.created_at, e.updated_at,
   r.id AS receipt_id, r.content_type, r.byte_size,
   r.created_at AS receipt_created_at
@@ -91,8 +96,17 @@ export async function createExpense(principal: Principal, input: ExpenseWrite) {
         `INSERT INTO expenses (
           id, owner_id, service_date, merchant, location, business_reason,
           receipt_total_pence, eligible_pence, gratuity_pence,
-          currency, country, trip_id, meal_context, category, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          currency, country, original_currency, original_country,
+          original_language, original_receipt_total_minor,
+          original_eligible_minor, original_gratuity_minor,
+          original_minor_unit_digits, translation_json, conversion_json,
+          trip_id, meal_context, category, notes
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          'GBP', 'GB', 'und', ?, ?, ?, 2, '{}',
+          '{"source":"identity","provider":"identity","fromCurrency":"GBP","toCurrency":"GBP","rateDisplay":"1","observationDate":null,"rounding":"half_up","indicative":false}',
+          ?, ?, ?, ?
+        )`,
       )
       .bind(
         id,
@@ -106,6 +120,9 @@ export async function createExpense(principal: Principal, input: ExpenseWrite) {
         input.gratuityPence,
         input.currency,
         input.country,
+        input.receiptTotalPence,
+        input.eligiblePence,
+        input.gratuityPence,
         input.tripId,
         input.mealContext,
         input.category ?? "food",
@@ -171,6 +188,9 @@ export async function updateExpense(
   const entries = Object.entries(input) as [keyof ExpenseWrite, unknown][];
   const assignments = entries.map(([key]) => `${expenseColumns[key]} = ?`);
   const values = entries.map(([, value]) => value);
+  if ("tripId" in input) {
+    assignments.push("trip_leg_id = NULL");
+  }
   const db = database();
   await db.batch([
     db
@@ -181,6 +201,20 @@ export async function updateExpense(
          WHERE owner_id = ? AND id = ?`,
       )
       .bind(...values, principal.ownerId, id),
+    db
+      .prepare(
+        `UPDATE expenses
+         SET original_receipt_total_minor = receipt_total_pence,
+             original_eligible_minor = eligible_pence,
+             original_gratuity_minor = gratuity_pence,
+             original_minor_unit_digits = 2,
+             conversion_json =
+               '{"source":"identity","provider":"identity","fromCurrency":"GBP","toCurrency":"GBP","rateDisplay":"1","observationDate":null,"rounding":"half_up","indicative":false}'
+         WHERE owner_id = ? AND id = ?
+           AND original_currency = 'GBP'
+           AND exchange_rate_quote_id IS NULL`,
+      )
+      .bind(principal.ownerId, id),
     auditStatementAfterChange(principal, {
       action: "expense.updated",
       entityType: "expense",

@@ -26,11 +26,22 @@ export type ReceiptIntakeRow = {
   eligible_pence: number | null;
   gratuity_pence: number;
   currency: string;
+  original_currency: string;
+  original_country: string;
+  original_language: string | null;
+  original_receipt_total_minor: number | null;
+  original_eligible_minor: number | null;
+  original_gratuity_minor: number;
+  original_minor_unit_digits: number | null;
+  exchange_rate_quote_id: string | null;
+  translation_json: string;
+  conversion_json: string;
   location: string | null;
   business_reason: string | null;
   meal_context: string | null;
   category: string | null;
   trip_id: string | null;
+  trip_leg_id: string | null;
   line_items_json: string;
   confidence_json: string;
   missing_fields_json: string;
@@ -101,7 +112,7 @@ export function publicIntake(row: ReceiptIntakeRow) {
     {},
   );
   const tripMatchStatus =
-    row.error_code === "receipt_trip_ambiguous"
+    row.error_code?.startsWith("receipt_trip_")
       ? "ambiguous"
       : provenance.trip_id === "owner"
         ? "explicit"
@@ -126,14 +137,25 @@ export function publicIntake(row: ReceiptIntakeRow) {
     eligiblePence: row.eligible_pence,
     gratuityPence: row.gratuity_pence,
     currency: row.currency,
+    originalCurrency: row.original_currency,
+    originalCountry: row.original_country,
+    originalLanguage: row.original_language,
+    originalReceiptTotalMinor: row.original_receipt_total_minor,
+    originalEligibleMinor: row.original_eligible_minor,
+    originalGratuityMinor: row.original_gratuity_minor,
+    originalMinorUnitDigits: row.original_minor_unit_digits,
+    exchangeRateQuoteId: row.exchange_rate_quote_id,
+    translation: json(row.translation_json, {}),
+    conversion: json(row.conversion_json, {}),
     location: row.location,
     businessReason: row.business_reason,
     mealContext: row.meal_context,
     category: row.category,
     tripId: row.trip_id,
+    tripLegId: row.trip_leg_id,
     tripMatchStatus,
     tripMatchException:
-      row.error_code === "receipt_trip_ambiguous"
+      row.error_code?.startsWith("receipt_trip_")
         ? row.error_message
         : null,
     lineItems: json(row.line_items_json, []),

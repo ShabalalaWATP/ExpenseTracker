@@ -4,15 +4,76 @@ import { AUTO_VERIFY_CONFIDENCE, type ReceiptAutoVerification } from "./receipt-
 const nullableInteger = { type: ["integer", "null"], minimum: 0 };
 const confidence = { type: "number", minimum: 0, maximum: 1 };
 
+function canonicalCurrency(value: unknown): string {
+  if (value === "UNKNOWN") return "UNKNOWN";
+  if (typeof value !== "string" || !/^[A-Z]{3}$/.test(value)) {
+    return "UNKNOWN";
+  }
+  try {
+    const supported = (
+      Intl as typeof Intl & {
+        supportedValuesOf?: (key: "currency") => string[];
+      }
+    ).supportedValuesOf?.("currency");
+    if (supported && !supported.includes(value)) return "UNKNOWN";
+    new Intl.NumberFormat("en", { style: "currency", currency: value });
+    return value;
+  } catch {
+    return "UNKNOWN";
+  }
+}
+
+function canonicalCountry(value: unknown): string {
+  if (value === "UNKNOWN") return "UNKNOWN";
+  if (typeof value !== "string" || !/^[A-Z]{2}$/.test(value)) {
+    return "UNKNOWN";
+  }
+  try {
+    const display = new Intl.DisplayNames(["en"], { type: "region" }).of(value);
+    return display && display !== value && display !== "Unknown Region"
+      ? value
+      : "UNKNOWN";
+  } catch {
+    return "UNKNOWN";
+  }
+}
+
+function canonicalLanguage(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    return Intl.getCanonicalLocales(value.trim())[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
     service_date: { type: ["string", "null"], format: "date" },
-    receipt_total_pence: nullableInteger,
-    eligible_pence: nullableInteger,
-    currency: { type: "string", enum: ["GBP", "UNKNOWN"] },
-    country: { type: "string", enum: ["GB", "UNKNOWN"] },
+    receipt_total_minor: nullableInteger,
+    eligible_minor: nullableInteger,
+    currency: { type: "string", pattern: "^(?:[A-Z]{3}|UNKNOWN)$" },
+    country: { type: "string", pattern: "^(?:[A-Z]{2}|UNKNOWN)$" },
+    language: {
+      type: ["string", "null"],
+      pattern: "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$",
+    },
+    english_translation: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        merchant: { type: ["string", "null"] },
+        location_hint: { type: ["string", "null"] },
+        line_item_descriptions: {
+          type: "array",
+          maxItems: 100,
+          items: { type: "string" },
+        },
+      },
+      required: ["merchant", "location_hint", "line_item_descriptions"],
+    },
     is_receipt: { type: "boolean" },
     instruction_like_text_detected: { type: "boolean" },
     evidence: {
@@ -58,10 +119,12 @@ export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
   },
   required: [
     "service_date",
-    "receipt_total_pence",
-    "eligible_pence",
+    "receipt_total_minor",
+    "eligible_minor",
     "currency",
     "country",
+    "language",
+    "english_translation",
     "is_receipt",
     "instruction_like_text_detected",
     "evidence",
@@ -140,10 +203,12 @@ export function normaliseReceiptAutoVerification(
     input,
     [
       "service_date",
-      "receipt_total_pence",
-      "eligible_pence",
+      "receipt_total_minor",
+      "eligible_minor",
       "currency",
       "country",
+      "language",
+      "english_translation",
       "is_receipt",
       "instruction_like_text_detected",
       "evidence",
@@ -177,12 +242,42 @@ export function normaliseReceiptAutoVerification(
   ) {
     throw new Error("invalid verification date");
   }
-  if (input.currency !== "GBP" && input.currency !== "UNKNOWN") {
+  const currency = canonicalCurrency(input.currency);
+  if (currency !== input.currency) {
     throw new Error("invalid verification currency");
   }
-  if (input.country !== "GB" && input.country !== "UNKNOWN") {
+  const country = canonicalCountry(input.country);
+  if (country !== input.country) {
     throw new Error("invalid verification country");
   }
+  const language =
+    input.language === null ? null : canonicalLanguage(input.language);
+  if (language !== input.language) throw new Error("invalid verification language");
+  const translation = record(input.english_translation, "english_translation");
+  exactKeys(
+    translation,
+    ["merchant", "location_hint", "line_item_descriptions"],
+    "english_translation",
+  );
+  const translatedText = (key: string): string | null => {
+    const value = translation[key];
+    if (value === null) return null;
+    if (typeof value !== "string" || !value.trim()) {
+      throw new Error("invalid verification translation");
+    }
+    return value.trim().slice(0, 300);
+  };
+  if (!Array.isArray(translation.line_item_descriptions)) {
+    throw new Error("invalid verification translation");
+  }
+  const lineItemDescriptions = translation.line_item_descriptions.map(
+    (value) => {
+      if (typeof value !== "string" || !value.trim()) {
+        throw new Error("invalid verification translation");
+      }
+      return value.trim().slice(0, 300);
+    },
+  );
   if (
     typeof input.is_receipt !== "boolean" ||
     typeof input.instruction_like_text_detected !== "boolean"
@@ -191,10 +286,16 @@ export function normaliseReceiptAutoVerification(
   }
   return {
     serviceDate: input.service_date,
-    receiptTotalPence: parseNullableInteger(input.receipt_total_pence),
-    eligiblePence: parseNullableInteger(input.eligible_pence),
-    currency: input.currency,
-    country: input.country,
+    receiptTotalPence: parseNullableInteger(input.receipt_total_minor),
+    eligiblePence: parseNullableInteger(input.eligible_minor),
+    currency,
+    country,
+    language,
+    translation: {
+      merchant: translatedText("merchant"),
+      locationHint: translatedText("location_hint"),
+      lineItemDescriptions,
+    },
     isReceipt: input.is_receipt,
     instructionLikeTextDetected: input.instruction_like_text_detected,
     evidence: {

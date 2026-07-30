@@ -225,6 +225,11 @@
   gap: 10px; align-items: center; border-top: 1px solid var(--line); font-size: .75rem;
 }
 .line-items em { color: var(--coral); font-style: normal; }
+.line-item-description { display: grid; min-width: 0; }
+.line-item-description small {
+  overflow: hidden; color: var(--muted); font-size: .68rem;
+  text-overflow: ellipsis; white-space: nowrap;
+}
 .receipt-reconciliation, .duplicate-review, .correction-history {
   margin-top: 16px; border: 1px solid var(--line); background: var(--paper-raised); padding: 14px;
 }

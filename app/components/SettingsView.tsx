@@ -123,7 +123,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
       <ViewHeader
         eyebrow="Current view"
         title="Settings"
-        detail="Manage appearance, check AI setup, review privacy controls and export your data."
+        detail="Manage appearance, check automatic international receipt handling, review privacy controls and export your data."
         action={
           <button
             className="secondary-button settings-close"
@@ -158,8 +158,8 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
         <section aria-labelledby="ai-heading">
           <div className="setting-number" aria-hidden="true">02</div>
           <div className="setting-content">
-            <p className="eyebrow">Receipt assistance</p>
-            <h2 id="ai-heading">AI and voice</h2>
+            <p className="eyebrow">Automatic receipt handling</p>
+            <h2 id="ai-heading">Reading, translation and voice</h2>
             {status ? (
               <>
                 <StatusMessage tone={status.ai.configured ? "neutral" : "warning"}>
@@ -173,11 +173,11 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
                       ? status.ai.lastSuccessAt
                         ? `Last successful extraction: ${new Date(status.ai.lastSuccessAt).toLocaleString("en-GB")} using ${status.ai.lastSuccessModel ?? status.ai.models.receipt}.`
                         : "The credential is configured. No successful extraction has been recorded yet."
-                      : "Add OPENAI_API_KEY to the private Sites runtime environment to enable receipt analysis and voice."}
+                      : "Add OPENAI_API_KEY to the private Sites runtime environment to enable receipt reading, English translation and voice."}
                   </p>
                 </StatusMessage>
                 <dl className="policy-details compact-details">
-                  <div><dt>Receipt extraction</dt><dd>{status.ai.models.receipt}</dd></div>
+                  <div><dt>Receipt reading and translation</dt><dd>{status.ai.models.receipt}</dd></div>
                   <div><dt>Realtime voice</dt><dd>{status.ai.models.realtime} · {status.ai.voice}</dd></div>
                   <div><dt>Transcription</dt><dd>{status.ai.models.transcription}</dd></div>
                 </dl>
@@ -219,7 +219,8 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
             <ul className="plain-list">
               <li><strong>Private evidence</strong><span>Receipt originals and expense records are kept in owner-only storage. They are never public links.</span></li>
               <li><strong>No browser ledger</strong><span>Financial records are stored by the server, not duplicated in Safari.</span></li>
-              <li><strong>Strict automatic confirmation</strong><span>Clean receipts are added only after an independent image check agrees on the critical facts. Exceptions wait for your review, and allowance decisions remain deterministic.</span></li>
+              <li><strong>Automatic international handling</strong><span>Clean receipts are read in their original language and currency, translated into English when useful, converted to a frozen GBP policy value, and added without an approval step. Only exceptions wait for review.</span></li>
+              <li><strong>Original facts stay authoritative</strong><span>The receipt currency, country, language and original amounts are retained alongside the conversion rate, observation date, provider reference and rounding method.</span></li>
               <li><strong>Voice is optional</strong><span>The microphone starts only when you choose it. The permanent API key never reaches Safari.</span></li>
             </ul>
           </div>
@@ -281,7 +282,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
                 <div><dt>Source</dt><dd>JSP 752 v66.1, May 2026</dd></div>
                 <div><dt>Daily limit</dt><dd>£30.00 from 1 April 2026</dd></div>
                 <div><dt>Service charge or tip</dt><dd>Permitted within the same £30 limit</dd></div>
-                <div><dt>Currency and country</dt><dd>GBP · United Kingdom (GB)</dd></div>
+                <div><dt>International receipts</dt><dd>Original values remain authoritative. Allowance calculations use a frozen GBP equivalent with recorded rate provenance.</dd></div>
                 <div><dt>Aggregation</dt><dd>Available for trips of two nights or more</dd></div>
               </dl>
               <a className="text-button external-link" href="https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances" target="_blank" rel="noreferrer">

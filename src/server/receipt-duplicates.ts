@@ -9,6 +9,8 @@ export type DuplicateCandidate = {
   merchant: string;
   serviceDate: string;
   receiptTotalPence: number;
+  originalCurrency: string;
+  originalAmountMinor: number;
   reason: string;
 };
 
@@ -23,11 +25,18 @@ async function fingerprint(
   if (!candidates.length) return null;
   const canonical = JSON.stringify(
     [...candidates]
-      .map(({ id, kind, serviceDate, receiptTotalPence }) => ({
+      .map(({
         id,
         kind,
         serviceDate,
-        receiptTotalPence,
+        originalCurrency,
+        originalAmountMinor,
+      }) => ({
+        id,
+        kind,
+        serviceDate,
+        originalCurrency,
+        originalAmountMinor,
       }))
       .sort((a, b) => `${a.kind}:${a.id}`.localeCompare(`${b.kind}:${b.id}`)),
   );
@@ -46,6 +55,8 @@ type CandidateRow = {
   merchant: string;
   service_date: string;
   receipt_total_pence: number;
+  original_currency: string;
+  original_receipt_total_minor: number;
 };
 
 export async function findDuplicateCandidates(
@@ -55,28 +66,41 @@ export async function findDuplicateCandidates(
     merchant: string | null;
     serviceDate: string | null;
     receiptTotalPence: number | null;
+    originalCurrency: string;
+    originalAmountMinor: number | null;
   },
 ): Promise<DuplicateCandidate[]> {
-  if (!values.merchant || !values.serviceDate || values.receiptTotalPence === null) {
+  if (
+    !values.merchant ||
+    !values.serviceDate ||
+    values.receiptTotalPence === null ||
+    values.originalAmountMinor === null
+  ) {
     return [];
   }
   const result = await database()
     .prepare(
-      `SELECT id, 'expense' AS kind, merchant, service_date, receipt_total_pence
+      `SELECT id, 'expense' AS kind, merchant, service_date,
+              receipt_total_pence, original_currency,
+              original_receipt_total_minor
        FROM expenses
        WHERE owner_id = ? AND deleted_at IS NULL
          AND (
-           (service_date = ? AND receipt_total_pence = ?)
+           (service_date = ? AND original_currency = ?
+             AND original_receipt_total_minor = ?)
            OR (service_date = ? AND lower(merchant) = lower(?))
          )
        UNION ALL
        SELECT id, 'intake' AS kind, COALESCE(merchant, original_name),
-              service_date, receipt_total_pence
+              service_date, receipt_total_pence, original_currency,
+              original_receipt_total_minor
        FROM receipt_intakes
        WHERE owner_id = ? AND id <> ? AND status <> 'confirmed'
-         AND service_date IS NOT NULL AND receipt_total_pence IS NOT NULL
+         AND service_date IS NOT NULL
+         AND original_receipt_total_minor IS NOT NULL
          AND (
-           (service_date = ? AND receipt_total_pence = ?)
+           (service_date = ? AND original_currency = ?
+             AND original_receipt_total_minor = ?)
            OR (service_date = ? AND lower(COALESCE(merchant, original_name)) = lower(?))
          )
        LIMIT 8`,
@@ -84,13 +108,15 @@ export async function findDuplicateCandidates(
     .bind(
       principal.ownerId,
       values.serviceDate,
-      values.receiptTotalPence,
+      values.originalCurrency,
+      values.originalAmountMinor,
       values.serviceDate,
       values.merchant,
       principal.ownerId,
       intakeId,
       values.serviceDate,
-      values.receiptTotalPence,
+      values.originalCurrency,
+      values.originalAmountMinor,
       values.serviceDate,
       values.merchant,
     )
@@ -102,10 +128,14 @@ export async function findDuplicateCandidates(
     merchant: candidate.merchant,
     serviceDate: candidate.service_date,
     receiptTotalPence: candidate.receipt_total_pence,
+    originalCurrency: candidate.original_currency,
+    originalAmountMinor: candidate.original_receipt_total_minor,
     reason: duplicateReason(candidate, {
       merchant: values.merchant!,
       serviceDate: values.serviceDate!,
       receiptTotalPence: values.receiptTotalPence!,
+      originalCurrency: values.originalCurrency,
+      originalAmountMinor: values.originalAmountMinor!,
     }),
   }));
 }
@@ -117,6 +147,8 @@ export async function refreshDuplicateCandidates(
     merchant: string | null;
     serviceDate: string | null;
     receiptTotalPence: number | null;
+    originalCurrency: string;
+    originalAmountMinor: number | null;
   },
 ): Promise<DuplicateCandidate[]> {
   const { candidates, fingerprint: candidateFingerprint } =
@@ -152,6 +184,8 @@ export async function duplicateCandidateState(
     merchant: string | null;
     serviceDate: string | null;
     receiptTotalPence: number | null;
+    originalCurrency: string;
+    originalAmountMinor: number | null;
   },
 ): Promise<DuplicateCandidateState> {
   const candidates = await findDuplicateCandidates(principal, intakeId, values);
@@ -165,6 +199,8 @@ export async function assertDuplicatesReviewed(
     merchant: string | null;
     serviceDate: string | null;
     receiptTotalPence: number | null;
+    originalCurrency: string;
+    originalAmountMinor: number | null;
   },
 ): Promise<void> {
   const candidates = await findDuplicateCandidates(

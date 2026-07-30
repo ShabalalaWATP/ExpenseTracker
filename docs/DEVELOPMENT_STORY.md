@@ -181,6 +181,31 @@ This document records meaningful implementation milestones, decisions and verifi
 
 ## 30 July 2026
 
+- Replaced the unsafe assumption that every receipt was issued in GBP and GB.
+  The receipt pipeline now preserves ISO currency, purchase country, detected
+  language and original minor-unit amounts, produces a structured English
+  translation, and keeps the original image as the authoritative evidence.
+- Added deterministic GBP conversion through a bounded ECB Data Portal lookup.
+  Each owner-scoped quote stores its exact rational rate, observation date,
+  provider reference and response hash. Integer half-up arithmetic produces the
+  frozen GBP ledger value, while unavailable or ambiguous conversions remain
+  in exception review.
+- Extended the independent image-only verification gate to currency and
+  country. A foreign receipt can bypass manual field confirmation only when both
+  image reads agree on critical printed facts and all conversion, arithmetic,
+  duplicate, eligibility and trip-link checks pass.
+- Added ordered itinerary legs so one trip can span several locations and
+  nations. Receipt matching now considers the detected country and exact
+  eligible leg, while shared border dates and multiple candidate trips remain
+  explicit exceptions.
+- Extended Realtime voice trip creation to collect and read back a complete
+  multi-country itinerary in the user's language. The explicit spoken save gate
+  remains because creating the trip is a material write.
+- Extended the expense interface, protected exports, claim packages and
+  audit-response DOCX reports to show original values and frozen GBP values
+  together, including translation and conversion provenance. Recorded the
+  design boundary in ADR 0001.
+
 - Reduced the normal receipt-confirmation workflow to exception review. Receipt
   analysis now suggests the claim date, time, location, duty reason and a
   time-derived meal context; the owner normally supplies only an optional trip
@@ -224,7 +249,15 @@ This document records meaningful implementation milestones, decisions and verifi
   original receipt hash. Audit reports label these embedded derivatives as
   owner-supplied and non-authoritative, retain the original evidence details,
   and exclude a derivative when its provenance does not match.
-- Verified the final source with `npm test` (the production build and all 130
+- Added multilingual receipt evidence, exact owner-scoped ECB conversion,
+  translated receipt summaries and ordered multi-country trip legs. A second
+  image-only AI pass must agree before unattended confirmation. Currency and
+  country exceptions have bounded owner fallbacks, and every confirmed
+  conversion is recalculated against its frozen quote before ledger insertion.
+- Split the international FX, conversion-integrity and exception-review code
+  into focused modules, then completed independent correctness and security
+  re-reviews with no release-blocking findings.
+- Verified the final source with `npm test` (the production build and all 149
   tests), `npm run lint`, `npx tsc --noEmit` and `git diff --check`. All passed.
 - Kept real-device acceptance open: iPhone Safari camera and HEIC processing,
   browser preview and download, reduced-motion and assistive-technology

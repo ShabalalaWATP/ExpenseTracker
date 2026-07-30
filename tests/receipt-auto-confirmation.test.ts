@@ -122,7 +122,7 @@ describe("strict receipt automatic confirmation policy", () => {
     assert.equal(policy.canAutomaticallyConfirm(input), true);
   });
 
-  it("requires explicit GBP and GB extraction evidence", () => {
+  it("requires known original geography and a completed foreign conversion", () => {
     for (const [currency, country] of [
       [null, null],
       ["UNKNOWN", "GB"],
@@ -133,9 +133,33 @@ describe("strict receipt automatic confirmation policy", () => {
       input.extractedCurrency = currency;
       input.extractedCountry = country;
       const reasons = policy.automaticConfirmationReasons(input);
-      assert.equal(reasons.includes("currency"), currency !== "GBP");
-      assert.equal(reasons.includes("country"), country !== "GB");
+      assert.equal(
+        reasons.includes("currency"),
+        currency === null || currency === "UNKNOWN" || currency === "EUR",
+      );
+      assert.equal(
+        reasons.includes("country"),
+        country === null || country === "UNKNOWN" || country === "FR",
+      );
     }
+  });
+
+  it("permits independently verified foreign facts after deterministic conversion", () => {
+    const input = cleanInput();
+    input.extractedCurrency = "EUR";
+    input.extractedCountry = "FR";
+    input.originalReceiptTotalMinor = 1_500;
+    input.originalEligibleMinor = 1_500;
+    input.conversionAvailable = true;
+    input.verification = {
+      ...input.verification!,
+      receiptTotalPence: 1_500,
+      eligiblePence: 1_500,
+      currency: "EUR",
+      country: "FR",
+      language: "fr",
+    };
+    assert.deepEqual(policy.automaticConfirmationReasons(input), []);
   });
 
   it("blocks ambiguous trips but permits explicit, matched or no trip", () => {
@@ -216,6 +240,18 @@ describe("strict receipt automatic confirmation policy", () => {
         .automaticConfirmationReasons(evidenceEdit)
         .includes("owner_evidence"),
     );
+    for (const field of ["original_currency", "original_country"]) {
+      const originEdit = cleanInput();
+      originEdit.provenance = {
+        ...originEdit.provenance,
+        [field]: "owner",
+      };
+      assert.ok(
+        policy
+          .automaticConfirmationReasons(originEdit)
+          .includes("owner_evidence"),
+      );
+    }
 
     const allowedContext = cleanInput();
     allowedContext.provenance = {

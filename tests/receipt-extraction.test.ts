@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { clarificationQuestions, mealContextFromTime, normaliseExtraction, normaliseTransactionTime } from "../src/server/receipt-extraction.ts";
+import { clarificationQuestions, mealContextFromTime, normaliseExtraction, normaliseTransactionTime, RECEIPT_EXTRACTION_SCHEMA } from "../src/server/receipt-extraction.ts";
 
 describe("receipt extraction normalisation", () => {
+  it("requires original-minor amount fields consistently in the strict schema", () => {
+    const lineItems = RECEIPT_EXTRACTION_SCHEMA.properties.line_items.items;
+    assert.ok("total_minor" in lineItems.properties);
+    assert.ok(lineItems.required.includes("total_minor"));
+    assert.ok(!lineItems.required.includes("total_pence" as "total_minor"));
+    assert.ok(
+      RECEIPT_EXTRACTION_SCHEMA.required.includes("receipt_total_minor"),
+    );
+  });
+
   it("normalises a complete GBP receipt without changing integer pence", () => {
     const result = normaliseExtraction({
       merchant: "  Field Kitchen  ",
@@ -60,8 +70,9 @@ describe("receipt extraction normalisation", () => {
     assert.equal(result.receiptTotalPence, null);
     assert.equal(result.eligiblePence, null);
     assert.equal(result.gratuityPence, 0);
-    assert.equal(result.currency, "UNKNOWN");
-    assert.equal(result.country, "UNKNOWN");
+    assert.equal(result.currency, "USD");
+    assert.equal(result.country, "FR");
+    assert.equal(result.language, "und");
     assert.equal(result.lineItems[0]?.description, "Unrecognised item");
     assert.equal(result.lineItems[0]?.confidence, 1);
     assert.equal(result.confidence.merchant, 0);

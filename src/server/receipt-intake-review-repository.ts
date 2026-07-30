@@ -1,31 +1,29 @@
-import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
 import { decideTripReview } from "@/src/domain/receipt-trip-review";
 import { auditStatementAfterChange } from "./audit-repository";
 import { database } from "./db";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
+import { applyCorrectedCurrency } from "./receipt-currency-correction";
 import { duplicateCandidateState } from "./receipt-duplicates";
 import {
   publicIntake,
   unresolvedFields,
-  type ReceiptIntakeRow,
 } from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
+import {
+  prepareReviewState,
+  reconciliationNeedsReview,
+  reviewJson,
+  reviewRowValues,
+} from "./receipt-intake-review-state";
 import { receiptRevisionStatementAfterChange } from "./receipt-intake-revisions";
 import type { IntakePatch } from "./receipt-intake-validation";
 import {
   applyResolvedTripAssignment,
+  applyResolvedTripLegAssignment,
   resolveReceiptTripLink,
   tripRevisionFields,
 } from "./receipt-trip-link";
-
-function json<T>(value: string, fallback: T): T {
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
 async function requireOwnedTrip(
   principal: Principal,
@@ -58,70 +56,6 @@ async function releaseReviewLock(
     .catch(() => {});
 }
 
-const patchColumns: Partial<Record<keyof IntakePatch, string>> = {
-  merchant: "merchant",
-  serviceDate: "service_date",
-  receiptTotalPence: "receipt_total_pence",
-  eligiblePence: "eligible_pence",
-  gratuityPence: "gratuity_pence",
-  location: "location",
-  businessReason: "business_reason",
-  mealContext: "meal_context",
-  category: "category",
-  tripId: "trip_id",
-  alcoholReviewed: "alcohol_reviewed",
-  reconciliationReviewed: "reconciliation_reviewed",
-};
-
-const fieldForPatch: Partial<Record<keyof IntakePatch, string>> = {
-  merchant: "merchant",
-  serviceDate: "service_date",
-  receiptTotalPence: "receipt_total",
-  eligiblePence: "eligible_amount",
-  gratuityPence: "gratuity",
-  location: "location",
-  businessReason: "business_reason",
-  mealContext: "meal_context",
-  category: "category",
-  tripId: "trip_id",
-  alcoholReviewed: "alcohol",
-};
-
-function rowValues(row: Awaited<ReturnType<typeof requireIntake>>) {
-  return {
-    merchant: row.merchant,
-    serviceDate: row.service_date,
-    receiptTotalPence: row.receipt_total_pence,
-    eligiblePence: row.eligible_pence,
-    gratuityPence: row.gratuity_pence,
-    location: row.location,
-    businessReason: row.business_reason,
-    mealContext: row.meal_context,
-    category: row.category,
-    tripId: row.trip_id,
-    alcoholReviewed: Boolean(row.alcohol_reviewed),
-    duplicateReviewed: Boolean(row.duplicate_reviewed),
-    reconciliationReviewed: Boolean(row.reconciliation_reviewed),
-  };
-}
-
-function reconciliationNeedsReview(
-  row: Awaited<ReturnType<typeof requireIntake>>,
-): boolean {
-  const lines = json<Array<{ totalPence: number | null; eligible: boolean | null }>>(
-    row.line_items_json,
-    [],
-  );
-  return (
-    reconcileReceipt(
-      lines,
-      row.receipt_total_pence,
-      row.eligible_pence,
-      row.gratuity_pence,
-    ).status === "mismatch" && !Boolean(row.reconciliation_reviewed)
-  );
-}
-
 export async function updateReceiptIntake(
   principal: Principal,
   id: string,
@@ -129,7 +63,17 @@ export async function updateReceiptIntake(
   source: "manual" | "voice" = "manual",
 ) {
   const existing = await requireIntake(principal, id);
-  const tripDecision = decideTripReview(existing.trip_id, patch);
+  let tripDecision = decideTripReview(existing.trip_id, patch);
+  const explicitLegSelection =
+    typeof patch.tripLegId === "string" &&
+    patch.tripLegId.length > 0 &&
+    patch.tripLegId !== existing.trip_leg_id;
+  if (explicitLegSelection) {
+    tripDecision = {
+      tripId: patch.tripId ?? existing.trip_id,
+      explicitlySelected: true,
+    };
+  }
   if (tripDecision.explicitlySelected) {
     patch = { ...patch, tripId: tripDecision.tripId };
   } else if ("tripId" in patch) {
@@ -150,6 +94,67 @@ export async function updateReceiptIntake(
       409,
       "receipt_analysis_in_progress",
       "Wait for receipt analysis to finish before editing it.",
+    );
+  }
+  if (
+    patch.originalCurrency &&
+    existing.original_currency !== "UNKNOWN" &&
+    patch.originalCurrency !== existing.original_currency
+  ) {
+    throw new ApiError(
+      409,
+      "receipt_original_locked",
+      "Use Recheck to change a currency that the receipt reader already identified.",
+    );
+  }
+  if (
+    patch.originalCountry &&
+    existing.original_country !== "UNKNOWN" &&
+    patch.originalCountry !== existing.original_country
+  ) {
+    throw new ApiError(
+      409,
+      "receipt_original_locked",
+      "Use Recheck to change a country that the receipt reader already identified.",
+    );
+  }
+  const desiredCurrency =
+    patch.originalCurrency ?? existing.original_currency;
+  const foreignReceipt =
+    desiredCurrency !== "GBP" && desiredCurrency !== "UNKNOWN";
+  const dateChanged =
+    patch.serviceDate !== undefined &&
+    patch.serviceDate !== existing.service_date;
+  const gbpValuesChanged =
+    (patch.receiptTotalPence !== undefined &&
+      patch.receiptTotalPence !== existing.receipt_total_pence) ||
+    (patch.eligiblePence !== undefined &&
+      patch.eligiblePence !== existing.eligible_pence) ||
+    (patch.gratuityPence !== undefined &&
+      patch.gratuityPence !== existing.gratuity_pence);
+  const currentConversion = reviewJson<{ status?: string }>(
+    existing.conversion_json,
+    {},
+  );
+  if (foreignReceipt && dateChanged) {
+    throw new ApiError(
+      409,
+      "foreign_receipt_reanalysis_required",
+      "Use Recheck to correct a foreign receipt date so the official dated conversion is recalculated.",
+    );
+  }
+  if (
+    foreignReceipt &&
+    gbpValuesChanged &&
+    !(
+      currentConversion.status === "unavailable" &&
+      patch.conversionReviewed === true
+    )
+  ) {
+    throw new ApiError(
+      409,
+      "foreign_receipt_reanalysis_required",
+      "Use Recheck for foreign receipt amounts. Manual GBP values are available only when no official rate exists.",
     );
   }
   await requireOwnedTrip(principal, patch.tripId ?? existing.trip_id);
@@ -187,110 +192,63 @@ export async function updateReceiptIntake(
   }
 
   try {
-  const cleared = new Set(
-    (Object.keys(patch) as (keyof IntakePatch)[])
-      .map((key) => fieldForPatch[key])
-      .filter((field): field is string => Boolean(field)),
-  );
-  if (tripDecision.explicitlySelected) cleared.add("trip_id");
-  const missing = json<string[]>(existing.missing_fields_json, []).filter(
-    (field) => !cleared.has(field),
-  );
-  const uncertain = json<string[]>(existing.uncertain_fields_json, []).filter(
-    (field) => !cleared.has(field),
-  );
-  const provenance = json<Record<string, "ai" | "owner" | "auto">>(
-    existing.correction_provenance_json,
-    {},
-  );
-  for (const field of cleared) provenance[field] = "owner";
-
-  const arithmeticChanged =
-    ("receiptTotalPence" in patch &&
-      patch.receiptTotalPence !== existing.receipt_total_pence) ||
-    ("eligiblePence" in patch &&
-      patch.eligiblePence !== existing.eligible_pence) ||
-    ("gratuityPence" in patch &&
-      patch.gratuityPence !== existing.gratuity_pence);
-  const appliedPatchWithIntent: IntakePatch = arithmeticChanged
-    ? { ...patch, reconciliationReviewed: false }
-    : patch;
-  const appliedPatch = { ...appliedPatchWithIntent };
-  delete appliedPatch.leaveTripUnlinked;
-  const entries = Object.entries(appliedPatch) as [keyof IntakePatch, unknown][];
-  const assignments: string[] = [];
-  const values: unknown[] = [];
-  for (const [key, value] of entries) {
-    if (key === "duplicateReviewed") continue;
-    const column = patchColumns[key];
-    if (!column) continue;
-    assignments.push(`${column} = ?`);
-    values.push(
-      key === "alcoholReviewed" || key === "reconciliationReviewed"
-        ? Number(value)
-        : value,
-    );
-  }
-  const before = rowValues(existing);
-  const projected = {
-    ...existing,
-    merchant: appliedPatch.merchant === undefined
-      ? existing.merchant
-      : appliedPatch.merchant,
-    service_date: appliedPatch.serviceDate === undefined
-      ? existing.service_date
-      : appliedPatch.serviceDate,
-    receipt_total_pence: appliedPatch.receiptTotalPence === undefined
-      ? existing.receipt_total_pence
-      : appliedPatch.receiptTotalPence,
-    eligible_pence: appliedPatch.eligiblePence === undefined
-      ? existing.eligible_pence
-      : appliedPatch.eligiblePence,
-    gratuity_pence: appliedPatch.gratuityPence === undefined
-      ? existing.gratuity_pence
-      : appliedPatch.gratuityPence,
-    location: appliedPatch.location === undefined
-      ? existing.location
-      : appliedPatch.location,
-    business_reason: appliedPatch.businessReason === undefined
-      ? existing.business_reason
-      : appliedPatch.businessReason,
-    meal_context: appliedPatch.mealContext === undefined
-      ? existing.meal_context
-      : appliedPatch.mealContext,
-    category: appliedPatch.category === undefined
-      ? existing.category
-      : appliedPatch.category,
-    trip_id: appliedPatch.tripId === undefined
-      ? existing.trip_id
-      : appliedPatch.tripId,
-    alcohol_reviewed: appliedPatch.alcoholReviewed === undefined
-      ? existing.alcohol_reviewed
-      : Number(appliedPatch.alcoholReviewed),
-    reconciliation_reviewed:
-      appliedPatch.reconciliationReviewed === undefined
-        ? existing.reconciliation_reviewed
-        : Number(appliedPatch.reconciliationReviewed),
-    missing_fields_json: JSON.stringify(missing),
-    uncertain_fields_json: JSON.stringify(uncertain),
-    correction_provenance_json: JSON.stringify(provenance),
-  } satisfies ReceiptIntakeRow;
-  const tripLink = await resolveReceiptTripLink(principal, {
+    const {
+      appliedPatch,
+      entries,
+      assignments,
+      values,
+      missing,
+      uncertain,
+      provenance,
+      projected,
+    } = prepareReviewState(existing, patch, {
+      tripExplicit: tripDecision.explicitlySelected,
+      foreignReceipt,
+      dateChanged,
+      gbpValuesChanged,
+      conversionStatus: currentConversion.status,
+    });
+    if (
+      patch.originalCurrency &&
+      patch.originalCurrency !== existing.original_currency
+    ) {
+      await applyCorrectedCurrency(
+        principal,
+        projected,
+        patch.originalCurrency,
+        missing,
+        uncertain,
+        assignments,
+        values,
+      );
+    }
+    const before = reviewRowValues(existing);
+    const tripLink = await resolveReceiptTripLink(principal, {
     serviceDate: projected.service_date,
     tripId: projected.trip_id,
+    tripLegId: projected.trip_leg_id,
+    originalCountry: projected.original_country,
     provenance,
   });
-  projected.trip_id = applyResolvedTripAssignment(
+    projected.trip_id = applyResolvedTripAssignment(
     assignments,
     values,
     projected.trip_id,
     tripLink.tripId,
+  );
+    projected.trip_leg_id = applyResolvedTripLegAssignment(
+    assignments,
+    values,
+    projected.trip_leg_id,
+    tripLink.tripLegId,
   );
   projected.correction_provenance_json = JSON.stringify(tripLink.provenance);
   const duplicates = await duplicateCandidateState(principal, id, {
     merchant: projected.merchant,
     serviceDate: projected.service_date,
     receiptTotalPence: projected.receipt_total_pence,
+    originalCurrency: projected.original_currency,
+    originalAmountMinor: projected.original_receipt_total_minor,
   });
   const identityChanged =
     projected.merchant !== existing.merchant ||
@@ -311,7 +269,7 @@ export async function updateReceiptIntake(
     unresolvedFields(projected).length ||
     (duplicates.candidates.length > 0 && !duplicateReviewed) ||
     reconciliationNeedsReview(projected) ||
-    tripLink.resolution.status === "ambiguous"
+    Boolean(tripLink.errorCode)
       ? "needs_review"
       : "ready";
   assignments.push(

@@ -25,8 +25,14 @@ export type ReceiptAutoVerification = {
   serviceDate: string | null;
   receiptTotalPence: number | null;
   eligiblePence: number | null;
-  currency: "GBP" | "UNKNOWN";
-  country: "GB" | "UNKNOWN";
+  currency: string;
+  country: string;
+  language?: string | null;
+  translation?: {
+    merchant: string | null;
+    locationHint: string | null;
+    lineItemDescriptions: string[];
+  };
   isReceipt: boolean;
   instructionLikeTextDetected: boolean;
   evidence: {
@@ -49,6 +55,7 @@ export type AutomaticConfirmationReason =
   | "acknowledgement"
   | "currency"
   | "country"
+  | "conversion"
   | "trip_ambiguous"
   | "trip_invalid"
   | "owner_evidence"
@@ -85,7 +92,17 @@ export type AutomaticConfirmationInput = {
   };
   extractedCurrency: string | null;
   extractedCountry: string | null;
-  tripStatus: "explicit" | "matched" | "none" | "ambiguous" | "invalid";
+  originalReceiptTotalMinor?: number | null;
+  originalEligibleMinor?: number | null;
+  conversionAvailable?: boolean;
+  tripStatus:
+    | "explicit"
+    | "matched"
+    | "none"
+    | "ambiguous"
+    | "leg_ambiguous"
+    | "country_conflict"
+    | "invalid";
   provenance: Readonly<Record<string, "ai" | "owner" | "auto">>;
   verification: ReceiptAutoVerification | null;
 };
@@ -129,6 +146,8 @@ const RECEIPT_EVIDENCE_FIELDS = [
   "alcohol",
   "category",
   "gratuity",
+  "original_currency",
+  "original_country",
 ] as const;
 
 function verificationReasons(
@@ -139,10 +158,12 @@ function verificationReasons(
   const reasons: AutomaticConfirmationReason[] = [];
   if (
     verification.serviceDate !== input.serviceDate ||
-    verification.receiptTotalPence !== input.receiptTotalPence ||
-    verification.eligiblePence !== input.eligiblePence ||
-    verification.currency !== "GBP" ||
-    verification.country !== "GB"
+    verification.receiptTotalPence !==
+      (input.originalReceiptTotalMinor ?? input.receiptTotalPence) ||
+    verification.eligiblePence !==
+      (input.originalEligibleMinor ?? input.eligiblePence) ||
+    verification.currency !== input.extractedCurrency ||
+    verification.country !== input.extractedCountry
   ) {
     reasons.push("verification_mismatch");
   }
@@ -208,10 +229,31 @@ export function automaticConfirmationReasons(
   ) {
     reasons.add("acknowledgement");
   }
-  if (input.extractedCurrency !== "GBP") reasons.add("currency");
-  if (input.extractedCountry !== "GB") reasons.add("country");
+  if (
+    !input.extractedCurrency ||
+    input.extractedCurrency === "UNKNOWN" ||
+    (input.extractedCurrency !== "GBP" &&
+      input.conversionAvailable !== true)
+  ) {
+    reasons.add("currency");
+  }
+  if (
+    !input.extractedCountry ||
+    input.extractedCountry === "UNKNOWN" ||
+    (input.extractedCountry !== "GB" &&
+      input.conversionAvailable !== true)
+  ) {
+    reasons.add("country");
+  }
+  if (input.conversionAvailable === false) reasons.add("conversion");
   if (input.tripStatus === "ambiguous") reasons.add("trip_ambiguous");
-  if (input.tripStatus === "invalid") reasons.add("trip_invalid");
+  if (input.tripStatus === "leg_ambiguous") reasons.add("trip_ambiguous");
+  if (
+    input.tripStatus === "invalid" ||
+    input.tripStatus === "country_conflict"
+  ) {
+    reasons.add("trip_invalid");
+  }
   if (
     RECEIPT_EVIDENCE_FIELDS.some(
       (field) => input.provenance[field] === "owner",
@@ -240,6 +282,8 @@ export async function automaticConfirmationFingerprint(input: {
   merchant: string;
   serviceDate: string;
   receiptTotalPence: number;
+  originalCurrency?: string;
+  originalAmountMinor?: number;
 }): Promise<string> {
   const merchant = input.merchant
     .normalize("NFKC")
@@ -249,7 +293,8 @@ export async function automaticConfirmationFingerprint(input: {
   const canonical = JSON.stringify([
     merchant,
     input.serviceDate,
-    input.receiptTotalPence,
+    input.originalCurrency ?? "GBP",
+    input.originalAmountMinor ?? input.receiptTotalPence,
   ]);
   const digest = await crypto.subtle.digest(
     "SHA-256",

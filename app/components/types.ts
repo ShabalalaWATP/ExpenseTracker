@@ -50,7 +50,35 @@ export function categoryLabel(value: string | null | undefined): string {
   );
 }
 
-export interface Expense {
+export interface ReceiptTranslation {
+  merchantEnglish?: string;
+  locationEnglish?: string;
+  summaryEnglish?: string;
+}
+
+export interface CurrencyConversion {
+  status?: string;
+  source: string;
+  observationDate: string;
+  rateDisplay: string;
+  providerReference: string;
+  rounding: string;
+}
+
+export interface OriginalReceiptFacts {
+  originalCurrency?: string;
+  originalCountry?: string;
+  originalLanguage?: string;
+  originalReceiptTotalMinor?: number;
+  originalEligibleMinor?: number;
+  originalGratuityMinor?: number;
+  originalMinorUnitDigits?: number;
+  translation?: ReceiptTranslation;
+  conversion?: CurrencyConversion;
+  tripLegId?: string | null;
+}
+
+export interface Expense extends OriginalReceiptFacts {
   id: string;
   date: string;
   merchant: string;
@@ -72,6 +100,15 @@ export interface Expense {
   deletedAt?: string | null;
 }
 
+export interface TripLeg {
+  id?: string;
+  sequence: number;
+  countryCode: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -82,6 +119,7 @@ export interface Trip {
   eligibleDates?: string[];
   calculationMethod?: "daily" | "aggregate";
   attested?: boolean;
+  legs: TripLeg[];
 }
 
 export interface Claim {
@@ -134,7 +172,7 @@ export interface ExpenseDraft {
   receiptTotalPence: number;
   eligibleAmountPence: number;
   gratuityPence?: number;
-  country: "GB";
+  country: string;
   location: string;
   reason: string;
   mealContext?: MealContext;
@@ -145,9 +183,10 @@ export interface ExpenseDraft {
 export interface TripDraft {
   title: string;
   location: string;
-  country: "GB";
+  country: string;
   startDate: string;
   endDate: string;
+  legs: TripLeg[];
   eligibleDates: string[];
   attested: boolean;
   calculationMethod: "daily" | "aggregate";

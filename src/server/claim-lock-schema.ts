@@ -70,7 +70,56 @@ const tripTriggers = [
   `CREATE TRIGGER IF NOT EXISTS trips_claim_lock_delete
    BEFORE DELETE ON trips
    WHEN ${tripLocked("OLD")}
+  BEGIN SELECT RAISE(ABORT, 'claim_period_locked'); END`,
+];
+
+function tripLegLocked(row: "OLD" | "NEW") {
+  return `EXISTS (
+    SELECT 1 FROM claim_period_locks
+    WHERE owner_id = ${row}.owner_id
+      AND period BETWEEN substr(${row}.start_date, 1, 7)
+                     AND substr(${row}.end_date, 1, 7)
+  )`;
+}
+
+const tripLegTriggers = [
+  `CREATE TRIGGER IF NOT EXISTS trip_legs_claim_lock_insert
+   BEFORE INSERT ON trip_legs
+   WHEN ${tripLegLocked("NEW")}
    BEGIN SELECT RAISE(ABORT, 'claim_period_locked'); END`,
+  `CREATE TRIGGER IF NOT EXISTS trip_legs_claim_lock_update
+   BEFORE UPDATE ON trip_legs
+   WHEN ${tripLegLocked("OLD")} OR ${tripLegLocked("NEW")}
+   BEGIN SELECT RAISE(ABORT, 'claim_period_locked'); END`,
+  `CREATE TRIGGER IF NOT EXISTS trip_legs_claim_lock_delete
+   BEFORE DELETE ON trip_legs
+   WHEN ${tripLegLocked("OLD")}
+   BEGIN SELECT RAISE(ABORT, 'claim_period_locked'); END`,
+];
+
+function tripLegReferenced(row: "OLD" | "NEW") {
+  return `EXISTS (
+    SELECT 1 FROM expenses
+    WHERE owner_id = ${row}.owner_id AND trip_leg_id = ${row}.id
+  ) OR EXISTS (
+    SELECT 1 FROM receipt_intakes
+    WHERE owner_id = ${row}.owner_id AND trip_leg_id = ${row}.id
+  )`;
+}
+
+const tripLegEvidenceTriggers = [
+  `CREATE TRIGGER IF NOT EXISTS trip_legs_evidence_update
+   BEFORE UPDATE OF country_code, start_date, end_date ON trip_legs
+   WHEN (
+     NEW.country_code <> OLD.country_code
+     OR NEW.start_date <> OLD.start_date
+     OR NEW.end_date <> OLD.end_date
+   ) AND (${tripLegReferenced("OLD")})
+   BEGIN SELECT RAISE(ABORT, 'trip_leg_has_receipt_evidence'); END`,
+  `CREATE TRIGGER IF NOT EXISTS trip_legs_evidence_delete
+   BEFORE DELETE ON trip_legs
+   WHEN ${tripLegReferenced("OLD")}
+   BEGIN SELECT RAISE(ABORT, 'trip_leg_has_receipt_evidence'); END`,
 ];
 
 function intakeLocked(row: "OLD" | "NEW") {
@@ -126,6 +175,8 @@ export const claimLockSchemaStatements = [
   ...directPeriodTriggers("expenses", "service_date"),
   ...receiptTriggers,
   ...directPeriodTriggers("trip_days", "date"),
+  ...tripLegTriggers,
+  ...tripLegEvidenceTriggers,
   ...tripTriggers,
   ...intakeTriggers,
 ] as const;

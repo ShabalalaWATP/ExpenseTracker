@@ -33,9 +33,25 @@ const auditExpense = (
   receiptTotalPence: 1_250,
   eligiblePence: 1_250,
   gratuityPence: 0,
+  originalCurrency: "GBP",
+  originalCountry: "GB",
+  originalLanguage: "en",
+  originalReceiptTotalMinor: 1_250,
+  originalEligibleMinor: 1_250,
+  originalGratuityMinor: 0,
+  originalMinorUnitDigits: 2,
+  translation: {},
+  conversion: {
+    source: "identity",
+    provider: "identity",
+    rateDisplay: "1",
+    rounding: "half_up",
+    indicative: false,
+  },
   category: "food",
   mealContext: "lunch",
   tripId: null,
+  tripLegId: null,
   hasReceipt: true,
   claimablePence: 1_250,
   capLimited: false,
@@ -229,6 +245,62 @@ describe("Word report generation", () => {
     assert.ok(text.includes("Image not embedded"));
     assert.ok(text.includes("HEIC/HEIF"));
     assert.ok(!text.includes("word/media/receipt-1"));
+  });
+
+  it("records original currency, English translation and conversion provenance", () => {
+    const bytes = composeAuditDocx({
+      ownerEmail: "owner@example.com",
+      range: { startDate: "2026-08-01", endDate: "2026-08-31" },
+      expenses: [
+        auditExpense("fr", {
+          merchant: "Café de la Gare",
+          originalCurrency: "EUR",
+          originalCountry: "FR",
+          originalLanguage: "fr",
+          originalReceiptTotalMinor: 1_450,
+          originalEligibleMinor: 1_450,
+          translation: { summaryEnglish: "Lunch and a soft drink." },
+          conversion: {
+            source: "ecb_reference",
+            provider: "European Central Bank",
+            observationDate: "2026-08-03",
+            rateDisplay: "0.865",
+            rounding: "half_up",
+            indicative: true,
+          },
+        }),
+      ],
+      trips: [
+        {
+          id: "trip-fr",
+          name: "Paris duty",
+          purpose: "Conference",
+          startDate: "2026-08-03",
+          endDate: "2026-08-05",
+          legs: [
+            {
+              countryCode: "FR",
+              location: "Paris",
+              startDate: "2026-08-03",
+              endDate: "2026-08-05",
+            },
+          ],
+        },
+      ],
+      claims: [],
+      calculation: calculation(),
+      policyVersion: "JSP-752-v66.1",
+      observations: [],
+      questions: [],
+      answers: {},
+      ai: { used: false, model: "", summary: "" },
+      createdAt: new Date("2026-09-01T09:00:00Z"),
+    });
+    const text = new TextDecoder("latin1").decode(bytes);
+    assert.ok(text.includes("EUR 14.50"));
+    assert.ok(text.includes("European Central Bank"));
+    assert.ok(text.includes("Lunch and a soft drink."));
+    assert.ok(text.includes("FR: Paris"));
   });
 
   it("labels a HEIC browser derivative as non-authoritative while registering the original hash", () => {

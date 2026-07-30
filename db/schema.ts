@@ -40,6 +40,45 @@ export const trips = sqliteTable(
   ],
 );
 
+export const tripLegs = sqliteTable(
+  "trip_legs",
+  {
+    id: text().primaryKey(),
+    ownerId: ownerId(),
+    tripId: text("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    sequence: integer().notNull(),
+    countryCode: text("country_code").notNull(),
+    location: text().notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
+  },
+  (table) => [
+    check("trip_legs_sequence_valid", sql`${table.sequence} >= 0`),
+    check(
+      "trip_legs_country_code_valid",
+      sql`length(${table.countryCode}) = 2 AND ${table.countryCode} = upper(${table.countryCode})`,
+    ),
+    check(
+      "trip_legs_dates_ordered",
+      sql`${table.endDate} >= ${table.startDate}`,
+    ),
+    uniqueIndex("trip_legs_owner_trip_sequence_uidx").on(
+      table.ownerId,
+      table.tripId,
+      table.sequence,
+    ),
+    index("trip_legs_owner_dates_idx").on(
+      table.ownerId,
+      table.startDate,
+      table.endDate,
+    ),
+  ],
+);
+
 export const tripDays = sqliteTable(
   "trip_days",
   {
@@ -63,6 +102,42 @@ export const tripDays = sqliteTable(
   ],
 );
 
+export const exchangeRateQuotes = sqliteTable(
+  "exchange_rate_quotes",
+  {
+    id: text().primaryKey(),
+    ownerId: ownerId(),
+    provider: text().notNull(),
+    baseCurrency: text("base_currency").notNull(),
+    quoteCurrency: text("quote_currency").notNull().default("GBP"),
+    requestedDate: text("requested_date").notNull(),
+    observationDate: text("observation_date").notNull(),
+    rateNumerator: text("rate_numerator").notNull(),
+    rateDenominator: text("rate_denominator").notNull(),
+    rateDisplay: text("rate_display").notNull(),
+    providerReference: text("provider_reference").notNull(),
+    payloadSha256: text("payload_sha256").notNull(),
+    createdAt: timestamp("created_at"),
+  },
+  (table) => [
+    check(
+      "exchange_rate_quotes_base_valid",
+      sql`length(${table.baseCurrency}) = 3 AND ${table.baseCurrency} = upper(${table.baseCurrency})`,
+    ),
+    check(
+      "exchange_rate_quotes_quote_gbp",
+      sql`${table.quoteCurrency} = 'GBP'`,
+    ),
+    uniqueIndex("exchange_rate_quotes_lookup_uidx").on(
+      table.ownerId,
+      table.provider,
+      table.baseCurrency,
+      table.quoteCurrency,
+      table.requestedDate,
+    ),
+  ],
+);
+
 export const expenses = sqliteTable(
   "expenses",
   {
@@ -77,9 +152,20 @@ export const expenses = sqliteTable(
     gratuityPence: integer("gratuity_pence").notNull().default(0),
     currency: text().notNull().default("GBP"),
     country: text().notNull().default("GB"),
+    originalCurrency: text("original_currency").notNull().default("GBP"),
+    originalCountry: text("original_country").notNull().default("GB"),
+    originalLanguage: text("original_language").notNull().default("und"),
+    originalReceiptTotalMinor: integer("original_receipt_total_minor"),
+    originalEligibleMinor: integer("original_eligible_minor"),
+    originalGratuityMinor: integer("original_gratuity_minor"),
+    originalMinorUnitDigits: integer("original_minor_unit_digits"),
+    exchangeRateQuoteId: text("exchange_rate_quote_id"),
+    translationJson: text("translation_json").notNull().default("{}"),
+    conversionJson: text("conversion_json").notNull().default("{}"),
     tripId: text("trip_id").references(() => trips.id, {
       onDelete: "set null",
     }),
+    tripLegId: text("trip_leg_id"),
     mealContext: text("meal_context"),
     category: text().notNull().default("food"),
     notes: text(),
@@ -101,6 +187,11 @@ export const expenses = sqliteTable(
     check("expenses_country_gb", sql`${table.country} = 'GB'`),
     index("expenses_owner_date_idx").on(table.ownerId, table.serviceDate),
     index("expenses_owner_trip_idx").on(table.ownerId, table.tripId),
+    index("expenses_owner_trip_leg_idx").on(table.ownerId, table.tripLegId),
+    index("expenses_owner_fx_quote_idx").on(
+      table.ownerId,
+      table.exchangeRateQuoteId,
+    ),
     index("expenses_owner_deleted_idx").on(table.ownerId, table.deletedAt),
   ],
 );
@@ -208,6 +299,16 @@ export const receiptIntakes = sqliteTable(
     eligiblePence: integer("eligible_pence"),
     gratuityPence: integer("gratuity_pence").notNull().default(0),
     currency: text().notNull().default("GBP"),
+    originalCurrency: text("original_currency").notNull().default("UNKNOWN"),
+    originalCountry: text("original_country").notNull().default("UNKNOWN"),
+    originalLanguage: text("original_language").notNull().default("und"),
+    originalReceiptTotalMinor: integer("original_receipt_total_minor"),
+    originalEligibleMinor: integer("original_eligible_minor"),
+    originalGratuityMinor: integer("original_gratuity_minor"),
+    originalMinorUnitDigits: integer("original_minor_unit_digits"),
+    exchangeRateQuoteId: text("exchange_rate_quote_id"),
+    translationJson: text("translation_json").notNull().default("{}"),
+    conversionJson: text("conversion_json").notNull().default("{}"),
     location: text(),
     businessReason: text("business_reason"),
     mealContext: text("meal_context"),
@@ -215,6 +316,7 @@ export const receiptIntakes = sqliteTable(
     tripId: text("trip_id").references(() => trips.id, {
       onDelete: "set null",
     }),
+    tripLegId: text("trip_leg_id"),
     lineItemsJson: text("line_items_json").notNull().default("[]"),
     confidenceJson: text("confidence_json").notNull().default("{}"),
     missingFieldsJson: text("missing_fields_json").notNull().default("[]"),
@@ -281,6 +383,14 @@ export const receiptIntakes = sqliteTable(
     index("receipt_intakes_owner_batch_idx").on(
       table.ownerId,
       table.batchId,
+    ),
+    index("receipt_intakes_owner_trip_leg_idx").on(
+      table.ownerId,
+      table.tripLegId,
+    ),
+    index("receipt_intakes_owner_fx_quote_idx").on(
+      table.ownerId,
+      table.exchangeRateQuoteId,
     ),
   ],
 );

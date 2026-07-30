@@ -27,10 +27,10 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
       ('day-1', 'trip-1', '2026-08-01', 1, 1);
     INSERT INTO expenses
       (id, service_date, merchant, location, business_reason,
-       receipt_total_pence, eligible_pence)
+       receipt_total_pence, eligible_pence, trip_id)
     VALUES
       ('expense-1', '2026-08-01', 'Synthetic café', 'Portsmouth',
-       'Synthetic duty test', 1200, 1200);
+       'Synthetic duty test', 1200, 1200, 'trip-1');
   `);
 
   apply(db, await migration("0001_good_zzzax.sql"));
@@ -55,22 +55,50 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   apply(db, await migration("0004_woozy_gravity.sql"));
   apply(db, await migration("0005_rapid_slapstick.sql"));
   apply(db, await migration("0006_parched_prism.sql"));
+  apply(db, await migration("0007_deep_tomorrow_man.sql"));
 
   const expense = db
     .prepare(
-      "SELECT owner_id, deleted_at, category FROM expenses WHERE id = 'expense-1'",
+      `SELECT owner_id, deleted_at, category, original_currency,
+              original_country, original_receipt_total_minor,
+              original_minor_unit_digits, conversion_json, trip_leg_id
+       FROM expenses WHERE id = 'expense-1'`,
     )
     .get();
   assert.equal(expense.owner_id, "singleton-owner");
   assert.equal(expense.deleted_at, null);
   assert.equal(expense.category, "food");
+  assert.equal(expense.original_currency, "GBP");
+  assert.equal(expense.original_country, "GB");
+  assert.equal(expense.original_receipt_total_minor, 1200);
+  assert.equal(expense.original_minor_unit_digits, 2);
+  assert.equal(JSON.parse(expense.conversion_json).source, "identity");
+  assert.equal(expense.trip_leg_id, "legacy-trip-1");
+  assert.deepEqual(
+    {
+      ...db
+        .prepare(
+          `SELECT trip_id, sequence, country_code, location, start_date, end_date
+           FROM trip_legs WHERE id = 'legacy-trip-1'`,
+        )
+        .get(),
+    },
+    {
+      trip_id: "trip-1",
+      sequence: 0,
+      country_code: "GB",
+      location: "Location not recorded",
+      start_date: "2026-08-01",
+      end_date: "2026-08-03",
+    },
+  );
   assert.equal(
     db
       .prepare(
-        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('receipt_intakes', 'receipt_intake_revisions', 'audit_events')",
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('receipt_intakes', 'receipt_intake_revisions', 'audit_events', 'trip_legs', 'exchange_rate_quotes')",
       )
       .get().count,
-    3,
+    5,
   );
   assert.equal(
     db
@@ -111,6 +139,13 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   );
   assert.throws(
     () =>
+      db.exec(
+        "UPDATE trip_legs SET location = 'Changed' WHERE id = 'legacy-trip-1'",
+      ),
+    /claim_period_locked/,
+  );
+  assert.throws(
+    () =>
       db.exec(`
         INSERT INTO receipt_intakes
           (id, owner_id, batch_id, status, original_name,
@@ -128,8 +163,28 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
       .merchant,
     "Synthetic café",
   );
+  db.exec("DELETE FROM claim_period_locks WHERE id = 'lock-1'");
+  assert.throws(
+    () =>
+      db.exec(
+        "UPDATE trip_legs SET country_code = 'FR' WHERE id = 'legacy-trip-1'",
+      ),
+    /trip_leg_has_receipt_evidence/,
+  );
+  assert.throws(
+    () => db.exec("DELETE FROM trip_legs WHERE id = 'legacy-trip-1'"),
+    /trip_leg_has_receipt_evidence/,
+  );
+  db.exec(
+    "UPDATE trip_legs SET location = 'Portsmouth' WHERE id = 'legacy-trip-1'",
+  );
+  assert.equal(
+    db
+      .prepare("SELECT location FROM trip_legs WHERE id = 'legacy-trip-1'")
+      .get().location,
+    "Portsmouth",
+  );
   db.exec(`
-    DELETE FROM claim_period_locks WHERE id = 'lock-1';
     INSERT INTO receipt_intakes
       (id, owner_id, batch_id, status, original_name,
        original_object_key, content_type, byte_size, sha256,

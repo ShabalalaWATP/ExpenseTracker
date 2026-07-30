@@ -1,5 +1,6 @@
 import { formatDate, formatMoney } from "../format";
 import type { ReceiptIntake } from "./types";
+import { InternationalReceiptFacts } from "./InternationalReceiptFacts";
 
 const mealLabels = {
   breakfast: "Breakfast",
@@ -26,35 +27,45 @@ export function ReceiptFactSummary({
       : "Not applicable";
 
   return (
-    <dl className="receipt-fact-summary" aria-label="Extracted receipt facts">
-      <div>
-        <dt>Purchase</dt>
-        <dd>{purchase}</dd>
-      </div>
-      <div>
-        <dt>Place</dt>
-        <dd>{intake.location || "Needs review"}</dd>
-      </div>
-      <div>
-        <dt>Receipt</dt>
-        <dd>
-          {intake.receiptTotalPence === null
-            ? "Needs review"
-            : formatMoney(intake.receiptTotalPence)}
-        </dd>
-      </div>
-      <div>
-        <dt>Eligible</dt>
-        <dd>
-          {intake.eligiblePence === null
-            ? "Needs review"
-            : formatMoney(intake.eligiblePence)}
-        </dd>
-      </div>
-      <div>
-        <dt>Meal</dt>
-        <dd>{meal}</dd>
-      </div>
-    </dl>
+    <>
+      <InternationalReceiptFacts
+        facts={intake}
+        merchant={intake.merchant}
+        location={intake.location}
+        receiptTotalPence={intake.receiptTotalPence}
+        eligiblePence={intake.eligiblePence}
+        gratuityPence={intake.gratuityPence}
+      />
+      <dl className="receipt-fact-summary" aria-label="Extracted policy facts">
+        <div>
+          <dt>Purchase</dt>
+          <dd>{purchase}</dd>
+        </div>
+        <div>
+          <dt>Policy place</dt>
+          <dd>{intake.translation?.locationEnglish || intake.location || "Needs review"}</dd>
+        </div>
+        <div>
+          <dt>GBP receipt</dt>
+          <dd>
+            {intake.receiptTotalPence === null
+              ? "Needs review"
+              : formatMoney(intake.receiptTotalPence)}
+          </dd>
+        </div>
+        <div>
+          <dt>GBP eligible</dt>
+          <dd>
+            {intake.eligiblePence === null
+              ? "Needs review"
+              : formatMoney(intake.eligiblePence)}
+          </dd>
+        </div>
+        <div>
+          <dt>Meal</dt>
+          <dd>{meal}</dd>
+        </div>
+      </dl>
+    </>
   );
 }

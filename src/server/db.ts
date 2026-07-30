@@ -16,6 +16,23 @@ const schemaStatements = [
     CHECK (end_date >= start_date)
   )`,
   `CREATE INDEX IF NOT EXISTS trips_owner_dates_idx ON trips (owner_id, start_date, end_date)`,
+  `CREATE TABLE IF NOT EXISTS trip_legs (
+    id TEXT PRIMARY KEY NOT NULL,
+    owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
+    trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    sequence INTEGER NOT NULL CHECK (sequence >= 0),
+    country_code TEXT NOT NULL
+      CHECK (length(country_code) = 2 AND country_code = upper(country_code)),
+    location TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (end_date >= start_date),
+    UNIQUE (owner_id, trip_id, sequence)
+  )`,
+  `CREATE INDEX IF NOT EXISTS trip_legs_owner_dates_idx
+    ON trip_legs (owner_id, start_date, end_date)`,
   `CREATE TABLE IF NOT EXISTS trip_days (
     id TEXT PRIMARY KEY NOT NULL,
     owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
@@ -27,6 +44,23 @@ const schemaStatements = [
     UNIQUE (owner_id, trip_id, date)
   )`,
   `CREATE INDEX IF NOT EXISTS trip_days_owner_date_idx ON trip_days (owner_id, date)`,
+  `CREATE TABLE IF NOT EXISTS exchange_rate_quotes (
+    id TEXT PRIMARY KEY NOT NULL,
+    owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
+    provider TEXT NOT NULL,
+    base_currency TEXT NOT NULL
+      CHECK (length(base_currency) = 3 AND base_currency = upper(base_currency)),
+    quote_currency TEXT NOT NULL DEFAULT 'GBP' CHECK (quote_currency = 'GBP'),
+    requested_date TEXT NOT NULL,
+    observation_date TEXT NOT NULL,
+    rate_numerator TEXT NOT NULL,
+    rate_denominator TEXT NOT NULL,
+    rate_display TEXT NOT NULL,
+    provider_reference TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE (owner_id, provider, base_currency, quote_currency, requested_date)
+  )`,
   `CREATE TABLE IF NOT EXISTS expenses (
     id TEXT PRIMARY KEY NOT NULL,
     owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
@@ -39,7 +73,18 @@ const schemaStatements = [
     gratuity_pence INTEGER NOT NULL DEFAULT 0 CHECK (gratuity_pence >= 0 AND gratuity_pence <= eligible_pence),
     currency TEXT NOT NULL DEFAULT 'GBP' CHECK (currency = 'GBP'),
     country TEXT NOT NULL DEFAULT 'GB' CHECK (country = 'GB'),
+    original_currency TEXT NOT NULL DEFAULT 'GBP',
+    original_country TEXT NOT NULL DEFAULT 'GB',
+    original_language TEXT NOT NULL DEFAULT 'und',
+    original_receipt_total_minor INTEGER,
+    original_eligible_minor INTEGER,
+    original_gratuity_minor INTEGER,
+    original_minor_unit_digits INTEGER,
+    exchange_rate_quote_id TEXT,
+    translation_json TEXT NOT NULL DEFAULT '{}',
+    conversion_json TEXT NOT NULL DEFAULT '{}',
     trip_id TEXT REFERENCES trips(id) ON DELETE SET NULL,
+    trip_leg_id TEXT,
     meal_context TEXT,
     category TEXT NOT NULL DEFAULT 'food',
     notes TEXT,
@@ -49,6 +94,10 @@ const schemaStatements = [
   )`,
   `CREATE INDEX IF NOT EXISTS expenses_owner_date_idx ON expenses (owner_id, service_date)`,
   `CREATE INDEX IF NOT EXISTS expenses_owner_trip_idx ON expenses (owner_id, trip_id)`,
+  `CREATE INDEX IF NOT EXISTS expenses_owner_trip_leg_idx
+    ON expenses (owner_id, trip_leg_id)`,
+  `CREATE INDEX IF NOT EXISTS expenses_owner_fx_quote_idx
+    ON expenses (owner_id, exchange_rate_quote_id)`,
   `CREATE INDEX IF NOT EXISTS expenses_owner_deleted_idx ON expenses (owner_id, deleted_at)`,
   `CREATE TABLE IF NOT EXISTS receipts (
     id TEXT PRIMARY KEY NOT NULL,
@@ -101,11 +150,22 @@ const schemaStatements = [
     eligible_pence INTEGER,
     gratuity_pence INTEGER NOT NULL DEFAULT 0,
     currency TEXT NOT NULL DEFAULT 'GBP' CHECK (currency = 'GBP'),
+    original_currency TEXT NOT NULL DEFAULT 'UNKNOWN',
+    original_country TEXT NOT NULL DEFAULT 'UNKNOWN',
+    original_language TEXT NOT NULL DEFAULT 'und',
+    original_receipt_total_minor INTEGER,
+    original_eligible_minor INTEGER,
+    original_gratuity_minor INTEGER,
+    original_minor_unit_digits INTEGER,
+    exchange_rate_quote_id TEXT,
+    translation_json TEXT NOT NULL DEFAULT '{}',
+    conversion_json TEXT NOT NULL DEFAULT '{}',
     location TEXT,
     business_reason TEXT,
     meal_context TEXT,
     category TEXT,
     trip_id TEXT REFERENCES trips(id) ON DELETE SET NULL,
+    trip_leg_id TEXT,
     line_items_json TEXT NOT NULL DEFAULT '[]',
     confidence_json TEXT NOT NULL DEFAULT '{}',
     missing_fields_json TEXT NOT NULL DEFAULT '[]',
@@ -137,6 +197,10 @@ const schemaStatements = [
     ON receipt_intakes (owner_id, status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS receipt_intakes_owner_batch_idx
     ON receipt_intakes (owner_id, batch_id)`,
+  `CREATE INDEX IF NOT EXISTS receipt_intakes_owner_trip_leg_idx
+    ON receipt_intakes (owner_id, trip_leg_id)`,
+  `CREATE INDEX IF NOT EXISTS receipt_intakes_owner_fx_quote_idx
+    ON receipt_intakes (owner_id, exchange_rate_quote_id)`,
   `CREATE TABLE IF NOT EXISTS receipt_auto_confirm_reservations (
     owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
     fingerprint TEXT NOT NULL,

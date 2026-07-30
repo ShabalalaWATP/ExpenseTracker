@@ -1,10 +1,24 @@
 import { ApiError } from "./http";
 import { assertRangeUnlocked } from "./claim-locks";
 import { database, ensureSchema } from "./db";
-import { mapTrip, type DayRow, type TripRow } from "./models";
+import {
+  mapTrip,
+  type DayRow,
+  type TripRow,
+} from "./models";
 import type { Principal } from "./principal";
 import { auditStatement } from "./audit-repository";
-import type { DayWrite, TripWrite } from "./validation";
+import {
+  validateTripLegCoverage,
+  type DayWrite,
+  type TripLegWrite,
+  type TripWrite,
+} from "./validation";
+import {
+  replaceTripLegStatements,
+  stableTripLegs,
+  tripLegRows,
+} from "./trip-leg-repository";
 
 function dateRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
@@ -102,7 +116,10 @@ async function rowsFor(principal: Principal, id?: string) {
         )
         .bind(principal.ownerId)
         .all<DayRow>();
-  return tripResult.results.map((trip) => mapTrip(trip, dayResult.results));
+  const legs = await tripLegRows(principal, id);
+  return tripResult.results.map((trip) =>
+    mapTrip(trip, dayResult.results, legs),
+  );
 }
 
 export async function listTrips(principal: Principal) {
@@ -127,6 +144,7 @@ export async function createTrip(principal: Principal, input: TripWrite) {
     input.endDate!,
     input.aggregateElection!,
   );
+  validateTripLegCoverage(input.legs!, input.startDate!, input.endDate!);
   const id = crypto.randomUUID();
   const days = normaliseDays(input.startDate!, input.endDate!, input.days);
   const db = database();
@@ -143,7 +161,7 @@ export async function createTrip(principal: Principal, input: TripWrite) {
         principal.ownerId,
         input.name,
         input.purpose,
-        input.country,
+        "GB",
         input.startDate,
         input.endDate,
         input.aggregateElection ? 1 : 0,
@@ -165,6 +183,25 @@ export async function createTrip(principal: Principal, input: TripWrite) {
           day.note,
         ),
     ),
+    ...input.legs!.map((leg) =>
+      db
+        .prepare(
+          `INSERT INTO trip_legs (
+             id, owner_id, trip_id, sequence, country_code, location,
+             start_date, end_date
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          leg.id ?? crypto.randomUUID(),
+          principal.ownerId,
+          id,
+          leg.sequence,
+          leg.countryCode,
+          leg.location,
+          leg.startDate,
+          leg.endDate,
+        ),
+    ),
     auditStatement(principal, {
       action: "trip.created",
       entityType: "trip",
@@ -174,7 +211,7 @@ export async function createTrip(principal: Principal, input: TripWrite) {
   return (await findTrip(principal, id))!;
 }
 
-const tripColumns: Record<Exclude<keyof TripWrite, "days">, string> = {
+const tripColumns: Record<Exclude<keyof TripWrite, "days" | "legs">, string> = {
   name: "name",
   purpose: "purpose",
   country: "country",
@@ -207,9 +244,23 @@ export async function updateTrip(
   const aggregateElection =
     input.aggregateElection ?? existing.aggregateElection;
   validateElection(startDate, endDate, aggregateElection);
+  const currentLegs: TripLegWrite[] = existing.legs.map((leg) => ({
+    id: leg.id,
+    sequence: leg.sequence,
+    countryCode: leg.countryCode,
+    location: leg.location,
+    startDate: leg.startDate,
+    endDate: leg.endDate,
+  }));
+  const legs = input.legs
+    ? stableTripLegs(input.legs, currentLegs)
+    : currentLegs;
+  validateTripLegCoverage(legs, startDate, endDate);
   const days = normaliseDays(startDate, endDate, input.days, existing.days);
-  const entries = Object.entries(input).filter(([key]) => key !== "days") as [
-    Exclude<keyof TripWrite, "days">,
+  const entries = Object.entries(input).filter(
+    ([key]) => key !== "days" && key !== "legs" && key !== "country",
+  ) as [
+    Exclude<keyof TripWrite, "days" | "legs" | "country">,
     unknown,
   ][];
   const db = database();
@@ -221,6 +272,7 @@ export async function updateTrip(
           `UPDATE trips SET ${entries
             .map(([key]) => `${tripColumns[key]} = ?`)
             .join(", ")},
+            country = 'GB',
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE owner_id = ? AND id = ?`,
         )
@@ -230,21 +282,24 @@ export async function updateTrip(
           ),
           principal.ownerId,
           id,
-        ),
+      ),
+    );
+  } else {
+    statements.push(
+      db
+        .prepare(
+          `UPDATE trips
+           SET country = 'GB',
+               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           WHERE owner_id = ? AND id = ?`,
+        )
+        .bind(principal.ownerId, id),
     );
   }
+  if (input.legs) {
+    statements.push(...replaceTripLegStatements(db, principal, id, legs));
+  }
   if (input.days || input.startDate || input.endDate) {
-    if (entries.length === 0) {
-      statements.push(
-        db
-          .prepare(
-            `UPDATE trips
-             SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-             WHERE owner_id = ? AND id = ?`,
-          )
-          .bind(principal.ownerId, id),
-      );
-    }
     statements.push(
       db
         .prepare(

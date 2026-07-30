@@ -4,6 +4,7 @@ import type {
   Expense,
   ExpenseDraft,
   Trip,
+  TripLeg,
   ViewName,
 } from "./types";
 import { claimableAmountIndex } from "../../src/domain/calendar";
@@ -16,6 +17,32 @@ function integer(value: unknown, fallback = 0): number {
 }
 function text(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+function optionalInteger(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) ? (value as number) : undefined;
+}
+function normaliseTranslation(value: unknown): Expense["translation"] {
+  const item = record(value);
+  const translation = {
+    merchantEnglish: text(item.merchantEnglish ?? item.merchant) || undefined,
+    locationEnglish:
+      text(item.locationEnglish ?? item.locationHint) || undefined,
+    summaryEnglish:
+      text(item.summaryEnglish ?? item.businessReason) || undefined,
+  };
+  return Object.values(translation).some(Boolean) ? translation : undefined;
+}
+function normaliseConversion(value: unknown): Expense["conversion"] {
+  const item = record(value);
+  const source = text(item.source ?? item.provider);
+  const status = text(item.status);
+  const observationDate = text(item.observationDate);
+  const rateDisplay = text(item.rateDisplay);
+  const providerReference = text(item.providerReference);
+  const rounding = text(item.rounding);
+  return source || status || observationDate || rateDisplay || providerReference || rounding
+    ? { status, source, observationDate, rateDisplay, providerReference, rounding }
+    : undefined;
 }
 function normaliseExpense(value: unknown): Expense {
   const item = record(value);
@@ -50,19 +77,53 @@ function normaliseExpense(value: unknown): Expense {
     submitted: Boolean(item.submitted ?? item.isSubmitted),
     locked: Boolean(item.locked ?? item.isLocked),
     deletedAt: text(item.deletedAt) || null,
+    originalCurrency: text(item.originalCurrency) || undefined,
+    originalCountry: text(item.originalCountry) || undefined,
+    originalLanguage: text(item.originalLanguage) || undefined,
+    originalReceiptTotalMinor: optionalInteger(item.originalReceiptTotalMinor),
+    originalEligibleMinor: optionalInteger(item.originalEligibleMinor),
+    originalGratuityMinor: optionalInteger(item.originalGratuityMinor),
+    originalMinorUnitDigits: optionalInteger(item.originalMinorUnitDigits),
+    translation: normaliseTranslation(item.translation),
+    conversion: normaliseConversion(item.conversion),
+    tripLegId: text(item.tripLegId) || undefined,
+  };
+}
+
+function normaliseTripLeg(value: unknown, index: number): TripLeg {
+  const item = record(value);
+  return {
+    id: text(item.id) || undefined,
+    sequence: integer(item.sequence, index),
+    countryCode: text(item.countryCode ?? item.country, "GB").toUpperCase(),
+    location: text(item.location),
+    startDate: text(item.startDate),
+    endDate: text(item.endDate),
   };
 }
 
 function normaliseTrip(value: unknown): Trip {
   const item = record(value);
   const days = Array.isArray(item.days) ? item.days : [];
+  const legs = (Array.isArray(item.legs) ? item.legs : [])
+    .map(normaliseTripLeg)
+    .sort((a, b) => a.sequence - b.sequence);
+  const fallbackLeg: TripLeg = {
+    sequence: 0,
+    countryCode: text(item.country, "GB").toUpperCase(),
+    location: text(item.location ?? item.purpose),
+    startDate: text(item.startDate),
+    endDate: text(item.endDate),
+  };
+  const itinerary = legs.length ? legs : [fallbackLeg];
   return {
     id: text(item.id),
     title: text(item.title ?? item.name, "Untitled trip"),
-    location: text(item.location ?? item.purpose),
-    country: text(item.country, "GB"),
-    startDate: text(item.startDate),
-    endDate: text(item.endDate),
+    location: text(item.location ?? item.purpose) || itinerary[0].location,
+    country: text(item.country) || itinerary[0].countryCode,
+    startDate: text(item.startDate) || itinerary[0].startDate,
+    endDate: text(item.endDate) || itinerary.at(-1)?.endDate || "",
+    legs: itinerary,
     eligibleDates: Array.isArray(item.eligibleDates)
       ? item.eligibleDates.filter((date): date is string => typeof date === "string")
       : days
@@ -269,7 +330,7 @@ export async function createExpense(draft: ExpenseDraft): Promise<Expense> {
       eligiblePence: draft.eligibleAmountPence,
       gratuityPence: draft.gratuityPence ?? 0,
       currency: "GBP",
-      country: "GB",
+      country: draft.country,
       tripId: draft.tripId || null,
       mealContext: draft.mealContext || null,
       category: draft.category || "food",

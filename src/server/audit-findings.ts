@@ -11,9 +11,35 @@ export type AuditExpense = {
   receiptTotalPence: number;
   eligiblePence: number;
   gratuityPence: number;
+  originalCurrency: string;
+  originalCountry: string;
+  originalLanguage: string;
+  originalReceiptTotalMinor: number;
+  originalEligibleMinor: number;
+  originalGratuityMinor: number;
+  originalMinorUnitDigits: number;
+  translation: {
+    merchantEnglish?: string;
+    locationEnglish?: string;
+    summaryEnglish?: string;
+    merchant?: string;
+    locationHint?: string;
+    businessReason?: string;
+    lineItemDescriptions?: string[];
+  };
+  conversion: {
+    source?: string;
+    provider?: string;
+    observationDate?: string | null;
+    rateDisplay?: string;
+    providerReference?: string;
+    rounding?: string;
+    indicative?: boolean;
+  };
   category: string;
   mealContext: string | null;
   tripId: string | null;
+  tripLegId: string | null;
   hasReceipt: boolean;
   claimablePence: number;
   capLimited: boolean;

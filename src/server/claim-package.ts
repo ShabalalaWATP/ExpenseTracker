@@ -16,6 +16,20 @@ type SnapshotExpense = {
   receiptTotalPence: number;
   eligiblePence: number;
   gratuityPence: number;
+  originalCurrency?: string;
+  originalCountry?: string;
+  originalLanguage?: string;
+  originalReceiptTotalMinor?: number | null;
+  originalEligibleMinor?: number | null;
+  originalGratuityMinor?: number | null;
+  originalMinorUnitDigits?: number | null;
+  conversion?: {
+    source?: string;
+    provider?: string;
+    observationDate?: string | null;
+    rateDisplay?: string;
+    providerReference?: string;
+  } | null;
   category?: string | null;
   receipt?: { id: string } | null;
 };
@@ -69,6 +83,28 @@ function extension(contentType: string): string {
 
 function money(pence: number): string {
   return `GBP ${(pence / 100).toFixed(2)}`;
+}
+
+function originalMoney(
+  minor: number | null | undefined,
+  currency: string | undefined,
+  digits: number | null | undefined,
+): string {
+  if (!Number.isSafeInteger(minor) || minor === null || !currency) return "Not recorded";
+  const exponent =
+    Number.isSafeInteger(digits) && digits !== null && digits! >= 0 && digits! <= 4
+      ? digits!
+      : 2;
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: exponent,
+      maximumFractionDigits: exponent,
+    }).format(minor! / 10 ** exponent);
+  } catch {
+    return `${currency} ${(minor! / 10 ** exponent).toFixed(exponent)}`;
+  }
 }
 
 function csvCell(value: unknown): string {
@@ -145,6 +181,20 @@ function reportLines(claim: ClaimRecord, expenses: readonly SnapshotExpense[]): 
     "",
     ...expenses.flatMap((expense, index) => [
       `${index + 1}. ${expense.serviceDate} | ${expense.merchant} | ${money(expense.eligiblePence)} | ${expense.category || "food"}`,
+      `   Original: ${originalMoney(
+        expense.originalEligibleMinor,
+        expense.originalCurrency,
+        expense.originalMinorUnitDigits,
+      )} in ${expense.originalCountry || "country not recorded"}`,
+      `   Conversion: ${
+        expense.originalCurrency === "GBP"
+          ? "GBP identity"
+          : `${expense.conversion?.source ?? expense.conversion?.provider ?? "not recorded"}${
+              expense.conversion?.observationDate
+                ? `, observed ${expense.conversion.observationDate}`
+                : ""
+            }`
+      }`,
       `   Where: ${expense.location || "Not recorded"}`,
       `   Why: ${expense.businessReason || "Not recorded"}`,
     ]),
@@ -260,7 +310,25 @@ export async function buildClaimPackage(
       data: bytes,
     });
   }
-  const headers = ["date", "merchant", "category", "location", "reason", "receipt_total_gbp", "eligible_gbp", "gratuity_gbp"];
+  const headers = [
+    "date",
+    "merchant",
+    "category",
+    "location",
+    "reason",
+    "original_country",
+    "original_language",
+    "original_currency",
+    "original_receipt_total",
+    "original_eligible",
+    "original_gratuity",
+    "receipt_total_gbp",
+    "eligible_gbp",
+    "gratuity_gbp",
+    "conversion_source",
+    "conversion_observation_date",
+    "conversion_rate",
+  ];
   const csv = [
     headers.map(csvCell).join(","),
     ...expenses.map((expense) =>
@@ -270,14 +338,35 @@ export async function buildClaimPackage(
         expense.category || "food",
         expense.location,
         expense.businessReason,
+        expense.originalCountry,
+        expense.originalLanguage,
+        expense.originalCurrency,
+        originalMoney(
+          expense.originalReceiptTotalMinor,
+          expense.originalCurrency,
+          expense.originalMinorUnitDigits,
+        ),
+        originalMoney(
+          expense.originalEligibleMinor,
+          expense.originalCurrency,
+          expense.originalMinorUnitDigits,
+        ),
+        originalMoney(
+          expense.originalGratuityMinor,
+          expense.originalCurrency,
+          expense.originalMinorUnitDigits,
+        ),
         (expense.receiptTotalPence / 100).toFixed(2),
         (expense.eligiblePence / 100).toFixed(2),
         (expense.gratuityPence / 100).toFixed(2),
+        expense.conversion?.source ?? expense.conversion?.provider,
+        expense.conversion?.observationDate,
+        expense.conversion?.rateDisplay,
       ].map(csvCell).join(","),
     ),
   ].join("\r\n");
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     claim: {
       id: claim.id,
@@ -286,6 +375,18 @@ export async function buildClaimPackage(
       snapshotSha256: claim.snapshot_sha256,
     },
     package: { part: requestedPart, partCount: parts.length },
+    expenseConversions: expenses.map((expense) => ({
+      expenseId: expense.id,
+      originalCurrency: expense.originalCurrency ?? "GBP",
+      originalCountry: expense.originalCountry ?? "GB",
+      originalLanguage: expense.originalLanguage ?? "und",
+      originalReceiptTotalMinor:
+        expense.originalReceiptTotalMinor ?? expense.receiptTotalPence,
+      originalEligibleMinor:
+        expense.originalEligibleMinor ?? expense.eligiblePence,
+      originalMinorUnitDigits: expense.originalMinorUnitDigits ?? 2,
+      conversion: expense.conversion ?? null,
+    })),
     receipts: manifestReceipts.map((row) => ({
       id: row.id,
       expenseId: row.expense_id,

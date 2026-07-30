@@ -3,12 +3,21 @@ import { daysBetween } from "./format";
 import type { TripDraft } from "./types";
 
 function tripBody(draft: TripDraft) {
+  const legs = draft.legs.map((leg, index) => ({
+    ...(leg.id ? { id: leg.id } : {}),
+    sequence: index,
+    countryCode: leg.countryCode,
+    location: leg.location,
+    startDate: leg.startDate,
+    endDate: leg.endDate,
+  }));
   return {
     name: draft.title,
     purpose: draft.location,
     country: "GB",
     startDate: draft.startDate,
     endDate: draft.endDate,
+    legs,
     aggregateElection: draft.calculationMethod === "aggregate",
     days: daysBetween(draft.startDate, draft.endDate).map((date) => ({
       date,

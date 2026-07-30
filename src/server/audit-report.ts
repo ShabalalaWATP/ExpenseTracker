@@ -144,9 +144,22 @@ export async function auditRangeData(principal: Principal, range: AuditRange) {
       receiptTotalPence: expense.receiptTotalPence,
       eligiblePence: expense.eligiblePence,
       gratuityPence: expense.gratuityPence,
+      originalCurrency: expense.originalCurrency ?? "GBP",
+      originalCountry: expense.originalCountry ?? "GB",
+      originalLanguage: expense.originalLanguage ?? "und",
+      originalReceiptTotalMinor:
+        expense.originalReceiptTotalMinor ?? expense.receiptTotalPence,
+      originalEligibleMinor:
+        expense.originalEligibleMinor ?? expense.eligiblePence,
+      originalGratuityMinor:
+        expense.originalGratuityMinor ?? expense.gratuityPence,
+      originalMinorUnitDigits: expense.originalMinorUnitDigits ?? 2,
+      translation: expense.translation ?? {},
+      conversion: expense.conversion ?? {},
       category: expense.category,
       mealContext: expense.mealContext || null,
       tripId: expense.tripId,
+      tripLegId: expense.tripLegId ?? null,
       hasReceipt: Boolean(expense.receipt),
       claimablePence: line?.claimablePence ?? 0,
       capLimited: line?.reason === "Daily allowance reached",
@@ -189,6 +202,12 @@ export async function planAuditReport(principal: Principal, range: AuditRange) {
           startDate: trip.startDate,
           endDate: trip.endDate,
           aggregateElection: trip.aggregateElection,
+          legs: trip.legs.map((leg) => ({
+            countryCode: leg.countryCode,
+            location: leg.location,
+            startDate: leg.startDate,
+            endDate: leg.endDate,
+          })),
         })),
         knownIssueCodes: data.calculation.issues.map((issue) => issue.code),
       });
@@ -307,6 +326,7 @@ export async function generateAuditReport(
     ownerEmail: principal.email,
     range: input.range,
     expenses: data.expenses,
+    trips: data.trips,
     claims: data.claims,
     calculation: data.calculation,
     policyVersion: JSP_752_POLICY.version,

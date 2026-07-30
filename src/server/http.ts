@@ -40,6 +40,16 @@ export function errorResponse(error: unknown): Response {
       "This claim period is being prepared or is already frozen.",
     );
   }
+  if (
+    error instanceof Error &&
+    error.message.includes("trip_leg_has_receipt_evidence")
+  ) {
+    error = new ApiError(
+      409,
+      "trip_leg_has_receipt_evidence",
+      "This itinerary stop is linked to receipt evidence. Its country and dates must remain unchanged.",
+    );
+  }
   if (error instanceof ApiError) {
     return Response.json(
       {

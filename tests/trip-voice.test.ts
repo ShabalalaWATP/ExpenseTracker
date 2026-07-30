@@ -38,21 +38,40 @@ test("invalid partial values are rejected and valid draft facts are preserved", 
   const merged = mergeTripVoiceDraft(current, {
     title: "",
     startDate: "13 August",
-    location: " Portsmouth ",
+    legs: [
+      {
+        countryCode: "gb",
+        location: "Portsmouth",
+        startDate: "2026-08-13",
+        endDate: "2026-08-14",
+      },
+    ],
   });
-  assert.deepEqual(merged.rejectedFields, ["title", "startDate"]);
+  assert.deepEqual(merged.rejectedFields, ["title", "startDate", "legs"]);
   assert.equal(merged.draft.title, "Portsmouth training");
   assert.equal(merged.draft.startDate, "2026-08-13");
-  assert.equal(merged.draft.location, "Portsmouth");
+  assert.equal(merged.draft.legs, null);
 });
 
 test("a draft is complete only with valid dates, method and eligibility", () => {
   const complete = mergeTripVoiceDraft(EMPTY_TRIP_VOICE_DRAFT, {
     title: "London training",
-    location: "London",
-    country: "GB",
     startDate: "2026-08-10",
     endDate: "2026-08-12",
+    legs: [
+      {
+        countryCode: "GB",
+        location: "London",
+        startDate: "2026-08-10",
+        endDate: "2026-08-11",
+      },
+      {
+        countryCode: "FR",
+        location: "Paris",
+        startDate: "2026-08-11",
+        endDate: "2026-08-12",
+      },
+    ],
     calculationMethod: "aggregate",
     eligibleDates: ["2026-08-10", "2026-08-11", "2026-08-12"],
     eligibilityAttested: true,
@@ -72,6 +91,57 @@ test("a draft is complete only with valid dates, method and eligibility", () => 
   assert.equal(isTripVoiceDraftComplete(notEligible), false);
 });
 
+test("multi-country itinerary legs must cover the trip without gaps", () => {
+  const base = {
+    ...EMPTY_TRIP_VOICE_DRAFT,
+    title: "European meetings",
+    startDate: "2026-08-10",
+    endDate: "2026-08-14",
+    calculationMethod: "daily" as const,
+    eligibleDates: ["2026-08-10"],
+    eligibilityAttested: true,
+  };
+  const withGap = mergeTripVoiceDraft(base, {
+    legs: [
+      {
+        countryCode: "GB",
+        location: "London",
+        startDate: "2026-08-10",
+        endDate: "2026-08-11",
+      },
+      {
+        countryCode: "FR",
+        location: "Paris",
+        startDate: "2026-08-13",
+        endDate: "2026-08-14",
+      },
+    ],
+  }).draft;
+  assert.equal(isTripVoiceDraftComplete(withGap), false);
+  assert.match(
+    tripVoiceDraftIssues(withGap).map((issue) => issue.message).join(" "),
+    /without gaps/,
+  );
+
+  const transition = mergeTripVoiceDraft(base, {
+    legs: [
+      {
+        countryCode: "GB",
+        location: "London",
+        startDate: "2026-08-10",
+        endDate: "2026-08-12",
+      },
+      {
+        countryCode: "FR",
+        location: "Paris",
+        startDate: "2026-08-12",
+        endDate: "2026-08-14",
+      },
+    ],
+  }).draft;
+  assert.equal(isTripVoiceDraftComplete(transition), true);
+});
+
 test("Realtime draft tool uses a closed, fully required schema", () => {
   assert.equal(TRIP_VOICE_DRAFT_SCHEMA.additionalProperties, false);
   assert.deepEqual(
@@ -84,6 +154,10 @@ test("saving requires a clear affirmative answer to the final question", () => {
   assert.equal(isExplicitTripSaveConfirmation("Yes, please."), true);
   assert.equal(isExplicitTripSaveConfirmation("Save this trip"), true);
   assert.equal(isExplicitTripSaveConfirmation("Go ahead and save it"), true);
+  assert.equal(
+    isExplicitTripSaveConfirmation("Oui, enregistrez ce voyage."),
+    true,
+  );
   assert.equal(isExplicitTripSaveConfirmation("The dates are eligible"), false);
   assert.equal(isExplicitTripSaveConfirmation("I think so"), false);
   assert.equal(isExplicitTripSaveConfirmation("No"), false);
@@ -254,6 +328,7 @@ test("trip voice uses a server-minted ephemeral credential and explicit save too
   assert.match(server, /strict: true/);
   assert.match(server, /confirm_trip/);
   assert.match(server, /explicitly says yes/);
+  assert.doesNotMatch(server, /language: "en"/);
   assert.match(client, /Authorization: `Bearer \$\{session\.value\}`/);
   assert.doesNotMatch(client, /OPENAI_API_KEY/);
   assert.match(route, /createTripRealtimeClientSecret/);

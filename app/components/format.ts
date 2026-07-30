@@ -5,6 +5,45 @@ export function formatMoney(pence: number | undefined): string {
   }).format((Number.isFinite(pence) ? pence ?? 0 : 0) / 100);
 }
 
+export function formatCurrencyMinor(
+  minor: number | null | undefined,
+  currency = "GBP",
+  minorUnitDigits = 2,
+): string {
+  if (!Number.isFinite(minor)) return "Not available";
+  const digits = Number.isInteger(minorUnitDigits)
+    ? Math.min(6, Math.max(0, minorUnitDigits))
+    : 2;
+  const safeCurrency = currency.toUpperCase();
+  const amount = (minor ?? 0) / 10 ** digits;
+  if (!/^[A-Z]{3}$/.test(safeCurrency)) {
+    return `${safeCurrency || "Currency"} ${amount.toFixed(digits)}`;
+  }
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: safeCurrency,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(amount);
+  } catch {
+    return `${safeCurrency} ${amount.toFixed(digits)}`;
+  }
+}
+
+export function countryName(countryCode: string | null | undefined): string {
+  if (!countryCode) return "Country not provided";
+  try {
+    return (
+      new Intl.DisplayNames(["en-GB"], { type: "region" }).of(
+        countryCode.toUpperCase(),
+      ) ?? countryCode.toUpperCase()
+    );
+  } catch {
+    return countryCode.toUpperCase();
+  }
+}
+
 export function parsePence(value: string): number {
   const normalised = value.trim().replace(/[£,\s]/g, "");
   if (!/^\d+(?:\.\d{0,2})?$/.test(normalised)) return Number.NaN;
