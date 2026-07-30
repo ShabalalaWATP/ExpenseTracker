@@ -293,3 +293,8 @@ This document records meaningful implementation milestones, decisions and verifi
   separate Statistics page was hidden inside More. Statistics now has a
   permanent bottom tab, while Audit response and Settings remain in More.
   Six touch targets retain full labels and accessible active-page state.
+- Replaced the GPU-dependent MapLibre renderer after the production map failed
+  on a laptop. Leaflet now renders the same close-detail, repeat-weighted dots
+  without WebGL. OpenStreetMap street tiles load only for the visible viewport;
+  if they are blocked or unavailable, the dots remain interactive on a local
+  grid and the UI explains that the location ranking is still usable.

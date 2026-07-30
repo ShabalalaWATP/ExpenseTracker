@@ -462,7 +462,8 @@ control and the development record contains verification evidence.
 | No proven backup or export exists | Use synthetic data only until a recovery or export route is demonstrated or the owner explicitly accepts the risk |
 | Focused tests miss route or browser regressions | Complete API, upload, accessibility and iPhone gates before deployment |
 | A map dot implies more precision than the receipt supports | Persist a precision label and evidence string, treat the point as an analytics hint, and render older or incomplete records as explicit city or country fallbacks |
-| External basemap requests reveal the visible map area | Load OpenFreeMap only inside Statistics, send no claim text or receipt images, retain attribution, and document the boundary for the owner |
+| External basemap requests reveal the visible map area | Load OpenStreetMap tiles only inside Statistics, send no claim text or receipt images, retain attribution, and document the boundary for the owner |
+| WebGL is unavailable or disabled on an owner device | Use Leaflet's DOM and SVG renderer, keep dots usable when street tiles fail, and show a truthful tile-status message |
 
 ## 9. Post-MVP priorities
 

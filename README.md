@@ -83,8 +83,8 @@ client assets and migration package.
 - D1 for structured claim data
 - R2 for private receipt objects
 - Drizzle schema and generated migrations
-- MapLibre GL for interactive expense-location maps, with OpenFreeMap vector
-  tiles derived from OpenStreetMap
+- Leaflet for broadly compatible interactive expense-location maps, with
+  OpenStreetMap raster tiles
 
 Original receipt money is stored as an integer in the currency's declared minor
 unit. The JSP 752 ledger remains integer GBP pence. Foreign conversions use an
@@ -107,8 +107,11 @@ expense editor rather than creating a second copy of claim data. Confirmed
 receipt extractions can retain AI-estimated coordinates only when the receipt
 contains supporting branch or address evidence. Older records use visibly
 labelled city or country-centre fallbacks. Opening Statistics loads basemap
-tiles from OpenFreeMap, so that provider receives normal map-tile requests for
-the visible area, but no merchant names, claim descriptions or receipt images.
+tiles from OpenStreetMap, so that provider receives normal map-tile requests
+for the visible area, but no merchant names, claim descriptions or receipt
+images. The map uses DOM and SVG rendering rather than WebGL, and its dots
+remain interactive against a local grid if the external street background is
+unavailable.
 
 The international evidence and itinerary design is recorded in
 [`docs/adr/0001-international-receipts-and-multi-country-trips.md`](docs/adr/0001-international-receipts-and-multi-country-trips.md).

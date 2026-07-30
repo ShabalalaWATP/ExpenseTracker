@@ -6,7 +6,11 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
-  background: #06101f;
+  background:
+    linear-gradient(rgba(83, 111, 154, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(83, 111, 154, 0.13) 1px, transparent 1px),
+    #06101f;
+  background-size: 32px 32px;
 }
 
 .map-empty {
@@ -16,20 +20,40 @@
   place-items: center;
 }
 
-.maplibregl-map {
+.leaflet-container {
   font-family: inherit;
 }
 
-.maplibregl-ctrl-group {
+.leaflet-control-zoom a {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: #07101f;
+  color: white;
 }
 
-.maplibregl-ctrl button .maplibregl-ctrl-icon {
-  filter: invert(1);
+.leaflet-control-zoom a:hover,
+.leaflet-control-zoom a:focus {
+  background: #102342;
+  color: white;
+}
+
+.leaflet-control-attribution {
+  background: rgba(4, 11, 24, 0.86) !important;
+  color: #b8c5d9;
+}
+
+.leaflet-control-attribution a {
+  color: #d7e3ff;
+}
+
+.leaflet-tooltip {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #07101f;
+  color: white;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
 }
 
 .map-note,
+.map-status,
 .map-error {
   margin: 10px 0 0;
   color: var(--muted);
