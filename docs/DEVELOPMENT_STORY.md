@@ -322,3 +322,13 @@ This document records meaningful implementation milestones, decisions and verifi
   their account, actively gathers only the missing details, reads the complete
   result back, and creates the trip immediately after a clear final approval
   such as “I’m happy with that”.
+- Renamed the Claims navigation item to Submit and rewrote the surface around
+  its actual job. Expenses remains the editable receipt ledger; Submit shows
+  the month’s ready-to-claim amount, plain-language fixes and the locked
+  downloadable claim package. Detailed calculation terms remain available in
+  a disclosure instead of dominating the workflow.
+- Added a theme-aware Leaflet layer control. Dark mode defaults to CARTO Dark
+  Matter, light mode defaults to CARTO Voyager, and classic OpenStreetMap is
+  retained as a third choice. The selection is stored only on the device,
+  attribution changes with the layer, and interactive receipt dots continue
+  to work over the local fallback when an external basemap is unavailable.

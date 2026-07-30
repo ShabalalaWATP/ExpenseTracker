@@ -281,6 +281,10 @@
     border-top: 1px solid var(--line);
   }
 
+  .claim-breakdown dl {
+    grid-template-columns: 1fr;
+  }
+
   .capture-layout {
     grid-template-columns: 1fr;
   }

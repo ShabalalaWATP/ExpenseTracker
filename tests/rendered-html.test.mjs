@@ -96,7 +96,7 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
   assert.doesNotMatch(packageJson, /maplibre-gl/);
   assert.match(detailedMap, /tile\.openstreetmap\.org/);
   assert.match(detailedMap, /preferCanvas: false/);
-  assert.match(detailedMap, /The street background is unavailable/);
+  assert.match(detailedMap, /This map layer is unavailable/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(analysisLock, /status IN \('uploaded', 'needs_review', 'ready', 'failed'\)/);
   assert.doesNotMatch(analysisLock, /status <> 'analysing'/);
@@ -172,6 +172,8 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     claimPackage,
     claimsView,
     editableFacts,
+    locationMap,
+    appShell,
   ] = await Promise.all([
     readFile(new URL("../app/components/receipt-intake/IntakeReview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/receipt-intake/ReceiptImageAdjuster.tsx", import.meta.url), "utf8"),
@@ -180,6 +182,8 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     readFile(new URL("../src/server/claim-package.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/components/ClaimsView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/receipt-intake/IntakeEditableFacts.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/DetailedLocationMap.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/AppShell.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(intakeReview, /<IntakeEditableFacts/);
@@ -198,4 +202,10 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
   assert.match(claimPackage, /MAX_CLAIM_PART_BYTES/);
   assert.match(claimPackage, /partitionByByteSize/);
   assert.match(claimsView, /<ClaimPackageDownloads/);
+  assert.match(claimsView, /Before you submit/);
+  assert.doesNotMatch(claimsView, />Readiness</);
+  assert.match(locationMap, /dark_all/);
+  assert.match(locationMap, /rastertiles\/voyager/);
+  assert.match(locationMap, /Choose map layer/);
+  assert.match(appShell, /id: "claims", label: "Submit"/);
 });

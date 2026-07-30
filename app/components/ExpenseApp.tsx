@@ -28,7 +28,7 @@ const titles: Record<ViewName, string> = {
   calendar: "Calendar",
   expenses: "Expenses",
   trips: "Trips",
-  claims: "Claims",
+  claims: "Submit",
   statistics: "Statistics",
   audit: "Audit response",
   settings: "Settings",

@@ -96,7 +96,8 @@ client assets and migration package.
 - R2 for private receipt objects
 - Drizzle schema and generated migrations
 - Leaflet for broadly compatible interactive expense-location maps, with
-  OpenStreetMap raster tiles
+  selectable CARTO dark and detailed basemaps plus a classic OpenStreetMap
+  layer
 
 Original receipt money is stored as an integer in the currency's declared minor
 unit. The JSP 752 ledger remains integer GBP pence. Foreign conversions use an
@@ -124,12 +125,19 @@ combines semantic tags with deterministic merchant and line-item signals so
 known historic receipts do not remain under a generic category.
 Receipt extractions can retain AI-estimated coordinates only when the receipt
 contains supporting branch or address evidence. Older records use visibly
-labelled city or country-centre fallbacks. Opening Statistics loads basemap
-tiles from OpenStreetMap, so that provider receives normal map-tile requests
-for the visible area, but no merchant names, claim descriptions or receipt
-images. The map uses DOM and SVG rendering rather than WebGL, and its dots
+labelled city or country-centre fallbacks. Statistics defaults to CARTO Dark
+Matter in dark mode and CARTO Voyager in light mode, with classic
+OpenStreetMap available from the map's layer control. The selected provider
+receives normal map-tile requests for the visible area, but no merchant names,
+claim descriptions or receipt images. The selected layer is a device-local
+preference. The map uses DOM and SVG rendering rather than WebGL, and its dots
 remain interactive against a local grid if the external street background is
 unavailable.
+
+The Expenses view is the editable receipt ledger. Submit is deliberately
+separate: it scopes the ledger to one month, shows the amount ready to claim
+and any missing evidence, locks the completed period, and creates the
+downloadable claim package.
 
 The international evidence and itinerary design is recorded in
 [`docs/adr/0001-international-receipts-and-multi-country-trips.md`](docs/adr/0001-international-receipts-and-multi-country-trips.md).

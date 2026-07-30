@@ -36,6 +36,31 @@
   color: white;
 }
 
+.leaflet-control-layers {
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  background: rgba(7, 16, 31, 0.96);
+  color: white;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
+.leaflet-control-layers-toggle {
+  filter: invert(1) brightness(1.35);
+}
+
+.leaflet-control-layers-expanded {
+  padding: 10px 12px;
+}
+
+.leaflet-control-layers label {
+  min-height: 30px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.leaflet-control-layers-selector {
+  accent-color: #4d86ff;
+}
+
 .leaflet-control-attribution {
   background: rgba(4, 11, 24, 0.86) !important;
   color: #b8c5d9;

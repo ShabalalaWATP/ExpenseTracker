@@ -256,7 +256,8 @@ export function StatisticsView({
             <p className="map-note">
               {statistics.preciseLocationCount} of {statistics.expenses.length} receipts have venue or address-level coordinates.
               New receipts use precise printed branch evidence when available. Older records fall back to city or country centres and are never presented as exact.
-              Street tiles load from OpenStreetMap only while this view is open.
+              The dark and detailed layers are supplied by CARTO, while the classic layer is supplied by OpenStreetMap.
+              Only the visible map area is requested while this view is open.
             </p>
             <RankedBars items={statistics.locations} onSelect={openRanked} />
           </section>

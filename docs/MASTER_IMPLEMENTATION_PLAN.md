@@ -197,7 +197,7 @@ private provisional beta rather than a formal system of record.
 ### Interface and workflow
 
 - [x] Responsive mobile and desktop shell with receipt Capture, Calendar,
-  Expenses, Trips, Claims and Settings views.
+  Expenses, Trips, Submit and Settings views.
 - [x] Persistent current-view context and strong active navigation states,
   including an explicit Settings label on mobile.
 - [x] Five-item mobile bottom navigation for frequent actions, with Statistics,
@@ -230,8 +230,10 @@ private provisional beta rather than a formal system of record.
   lookup, immutable quote provenance and exact integer rational arithmetic.
 - [x] Original and GBP amounts, translation and conversion provenance in
   review, ledger, protected exports, claim packages and audit-response reports.
-- [x] Today summary, period-based claim metrics, attention list and
-  claim-readiness display.
+- [x] Today summary, period-based claim metrics, a plain-language
+  before-submission action list and claim-package creation.
+- [x] Theme-aware interactive expense map with persistent Dark, Detailed and
+  Classic layer choices, close venue zoom and repeat-weighted receipt dots.
 - [x] Read-only policy information and system, light or dark appearance choice.
 - [x] Branded application icon, logo, manifest and Open Graph asset.
 - [x] Up to 20 receipt photos per selection with two concurrent uploads.
@@ -422,10 +424,10 @@ control and the development record contains verification evidence.
   correction or superseding-snapshot workflow yet.
 - Only one snapshot may exist for August 2026. A prepared claim cannot be
   replaced through the current product.
-- The claims view provides private receipt View and Download actions and
+- The Submit view provides private receipt View and Download actions and
   copy-ready where-and-why descriptions. Direct sharing is not used because a
   private authenticated URL is unsuitable for an external recipient.
-- Claims totals are period-scoped rather than Today-only. An uploaded receipt
+- Submit totals are period-scoped rather than Today-only. An uploaded receipt
   remains a pending estimate until it is confirmed as an expense, so pending
   and confirmed figures are deliberately presented separately.
 - JSON, CSV and portable multipart recovery ZIP exports are available.
@@ -468,7 +470,7 @@ control and the development record contains verification evidence.
 | No proven backup or export exists | Use synthetic data only until a recovery or export route is demonstrated or the owner explicitly accepts the risk |
 | Focused tests miss route or browser regressions | Complete API, upload, accessibility and iPhone gates before deployment |
 | A map dot implies more precision than the receipt supports | Persist a precision label and evidence string, treat the point as an analytics hint, and render older or incomplete records as explicit city or country fallbacks |
-| External basemap requests reveal the visible map area | Load OpenStreetMap tiles only inside Statistics, send no claim text or receipt images, retain attribution, and document the boundary for the owner |
+| External basemap requests reveal the visible map area | Load the selected CARTO or OpenStreetMap layer only inside Statistics, send no claim text or receipt images, retain provider attribution, and document the boundary for the owner |
 | WebGL is unavailable or disabled on an owner device | Use Leaflet's DOM and SVG renderer, keep dots usable when street tiles fail, and show a truthful tile-status message |
 
 ## 9. Post-MVP priorities

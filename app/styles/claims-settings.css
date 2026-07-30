@@ -50,7 +50,37 @@
   color: var(--teal-dark);
 }
 
-.claim-totals > p:last-child,
+.claim-breakdown {
+  max-width: 820px;
+  margin-top: 20px;
+  border-block: 1px solid var(--line);
+}
+
+.claim-breakdown summary {
+  min-height: 54px;
+  padding: 17px 0;
+  color: var(--teal-dark);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.claim-breakdown dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-bottom: 14px;
+}
+
+.claim-breakdown dl div,
+.claim-breakdown dl div:nth-child(3n + 1) {
+  padding: 12px 20px 12px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.claim-breakdown dd {
+  font-size: clamp(1.25rem, 2vw, 1.8rem);
+}
+
+.claim-totals > p:not(.eyebrow),
 .handoff-copy {
   max-width: 620px;
   margin: 18px 0 0;

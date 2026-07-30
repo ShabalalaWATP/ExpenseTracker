@@ -87,8 +87,8 @@ export function ClaimsView({
     <div className="view page-enter">
       <ViewHeader
         eyebrow={claimPeriodLabel}
-        title={data.claimReady ? "Ready to prepare" : "Finish these checks first"}
-        detail="Review the receipt evidence and totals, then freeze a submission snapshot."
+        title="Submit your expenses"
+        detail="Expenses is your receipt ledger. This page fixes anything missing, locks the month and creates the submission package."
       />
       <div className="claim-period-control">
         <label htmlFor="claim-period">Claim month</label>
@@ -104,52 +104,59 @@ export function ClaimsView({
             }
           }}
         />
-        <small>All totals and readiness checks below are for this month, not just today.</small>
+        <small>Everything below covers this whole month, not just today.</small>
       </div>
       {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
       {message ? <StatusMessage tone="success">{message}</StatusMessage> : null}
 
       <section className="claim-totals" aria-labelledby="claim-totals-heading">
-        <p className="eyebrow" id="claim-totals-heading">Current calculation</p>
+        <p className="eyebrow" id="claim-totals-heading">Your submission</p>
         <dl>
-          <div><dt>Confirmed eligible spend</dt><dd>{formatMoney(data.confirmedEligiblePence)}</dd></div>
-          <div><dt>Eligible after policy checks</dt><dd>{formatMoney(data.policyEligiblePence)}</dd></div>
-          <div className="claimable"><dt>Claimable after allowance</dt><dd>{formatMoney(data.claimablePence)}</dd></div>
-          <div><dt>Over £30 food limit</dt><dd>{formatMoney(data.overLimitPence)}</dd></div>
-          <div><dt>Blocked confirmed spend</dt><dd>{formatMoney(data.blockedConfirmedPence)}</dd></div>
-          <div><dt>Awaiting review (estimate)</dt><dd>{formatMoney(data.pendingEstimatedEligiblePence)}</dd></div>
+          <div className="claimable"><dt>Ready to claim</dt><dd>{formatMoney(data.claimablePence)}</dd></div>
+          <div><dt>Confirmed expenses</dt><dd>{handoffExpenses.length}</dd></div>
+          <div><dt>Items to fix</dt><dd>{data.attention.length}</dd></div>
         </dl>
         <p>
           {data.pendingReceiptCount
             ? `${data.pendingReceiptCount} receipt${data.pendingReceiptCount === 1 ? " is" : "s are"} still pending for this month. `
             : "There are no dated pending receipts for this month. "}
-          Pending estimates are shown for visibility but never count as eligible or claimable.
+          Pending estimates are visible below but are not included in the amount ready to claim.
           {data.undatedPendingCount
             ? ` ${data.undatedPendingCount} undated receipt${data.undatedPendingCount === 1 ? " also needs" : "s also need"} a confirmed month.`
             : ""}
           {" "}Receipts dated outside this month remain with their own claim month.
         </p>
+        <details className="claim-breakdown">
+          <summary>How the ready-to-claim amount is calculated</summary>
+          <dl>
+            <div><dt>Confirmed food and drink</dt><dd>{formatMoney(data.confirmedEligiblePence)}</dd></div>
+            <div><dt>Allowed after policy checks</dt><dd>{formatMoney(data.policyEligiblePence)}</dd></div>
+            <div><dt>Above the £30 daily limit</dt><dd>{formatMoney(data.overLimitPence)}</dd></div>
+            <div><dt>Blocked by missing information</dt><dd>{formatMoney(data.blockedConfirmedPence)}</dd></div>
+            <div><dt>Pending receipt estimate</dt><dd>{formatMoney(data.pendingEstimatedEligiblePence)}</dd></div>
+          </dl>
+        </details>
       </section>
 
       <div className="claims-columns">
-        <section aria-labelledby="readiness-heading">
+        <section aria-labelledby="before-submit-heading">
           <div className="section-heading">
-            <div><p className="eyebrow">Submission check</p><h2 id="readiness-heading">Readiness</h2></div>
-            <span className={`state-label ${data.claimReady ? "success" : "warning"}`}>{data.claimReady ? "Ready" : `${data.attention.length} issues`}</span>
+            <div><p className="eyebrow">Action needed</p><h2 id="before-submit-heading">Before you submit</h2></div>
+            <span className={`state-label ${data.claimReady ? "success" : "warning"}`}>{data.claimReady ? "Ready" : `${data.attention.length} to fix`}</span>
           </div>
           {data.attention.length ? (
             <ol className="readiness-list">
               {data.attention.map((item, index) => (
-                <li key={item.id ?? index}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong>{item.detail ? <p>{item.detail}</p> : null}</div><button type="button" className="text-button" onClick={() => item.target ? navigateTarget(item.target) : navigate(item.view ?? "expenses")}>Review</button></li>
+                <li key={item.id ?? index}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><div><strong>{item.title}</strong>{item.detail ? <p>{item.detail}</p> : null}</div><button type="button" className="text-button" onClick={() => item.target ? navigateTarget(item.target) : navigate(item.view ?? "expenses")}>Open</button></li>
               ))}
             </ol>
           ) : (
-            <div className="calm-state"><span aria-hidden="true">✓</span><p><strong>All checks pass</strong><br />Every included item has confirmed evidence and context.</p></div>
+            <div className="calm-state"><span aria-hidden="true">✓</span><p><strong>Everything is ready</strong><br />Every included expense has its receipt and required details.</p></div>
           )}
         </section>
 
         <section className="claim-handoff" aria-labelledby="handoff-heading">
-          <div className="section-heading"><div><p className="eyebrow">Frozen record</p><h2 id="handoff-heading">Submission handoff</h2></div></div>
+          <div className="section-heading"><div><p className="eyebrow">Download and send</p><h2 id="handoff-heading">Claim package</h2></div></div>
           {currentClaim ? (
             <>
               <div className="claim-stamp">
@@ -162,9 +169,9 @@ export function ClaimsView({
             </>
           ) : handoffExpenses.length || data.pendingReceiptCount ? (
             <>
-              <p className="handoff-copy">Preparing creates an immutable claim and prevents later recalculation from silently changing these figures.</p>
-              <button className="primary-button full-button" type="button" onClick={() => void prepare()} disabled={!data.claimReady || busy === "prepare"}>{busy === "prepare" ? "Preparing…" : "Prepare immutable claim"}</button>
-              {!data.claimReady ? <small>Complete the readiness issues first.</small> : null}
+              <p className="handoff-copy">Creating the package locks this month’s totals and receipt evidence, so the downloaded record cannot change later.</p>
+              <button className="primary-button full-button" type="button" onClick={() => void prepare()} disabled={!data.claimReady || busy === "prepare"}>{busy === "prepare" ? "Creating…" : "Create claim package"}</button>
+              {!data.claimReady ? <small>Complete the items on the left first.</small> : null}
             </>
           ) : (
             <EmptyState title="Nothing to prepare">Add a receipt dated in {claimPeriodLabel} to begin this claim.</EmptyState>

@@ -25,7 +25,7 @@ const desktopNav: NavItem[] = [
   { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
   { id: "expenses", label: "Expenses", icon: <ReceiptIcon /> },
   { id: "trips", label: "Trips", icon: <RouteIcon /> },
-  { id: "claims", label: "Claims", icon: <FileCheckIcon /> },
+  { id: "claims", label: "Submit", icon: <FileCheckIcon /> },
   { id: "statistics", label: "Statistics", icon: <ChartIcon /> },
   { id: "audit", label: "Audit response", icon: <AuditIcon /> },
 ];
@@ -35,7 +35,7 @@ const mobileNav: NavItem[] = [
   { id: "expenses", label: "Expenses", icon: <ReceiptIcon /> },
   { id: "capture", label: "Add", icon: <PlusIcon /> },
   { id: "trips", label: "Trips", icon: <RouteIcon /> },
-  { id: "claims", label: "Claims", icon: <FileCheckIcon /> },
+  { id: "claims", label: "Submit", icon: <FileCheckIcon /> },
 ];
 
 interface AppShellProps {
