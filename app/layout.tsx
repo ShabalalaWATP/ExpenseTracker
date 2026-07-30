@@ -16,6 +16,7 @@ import "./styles/calendar.css";
 import "./styles/statistics.css";
 import "./styles/statistics-allowance.css";
 import "./styles/statistics-map-responsive.css";
+import "./styles/policy-assistant.css";
 import "./styles/responsive.css";
 import "leaflet/dist/leaflet.css";
 

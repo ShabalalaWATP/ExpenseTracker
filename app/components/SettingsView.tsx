@@ -20,6 +20,7 @@ type OperationalStatus = {
     configured: boolean;
     models: {
       receipt: string;
+      policy: string;
       realtime: string;
       transcription: string;
     };
@@ -178,6 +179,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
                 </StatusMessage>
                 <dl className="policy-details compact-details">
                   <div><dt>Receipt reading and translation</dt><dd>{status.ai.models.receipt}</dd></div>
+                  <div><dt>JSP 752 policy assistant</dt><dd>{status.ai.models.policy} · official GOV.UK search</dd></div>
                   <div><dt>Realtime voice</dt><dd>{status.ai.models.realtime} · {status.ai.voice}</dd></div>
                   <div><dt>Transcription</dt><dd>{status.ai.models.transcription}</dd></div>
                 </dl>

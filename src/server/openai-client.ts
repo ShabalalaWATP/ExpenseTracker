@@ -25,14 +25,14 @@ export async function openAiRequest(
   path: string,
   body: unknown,
   principal: Principal,
-  purpose: "receipt" | "voice" | "audit",
+  purpose: "receipt" | "voice" | "audit" | "policy",
 ): Promise<unknown> {
   const config = runtimeConfig();
   if (!config.openAiApiKey) {
     throw new ApiError(
       503,
       "openai_not_configured",
-      "AI extraction is not configured yet. You can still review the receipt manually.",
+      "OpenAI features are not configured yet. Receipt entry still works manually.",
     );
   }
   let response: Response;
@@ -53,7 +53,9 @@ export async function openAiRequest(
       "openai_unavailable",
       purpose === "voice"
         ? "Voice is temporarily unavailable. Use the manual form instead."
-        : "AI processing is temporarily unavailable. Review the receipt manually or retry.",
+        : purpose === "policy"
+          ? "The policy assistant is temporarily unavailable. Open the official JSP 752 or try again shortly."
+          : "AI processing is temporarily unavailable. Review the receipt manually or retry.",
     );
   }
   if (!response.ok) {
@@ -67,7 +69,9 @@ export async function openAiRequest(
           ? "Voice could not start. Use the manual form instead."
           : purpose === "audit"
             ? "The AI ledger review failed. The report continues with rule-based checks."
-            : "AI could not analyse this receipt. Review it manually or retry.",
+            : purpose === "policy"
+              ? "The policy assistant could not answer just now. Try again shortly or open the official JSP 752."
+              : "AI could not analyse this receipt. Review it manually or retry.",
       requestId ? { requestId } : undefined,
     );
   }

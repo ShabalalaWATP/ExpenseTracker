@@ -337,3 +337,12 @@ This document records meaningful implementation milestones, decisions and verifi
   Audit response. Monthly claim preparation now sits in a compact expandable
   section inside Expenses. Audit response replaces Claims in the iPhone bottom
   navigation, while old `#claims` links migrate safely to Expenses.
+- Simplified Expenses around three explicit jobs: review records, fix missing
+  evidence and prepare a monthly package. Search and filter help now explains
+  the visible result set, while the receipt ledger and package each state what
+  opening them is for.
+- Added a separate Policy assistant under More on iPhone and to the desktop
+  rail. The owner-only route sends only a bounded chat history to OpenAI,
+  searches current official GOV.UK material on every answer, rejects
+  non-government citations and keeps the conversation out of D1 and R2. It
+  cannot inspect or mutate claims.

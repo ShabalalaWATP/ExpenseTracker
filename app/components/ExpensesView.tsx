@@ -15,6 +15,14 @@ import { EmptyState, StatusMessage, ViewHeader } from "./ui";
 
 type Filter = "all" | "claim-month" | "needs-receipt" | "ready" | "deleted";
 
+const filterHelp: Record<Filter, string> = {
+  all: "Shows every active expense, newest first.",
+  "claim-month": "Shows only expenses dated in the month you are preparing.",
+  "needs-receipt": "Finds expenses that still need a receipt before they can be claimed.",
+  ready: "Shows expenses with stored evidence and no outstanding checks.",
+  deleted: "Shows recoverable expenses. Records already locked into a claim stay protected.",
+};
+
 export function ExpensesView({
   data,
   navigate,
@@ -99,34 +107,60 @@ export function ExpensesView({
       <ViewHeader
         eyebrow={`${data.expenses.length} records`}
         title="Expenses"
-        detail="A chronological ledger of receipted duty expenditure."
+        detail="Review receipt details, fix missing evidence and prepare a monthly claim."
         action={<button className="primary-button" type="button" onClick={() => navigate("capture")}>Add expense</button>}
       />
       {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 
+      <ol className="expense-guide" aria-label="What this page does">
+        <li>
+          <span>01</span>
+          <p><strong>Review expenses</strong> Open a row to see its receipt or correct the AI-read details.</p>
+        </li>
+        <li>
+          <span>02</span>
+          <p><strong>Fix missing evidence</strong> Use the filters to find anything that would hold up a claim.</p>
+        </li>
+        <li>
+          <span>03</span>
+          <p><strong>Prepare a claim</strong> Open the monthly package to check, lock and download one month.</p>
+        </li>
+      </ol>
+
       <section className="ledger-toolbar" aria-label="Expense filters">
-        <label className="search-field">
-          <span className="sr-only">Search expenses</span>
-          <span aria-hidden="true">⌕</span>
-          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search merchant, place, reason or amount" />
-        </label>
-        <div className="filter-group" role="group" aria-label="Filter expenses">
-          {([
-            ["all", "All"],
-            ["claim-month", "Claim month"],
-            ["needs-receipt", "Needs receipt"],
-            ["ready", "Ready"],
-            ["deleted", `Deleted (${data.deletedExpenses.length})`],
-          ] as Array<[Filter, string]>).map(([id, label]) => (
-            <button key={id} type="button" className={filter === id ? "active" : ""} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>
-          ))}
+        <div className="ledger-controls">
+          <label className="search-field">
+            <span className="sr-only">Search expenses</span>
+            <span aria-hidden="true">⌕</span>
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search merchant, place, reason or amount" />
+          </label>
+          <div className="filter-group" role="group" aria-label="Filter expenses">
+            {([
+              ["all", "All"],
+              ["claim-month", "Claim month"],
+              ["needs-receipt", "Needs receipt"],
+              ["ready", "Ready"],
+              ["deleted", `Deleted (${data.deletedExpenses.length})`],
+            ] as Array<[Filter, string]>).map(([id, label]) => (
+              <button key={id} type="button" className={filter === id ? "active" : ""} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>
+            ))}
+          </div>
         </div>
+        <p className="filter-help" aria-live="polite">{filterHelp[filter]}</p>
       </section>
 
       {claimSubmission}
 
       {expenses.length ? (
         <section aria-label="Expense records">
+          <div className="section-heading expense-ledger-heading">
+            <div>
+              <p className="eyebrow">Receipt ledger</p>
+              <h2>Recorded expenses</h2>
+              <p>Open any expense to view or download its receipt and correct its details.</p>
+            </div>
+            <strong>{expenses.length} shown</strong>
+          </div>
           <div className="table-head" aria-hidden="true"><span>Date / merchant</span><span>Evidence</span><span>Eligible</span><span /></div>
           <ul className="expense-list full">
             {expenses.map((expense) => (

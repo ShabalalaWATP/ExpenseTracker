@@ -302,3 +302,28 @@ export async function submitClaim(id: string): Promise<void> {
     body: JSON.stringify({ status: "submitted" }),
   });
 }
+
+export type PolicyAssistantCitation = {
+  startIndex: number;
+  endIndex: number;
+  url: string;
+  title: string;
+};
+
+export type PolicyAssistantAnswer = {
+  answer: string;
+  citations: PolicyAssistantCitation[];
+  model: string;
+  policyVersion: string;
+};
+
+export async function askPolicyAssistant(
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<PolicyAssistantAnswer> {
+  const result = await apiRequest<{ data: PolicyAssistantAnswer }>("/api/ai/policy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+  });
+  return result.data;
+}

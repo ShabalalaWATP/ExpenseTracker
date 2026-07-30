@@ -9,6 +9,7 @@ export type ViewName =
   | "claims"
   | "statistics"
   | "audit"
+  | "policy"
   | "settings";
 
 export type NavigationTarget = {

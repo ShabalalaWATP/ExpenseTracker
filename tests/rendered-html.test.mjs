@@ -88,6 +88,10 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
     appShell,
     /More navigation[\s\S]*id: "statistics" as const, label: "Statistics"/,
   );
+  assert.match(
+    appShell,
+    /More navigation[\s\S]*id: "policy" as const, label: "Policy assistant"/,
+  );
   assert.doesNotMatch(
     appShell,
     /const mobileNav[\s\S]*id: "statistics", label: "Statistics"[\s\S]*];/,
@@ -95,6 +99,10 @@ test("keeps the site private-ready and free of starter scaffolding", async () =>
   assert.match(
     appShell,
     /const mobileNav[\s\S]*id: "audit", label: "Audit"[\s\S]*];/,
+  );
+  assert.doesNotMatch(
+    appShell,
+    /const mobileNav[\s\S]*id: "policy", label: "Policy assistant"[\s\S]*];/,
   );
   assert.match(packageJson, /"leaflet": "1\.9\.4"/);
   assert.doesNotMatch(packageJson, /maplibre-gl/);

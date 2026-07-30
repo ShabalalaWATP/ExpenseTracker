@@ -89,6 +89,7 @@ export function ClaimSubmissionPanel({
         <span>
           <small>Monthly claim package</small>
           <strong>{claimPeriodLabel}</strong>
+          <small>Checks, locks and downloads one month.</small>
         </span>
         <span>
           <strong>{formatMoney(data.claimablePence)}</strong>

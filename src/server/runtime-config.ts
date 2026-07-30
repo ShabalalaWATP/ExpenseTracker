@@ -2,6 +2,7 @@ import { getRuntimeEnv } from "@/db";
 
 export const DEFAULT_MODELS = Object.freeze({
   receipt: "gpt-5.6-sol",
+  policy: "gpt-5.6-sol",
   realtime: "gpt-realtime-2.1",
   transcription: "gpt-realtime-whisper",
 });
@@ -20,6 +21,7 @@ export function runtimeConfig() {
     openAiApiKey: value(env.OPENAI_API_KEY),
     models: {
       receipt: value(env.OPENAI_RECEIPT_MODEL, DEFAULT_MODELS.receipt),
+      policy: value(env.OPENAI_POLICY_MODEL, DEFAULT_MODELS.policy),
       realtime: value(env.OPENAI_REALTIME_MODEL, DEFAULT_MODELS.realtime),
       transcription: value(
         env.OPENAI_TRANSCRIPTION_MODEL,
@@ -40,6 +42,6 @@ export function publicAiStatus() {
     models: config.models,
     voice: config.realtimeVoice,
     privacy:
-      "Receipt images are sent to the OpenAI API only for analysis. Clean, independently verified receipts are added automatically; exceptions stay in review.",
+      "Receipt images are sent to OpenAI only for analysis. Policy assistant questions are sent without receipt or ledger data. Clean, independently verified receipts are added automatically; exceptions stay in review.",
   };
 }

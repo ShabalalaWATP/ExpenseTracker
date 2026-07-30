@@ -8,6 +8,7 @@ type ExpenseTrackerEnv = {
   EXPENSETRACKER_OWNER_EMAIL?: string;
   OPENAI_API_KEY?: string;
   OPENAI_RECEIPT_MODEL?: string;
+  OPENAI_POLICY_MODEL?: string;
   OPENAI_REALTIME_MODEL?: string;
   OPENAI_TRANSCRIPTION_MODEL?: string;
   OPENAI_REALTIME_VOICE?: string;

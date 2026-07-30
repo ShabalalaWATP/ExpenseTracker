@@ -6,6 +6,7 @@ import type { ViewName } from "./types";
 import {
   CalendarIcon,
   ChartIcon,
+  ChatIcon,
   CameraIcon,
   AuditIcon,
   HomeIcon,
@@ -26,6 +27,7 @@ const desktopNav: NavItem[] = [
   { id: "trips", label: "Trips", icon: <RouteIcon /> },
   { id: "statistics", label: "Statistics", icon: <ChartIcon /> },
   { id: "audit", label: "Audit response", icon: <AuditIcon /> },
+  { id: "policy", label: "Policy assistant", icon: <ChatIcon /> },
 ];
 
 const mobileNav: NavItem[] = [
@@ -104,7 +106,7 @@ export function AppShell({
         <details
           key={active}
           className={`mobile-more ${
-            ["statistics", "settings"].includes(active) ? "active" : ""
+            ["statistics", "policy", "settings"].includes(active) ? "active" : ""
           }`}
         >
           <summary aria-label="Open more navigation">
@@ -114,6 +116,7 @@ export function AppShell({
           <nav aria-label="More navigation">
             {[
               { id: "statistics" as const, label: "Statistics", icon: <ChartIcon /> },
+              { id: "policy" as const, label: "Policy assistant", icon: <ChatIcon /> },
               { id: "settings" as const, label: "Settings", icon: <SlidersIcon /> },
             ].map((item) => (
               <button

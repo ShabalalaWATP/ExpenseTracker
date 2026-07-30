@@ -9,6 +9,7 @@ import { CaptureView } from "./CaptureView";
 import { ClaimSubmissionPanel } from "./ClaimSubmissionPanel";
 import { ExpenseEditor } from "./ExpenseEditor";
 import { ExpensesView } from "./ExpensesView";
+import { PolicyAssistantView } from "./PolicyAssistantView";
 import { SettingsView } from "./SettingsView";
 import { StatisticsView } from "./StatisticsView";
 import { TodayView } from "./TodayView";
@@ -31,6 +32,7 @@ const titles: Record<ViewName, string> = {
   claims: "Expenses",
   statistics: "Statistics",
   audit: "Audit response",
+  policy: "Policy assistant",
   settings: "Settings",
 };
 
@@ -258,6 +260,7 @@ export function ExpenseApp() {
         />
       ),
       audit: <AuditView />,
+      policy: <PolicyAssistantView />,
       settings: <SettingsView onClose={closeSettings} />,
     };
     content = (

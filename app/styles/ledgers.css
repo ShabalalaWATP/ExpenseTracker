@@ -1,10 +1,69 @@
 .ledger-toolbar {
+  display: grid;
+  gap: 12px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ledger-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 28px 0;
-  border-bottom: 1px solid var(--line);
+}
+
+.expense-guide {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 8px 0 0;
+  padding: 0;
+  border-block: 1px solid var(--line);
+  list-style: none;
+}
+
+.expense-guide li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding: 18px 18px 18px 0;
+}
+
+.expense-guide li + li {
+  border-left: 1px solid var(--line);
+  padding-left: 18px;
+}
+
+.expense-guide li > span {
+  color: var(--teal-dark);
+  font: 600 0.74rem var(--font-display);
+}
+
+.expense-guide p,
+.filter-help,
+.expense-ledger-heading p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.expense-guide strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+}
+
+.filter-help {
+  min-height: 1.2em;
+}
+
+.expense-ledger-heading {
+  margin-top: 30px;
+}
+
+.expense-ledger-heading > strong {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .search-field {
@@ -336,5 +395,27 @@
 @keyframes trip-voice-wave {
   to {
     height: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .expense-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-guide li,
+  .expense-guide li + li {
+    padding: 13px 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .expense-guide li:first-child {
+    border-top: 0;
+  }
+
+  .ledger-controls {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

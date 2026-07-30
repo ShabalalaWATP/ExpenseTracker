@@ -448,9 +448,11 @@ control and the development record contains verification evidence.
   to OpenAI only after the owner starts the session. Spoken readback and save
   confirmation, microphone denial and the manual fallback still require
   real-device end-to-end verification.
-- ExpenseTracker has no general chat feature. The removed `OPENAI_CHAT_MODEL`
-  setting was unused; receipt extraction and Realtime voice are the only model
-  workflows exposed by the app.
+- ExpenseTracker has no general-purpose chat feature. Its bounded Policy
+  assistant answers JSP 752 questions without ledger access, uses
+  `OPENAI_POLICY_MODEL`, requires official GOV.UK search and exposes clickable
+  source citations. Receipt extraction and Realtime voice remain separate
+  purpose-limited model workflows.
 - Receipt extraction now requests `gpt-5.6-sol` with original image detail and
   high reasoning effort. This deliberately prioritises quality over the lower
   latency and cost of the previous Luna configuration.
@@ -512,6 +514,9 @@ control and the development record contains verification evidence.
 - [x] Add stoppable upload and AI-processing controls, bounded
   metadata-stripped analysis preparation, and clear exact-duplicate feedback.
 - [x] Add dedicated Audit response and month-scoped Statistics navigation.
+- [x] Add an owner-only, sourced JSP 752 Policy assistant under More on mobile.
+- [x] Explain the three Expenses jobs, active filters, receipt ledger and
+  monthly package in short plain English.
 - [x] Add privacy-preserving restaurant, food-style, meal-context, daily-spend
   and country-level location visualisations without live geocoding.
 - [x] Add filters, period comparison, allowance heatmaps, receipt-line-item

@@ -43,6 +43,12 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Keeps the five frequent mobile actions spacious in the bottom navigation,
   with Audit response directly available and Statistics and Settings grouped
   under More.
+- Keeps Expenses focused on three plain-English jobs: review receipt details,
+  find missing evidence and prepare the monthly claim package. Search, each
+  filter, the ledger and the package explain what they do and why they matter.
+- Adds a Policy assistant under More on mobile. It answers JSP 752 questions
+  with the frontier `gpt-5.6-sol` model, searches only official GOV.UK sources
+  and displays its citations as links. It cannot see or change the ledger.
 - Prepares an immutable August claim snapshot and records submission status.
 - Downloads complete, size-bounded claim ZIP parts with PDF, CSV, manifest and
   original receipts.
@@ -75,6 +81,9 @@ browser code, or prefix it with `NEXT_PUBLIC_`.
 In production, add the same two values to the Sites project runtime
 environment. `OPENAI_API_KEY` must be marked secret. The model variables are
 non-secret and may retain their checked-in defaults.
+
+`OPENAI_POLICY_MODEL` optionally overrides the policy assistant model. Its
+checked-in default is `gpt-5.6-sol`, so no extra API key is required.
 
 ## Verification
 
@@ -140,6 +149,15 @@ preparation. Its compact monthly claim section shows the amount ready, any
 missing evidence, locks the completed period and creates the downloadable
 package. Audit response remains separate because it answers a later audit
 query for an arbitrary date range and produces an AI-assisted Word response.
+
+The Policy assistant is a separate owner-authenticated route. The browser sends
+only the bounded recent policy conversation to `/api/ai/policy`; receipt,
+expense and trip data are never included. The server calls the OpenAI Responses
+API with `store: false`, a privacy-preserving owner identifier and required web
+search restricted to GOV.UK. Returned citations are allowlisted again on the
+server before the UI renders them as clickable links. The conversation remains
+in component memory and disappears on reload. Answers are explanatory, not an
+entitlement decision, and the official JSP 752 remains authoritative.
 
 The international evidence and itinerary design is recorded in
 [`docs/adr/0001-international-receipts-and-multi-country-trips.md`](docs/adr/0001-international-receipts-and-multi-country-trips.md).
