@@ -1,6 +1,7 @@
 "use client";
 
 import type { DashboardData } from "../types";
+import { StatusMessage } from "../ui";
 import { IntakeDefaults } from "./IntakeDefaults";
 import { IntakeReview } from "./IntakeReview";
 import { LocalQueueItem, QueueItem } from "./QueueItem";
@@ -47,29 +48,30 @@ export function ReceiptInbox({
             secured until the server confirms the upload.
           </p>
         </div>
-        <IntakeDefaults
-          data={data}
-          value={inbox.defaults}
-          onChange={inbox.setDefaults}
-        />
         <UploadActions
           busy={inbox.localUploads.length >= 20}
           onFiles={(files) => void inbox.addFiles(files)}
         />
         {inbox.ai && !inbox.ai.configured ? (
-          <div className="ai-state">
-            <span aria-hidden="true">i</span>
+          <StatusMessage tone="warning">
+            <strong>Automatic reading is off, so receipts wait for manual entry</strong>
             <p>
-              <strong>AI reading is not configured</strong>
-              Photos still upload safely and can be reviewed manually.
+              Add the OPENAI_API_KEY secret to the deployment environment and
+              reload to have details extracted for you. Photos still upload
+              safely. Settings → AI and voice shows the current state.
             </p>
-          </div>
+          </StatusMessage>
         ) : inbox.ai?.configured ? (
           <p className="ai-model-note">
             Receipt reading on · {inbox.ai.models.receipt}
             {inbox.ai.privacy ? ` · ${inbox.ai.privacy}` : ""}
           </p>
         ) : null}
+        <IntakeDefaults
+          data={data}
+          value={inbox.defaults}
+          onChange={inbox.setDefaults}
+        />
       </section>
 
       <section className="intake-workspace" aria-labelledby="queue-title">
@@ -82,6 +84,15 @@ export function ReceiptInbox({
             <div><dt>In progress</dt><dd>{activeCount}</dd></div>
             <div><dt>To review</dt><dd>{reviewCount}</dd></div>
           </dl>
+          {reviewCount || inbox.localUploads.length ? (
+            <button
+              className="text-button"
+              type="button"
+              onClick={() => void inbox.clearQueue()}
+            >
+              Clear queue
+            </button>
+          ) : null}
         </header>
         {inbox.error ? (
           <p className="intake-error" role="alert">{inbox.error}</p>

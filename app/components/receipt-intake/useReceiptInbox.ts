@@ -173,14 +173,9 @@ export function useReceiptInbox({
         setError("The receipt inbox could not be loaded.");
       }
       if (aiResult.status === "fulfilled") setAi(aiResult.value);
-      else {
-        setAi({
-          configured: false,
-          models: { receipt: "", realtime: "", transcription: "" },
-          voice: "",
-          privacy: "",
-        });
-      }
+      // On a failed status check, leave ai unknown (null): uploads still
+      // attempt analysis and the server answers with its real state, so a
+      // transient status failure cannot silently disable automatic reading.
       if (draftResult.status === "fulfilled") {
         setLocalUploads(draftResult.value);
         draftResult.value.forEach((item) => void processRef.current(item));
@@ -323,6 +318,45 @@ export function useReceiptInbox({
     }
   }
 
+  async function clearQueue() {
+    const removable = intakes.filter(
+      (item) => !["analysing", "confirmed"].includes(item.status),
+    );
+    const locals = uploadsRef.current.filter(
+      (item) => item.stage !== "uploading" && item.stage !== "normalising",
+    );
+    const total = removable.length + locals.length;
+    if (!total) return;
+    const confirmed = window.confirm(
+      `Remove ${total} receipt${total === 1 ? "" : "s"} and their stored photos from the intake queue? Confirmed expenses are not affected.`,
+    );
+    if (!confirmed) return;
+    setError("");
+    for (const item of locals) {
+      await removeLocal(item.id);
+    }
+    const failed = new Set<string>();
+    for (const item of removable) {
+      try {
+        await deleteIntake(item.id);
+        analysisFiles.current.delete(item.id);
+      } catch {
+        failed.add(item.id);
+      }
+    }
+    const removedIds = new Set(
+      removable.filter((item) => !failed.has(item.id)).map((item) => item.id),
+    );
+    setIntakes((items) => items.filter((item) => !removedIds.has(item.id)));
+    setRetryableAnalysisIds((ids) => ids.filter((id) => !removedIds.has(id)));
+    setSelectedId((selected) => (removedIds.has(selected) ? "" : selected));
+    if (failed.size) {
+      setError(
+        `${failed.size} receipt${failed.size === 1 ? " was" : "s were"} not removed. Analysing or already-confirmed receipts stay in place; try again once they settle.`,
+      );
+    }
+  }
+
   return {
     ai,
     defaults,
@@ -339,6 +373,7 @@ export function useReceiptInbox({
     setSelectedId,
     addFiles,
     analyseWithEdits,
+    clearQueue,
     confirmed,
     dismissLocal: removeLocal,
     processFile,
