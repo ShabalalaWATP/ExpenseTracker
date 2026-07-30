@@ -30,6 +30,9 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
   is open and online.
 - Provides working-week, week and month calendars with day evidence and
   calendar-led trip creation.
+- Breaks food statistics into controlled, AI-derived styles using the merchant,
+  venue type and receipt items together, with deterministic classification for
+  recognised merchants in older receipt records.
 - Prepares an immutable August claim snapshot and records submission status.
 - Downloads complete, size-bounded claim ZIP parts with PDF, CSV, manifest and
   original receipts.
@@ -104,7 +107,10 @@ voice sessions receive a short-lived Realtime client secret.
 Statistics are calculated locally in the signed-in browser from the
 owner-scoped dashboard response. Chart selections open the existing private
 expense editor rather than creating a second copy of claim data. Confirmed
-receipt extractions can retain AI-estimated coordinates only when the receipt
+food receipts retain up to three controlled semantic food-style tags. The
+Statistics view combines those tags with deterministic merchant and line-item
+signals so known historic receipts do not remain under a generic category.
+Receipt extractions can retain AI-estimated coordinates only when the receipt
 contains supporting branch or address evidence. Older records use visibly
 labelled city or country-centre fallbacks. Opening Statistics loads basemap
 tiles from OpenStreetMap, so that provider receives normal map-tile requests

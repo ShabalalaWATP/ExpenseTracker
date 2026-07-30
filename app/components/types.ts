@@ -1,3 +1,5 @@
+import type { FoodStyleTag } from "../../src/domain/food-style";
+
 export type ViewName =
   | "today"
   | "capture"
@@ -84,6 +86,7 @@ export interface OriginalReceiptFacts {
     precision: "venue" | "address" | "city" | "country";
     evidence?: string | null;
   } | null;
+  foodStyleTags?: FoodStyleTag[];
   lineItems?: Array<{
     description: string;
     quantity?: number | null;

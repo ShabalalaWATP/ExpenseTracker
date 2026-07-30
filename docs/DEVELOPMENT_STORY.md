@@ -298,3 +298,9 @@ This document records meaningful implementation milestones, decisions and verifi
   without WebGL. OpenStreetMap street tiles load only for the visible viewport;
   if they are blocked or unavailable, the dots remain interactive on a local
   grid and the UI explains that the location ranking is still usable.
+- Replaced the short Statistics keyword list with a controlled semantic food
+  taxonomy. Future receipt analyses use merchant identity, venue type and line
+  items to assign up to three food-style tags, while deterministic fallbacks
+  classify recognised historic merchants immediately. This specifically
+  corrects Butchies from Other food to Fried chicken without requiring a new
+  upload.

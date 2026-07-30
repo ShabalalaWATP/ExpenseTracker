@@ -1,5 +1,7 @@
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
 import { EXPENSE_CATEGORIES } from "../domain/expense-categories.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import { FOOD_STYLE_TAGS, type FoodStyleTag } from "../domain/food-style.ts";
 
 export const RECEIPT_FIELDS = [
   "merchant",
@@ -54,6 +56,7 @@ export type ReceiptExtraction = {
   businessReason: string | null;
   mealContext: "breakfast" | "lunch" | "dinner" | "snack" | "mixed" | null;
   category: string | null;
+  foodStyleTags: FoodStyleTag[];
   lineItems: ExtractedLineItem[];
   alcoholSuspected: boolean;
   missingFields: ReceiptField[];
@@ -141,6 +144,12 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
       type: ["string", "null"],
       enum: [...EXPENSE_CATEGORIES, null],
     },
+    food_style_tags: {
+      type: "array",
+      maxItems: 3,
+      uniqueItems: true,
+      items: { type: "string", enum: FOOD_STYLE_TAGS },
+    },
     line_items: {
       type: "array",
       maxItems: 100,
@@ -222,6 +231,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
     "business_reason",
     "meal_context",
     "category",
+    "food_style_tags",
     "line_items",
     "alcohol_suspected",
     "missing_fields",

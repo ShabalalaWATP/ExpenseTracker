@@ -99,6 +99,35 @@ describe("statistics model", () => {
     assert.equal(model.changePercent, 100);
   });
 
+  it("recognises Butchies as fried chicken for existing receipt data", () => {
+    const model = buildStatistics([
+      expense({
+        merchant: "Butchies",
+        lineItems: [{ description: "House meal", totalPence: 1450 }],
+      }),
+    ], "2026-08");
+
+    assert.deepEqual(
+      model.foodTypes.map((item) => item.label),
+      ["Fried chicken"],
+    );
+  });
+
+  it("uses AI food-style tags and augments them with strong receipt evidence", () => {
+    const model = buildStatistics([
+      expense({
+        merchant: "Independent Kitchen",
+        foodStyleTags: ["mediterranean", "other_food"],
+        lineItems: [{ description: "Falafel wrap", totalPence: 1100 }],
+      }),
+    ], "2026-08");
+
+    assert.deepEqual(
+      model.foodTypes.map((item) => item.label),
+      ["Mediterranean & Middle Eastern", "Sandwiches & wraps"],
+    );
+  });
+
   it("returns stable zero values for an empty month", () => {
     const model = buildStatistics([], "2026-08");
     assert.equal(model.totalPence, 0);

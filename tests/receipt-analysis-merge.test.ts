@@ -21,6 +21,7 @@ const extraction = {
   businessReason: "Lunch at AI Merchant",
   mealContext: "lunch",
   category: "food",
+  foodStyleTags: ["sandwiches_wraps"],
   lineItems: [],
   alcoholSuspected: false,
   missingFields: [],

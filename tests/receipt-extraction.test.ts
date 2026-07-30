@@ -26,6 +26,7 @@ describe("receipt extraction normalisation", () => {
       gratuity_pence: 0,
       currency: "GBP",
       country: "GB",
+      food_style_tags: ["sandwiches_wraps", "cold_drinks"],
       location_hint: "Portsmouth",
       line_items: [
         {
@@ -55,6 +56,10 @@ describe("receipt extraction normalisation", () => {
     assert.equal(result.lineItems[0]?.totalPence, 2445);
     assert.equal(result.currency, "GBP");
     assert.equal(result.country, "GB");
+    assert.deepEqual(result.foodStyleTags, [
+      "sandwiches_wraps",
+      "cold_drinks",
+    ]);
   });
 
   it("keeps evidence-backed venue coordinates and rejects incomplete pairs", () => {
@@ -117,6 +122,25 @@ describe("receipt extraction normalisation", () => {
     assert.equal(result.alcoholSuspected, true);
     assert.deepEqual(result.missingFields, ["alcohol", "merchant"]);
     assert.deepEqual(result.uncertainFields, ["eligible_amount", "alcohol"]);
+  });
+
+  it("keeps only unique controlled food-style tags", () => {
+    const result = normaliseExtraction({
+      food_style_tags: [
+        "fried_chicken",
+        "fried_chicken",
+        "invented",
+        "burgers",
+        "pizza",
+        "seafood",
+      ],
+    });
+
+    assert.deepEqual(result.foodStyleTags, [
+      "fried_chicken",
+      "burgers",
+      "pizza",
+    ]);
   });
 
   it("validates HH:mm and assigns the exact food time bands", () => {

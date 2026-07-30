@@ -192,7 +192,7 @@ export function StatisticsView({
             <section className="stats-section" aria-labelledby="food-types">
               <div className="section-heading">
                 <div><p className="eyebrow">Food types</p><h2 id="food-types">What appears on receipts</h2></div>
-                <small>Derived from extracted line items</small>
+                <small>AI-derived from merchant and receipt details</small>
               </div>
               <RankedBars items={statistics.foodTypes} valueLabel="receipts" onSelect={openRanked} />
             </section>

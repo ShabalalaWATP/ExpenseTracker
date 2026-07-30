@@ -2,9 +2,13 @@
 import { RECEIPT_FIELDS, type ReceiptExtraction, type ReceiptField, type ReceiptLocationCoordinates } from "./receipt-extraction-schema.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
 import { EXPENSE_CATEGORIES } from "../domain/expense-categories.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import { normaliseFoodStyleTags } from "../domain/food-style.ts";
 
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
 export { RECEIPT_EXTRACTION_SCHEMA, RECEIPT_FIELDS, type ExtractedLineItem, type ReceiptExtraction, type ReceiptField, type ReceiptLocationCoordinates } from "./receipt-extraction-schema.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+export { FOOD_STYLE_TAGS, type FoodStyleTag } from "../domain/food-style.ts";
 
 function isReceiptField(value: unknown): value is ReceiptField {
   return (
@@ -248,6 +252,7 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
       value.meal_context,
     ),
     category,
+    foodStyleTags: normaliseFoodStyleTags(value.food_style_tags),
     lineItems: rawItems.slice(0, 100).map((raw) => {
       const item =
         raw && typeof raw === "object"

@@ -1,4 +1,6 @@
 import type { Expense } from "./types";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import { FOOD_STYLE_LABELS, inferFoodStyleTags, normaliseFoodStyleTags } from "../../src/domain/food-style.ts";
 
 export type StatisticsFilters = {
   tripId?: string;
@@ -149,22 +151,12 @@ function foodTypes(expense: Expense): string[] {
     expense.merchant,
     ...(expense.lineItems ?? []).map((item) => item.description),
   ].join(" "));
-  const matches: Array<[RegExp, string]> = [
-    [/\b(cafe|coffee|espresso|latte|cappuccino|americano|tea)\b/, "Coffee & hot drinks"],
-    [/\b(juice|smoothie|cola|lemonade|water|soft drink)\b/, "Cold drinks"],
-    [/\b(sandwich|wrap|bagel|panini|sub|toastie)\b/, "Sandwiches & wraps"],
-    [/\b(croissant|pastry|bakery|boulangerie|muffin|bread)\b/, "Bakery"],
-    [/\b(pizza|pizzeria)\b/, "Pizza"],
-    [/\b(burger|cheeseburger|mcdonald|five guys|shake shack)\b/, "Burgers"],
-    [/\b(sushi|ramen|japanese|izakaya|teriyaki)\b/, "Japanese"],
-    [/\b(indian|curry|tandoori|masala|biryani)\b/, "Indian"],
-    [/\b(chinese|noodle|dim sum|wonton|chow mein)\b/, "Chinese & noodles"],
-    [/\b(salad|fruit|vegetable|vegan|vegetarian)\b/, "Fresh & plant-based"],
-    [/\b(cake|dessert|cookie|biscuit|chocolate|ice cream|snack|crisps)\b/, "Desserts & snacks"],
-    [/\b(supermarket|tesco|sainsbury|waitrose|aldi|lidl|grocery|groceries)\b/, "Groceries"],
-  ];
-  const result = matches.filter(([pattern]) => pattern.test(text)).map(([, label]) => label);
-  return result.length ? result : ["Other food"];
+  const aiTags = normaliseFoodStyleTags(expense.foodStyleTags)
+    .filter((tag) => tag !== "other_food");
+  const inferredTags = inferFoodStyleTags(text);
+  const meaningfulTags = [...new Set([...aiTags, ...inferredTags])].slice(0, 3);
+  const tags = meaningfulTags.length ? meaningfulTags : ["other_food"] as const;
+  return tags.map((tag) => FOOD_STYLE_LABELS[tag]);
 }
 
 function resolveCoordinates(expense: Expense): Pick<MapPoint, "latitude" | "longitude" | "precision"> | null {

@@ -1,4 +1,6 @@
 import type { Expense, Trip, TripLeg } from "./types";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import { normaliseFoodStyleTags } from "../../src/domain/food-style.ts";
 
 type RecordValue = Record<string, unknown>;
 
@@ -146,6 +148,7 @@ export function normaliseExpense(value: unknown): Expense {
     conversion: normaliseConversion(item.conversion),
     tripLegId: text(item.tripLegId) || undefined,
     locationCoordinates: normaliseCoordinates(item.locationCoordinates),
+    foodStyleTags: normaliseFoodStyleTags(item.foodStyleTags),
     lineItems: normaliseLineItems(item.lineItems),
   };
 }

@@ -16,6 +16,7 @@ test("normalises analytics coordinates and extracted receipt line items", () => 
       precision: "venue",
       evidence: "Printed branch address",
     },
+    foodStyleTags: ["fried_chicken", "fried_chicken", "invalid"],
     lineItems: [
       {
         description: "Flat white",
@@ -38,6 +39,7 @@ test("normalises analytics coordinates and extracted receipt line items", () => 
     totalPence: 350,
     eligible: true,
   }]);
+  assert.deepEqual(expense.foodStyleTags, ["fried_chicken"]);
 });
 
 test("rejects incomplete or out-of-range analytics coordinates", () => {

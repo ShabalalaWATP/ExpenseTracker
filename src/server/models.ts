@@ -1,3 +1,5 @@
+import { normaliseFoodStyleTags } from "@/src/domain/food-style";
+
 export type ReceiptRow = {
   receipt_id: string | null;
   content_type: string | null;
@@ -184,6 +186,7 @@ export function mapExpense(row: ExpenseRow) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     locationCoordinates,
+    foodStyleTags: normaliseFoodStyleTags(extraction.foodStyleTags),
     lineItems: parseArray(row.intake_line_items_json),
     receipt: mapReceipt(row, row.id),
   };
