@@ -212,15 +212,13 @@
   text-align: center;
 }
 
-.date-checks,
-.method-choice {
+.date-checks {
   margin: 20px 0 0;
   padding: 0;
   border: 0;
 }
 
-.date-checks legend,
-.method-choice legend {
+.date-checks legend {
   font-weight: 750;
 }
 
@@ -237,7 +235,6 @@
 }
 
 .date-checks label,
-.method-choice label,
 .attestation {
   display: flex;
   min-height: 48px;
@@ -247,7 +244,6 @@
 }
 
 .date-checks input,
-.method-choice input,
 .attestation input {
   width: 20px;
   height: 20px;
@@ -255,17 +251,11 @@
   accent-color: var(--teal);
 }
 
-.method-choice label {
-  min-height: 70px;
-}
-
-.method-choice label > span,
 .attestation > span {
   display: grid;
   gap: 2px;
 }
 
-.method-choice small,
 .attestation small {
   color: var(--muted);
 }

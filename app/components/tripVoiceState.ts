@@ -1,4 +1,6 @@
 import type { TripVoiceDraft } from "@/src/domain/trip-voice";
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
+import { automaticTripCalculationMethod } from "../../src/domain/trip-calculation.ts";
 import type { TripDraft } from "./types";
 
 export type VoiceState =
@@ -37,10 +39,17 @@ export function voiceDraftFromTrip(draft: TripDraft): TripVoiceDraft {
           endDate: leg.endDate,
         }))
       : null,
-    calculationMethod: draft.calculationMethod || null,
     eligibleDates: draft.eligibleDates.length ? draft.eligibleDates : null,
     eligibilityAttested: draft.attested || null,
   };
+}
+
+export function synchroniseTripVoiceDraft(
+  current: TripVoiceDraft,
+  formDraft: TripDraft,
+  sessionActive: boolean,
+): TripVoiceDraft {
+  return sessionActive ? current : voiceDraftFromTrip(formDraft);
 }
 
 export function tripDraftFromVoice(draft: TripVoiceDraft): TripDraft {
@@ -55,7 +64,10 @@ export function tripDraftFromVoice(draft: TripVoiceDraft): TripDraft {
     startDate: draft.startDate ?? "",
     endDate: draft.endDate ?? "",
     legs,
-    calculationMethod: draft.calculationMethod ?? "daily",
+    calculationMethod: automaticTripCalculationMethod(
+      draft.startDate ?? "",
+      draft.endDate ?? "",
+    ),
     eligibleDates: draft.eligibleDates ?? [],
     attested: draft.eligibilityAttested === true,
   };

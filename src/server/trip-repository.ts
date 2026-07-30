@@ -1,3 +1,4 @@
+import { automaticTripCalculationMethod } from "@/src/domain/trip-calculation";
 import { ApiError } from "./http";
 import { assertRangeUnlocked } from "./claim-locks";
 import { database, ensureSchema } from "./db";
@@ -64,21 +65,8 @@ function normaliseDays(
   );
 }
 
-function validateElection(
-  startDate: string,
-  endDate: string,
-  aggregateElection: boolean,
-): void {
-  if (
-    aggregateElection &&
-    dateRange(startDate, endDate).length - 1 < 2
-  ) {
-    throw new ApiError(
-      400,
-      "aggregate_not_available",
-      "Aggregation is available only for trips of at least two nights.",
-    );
-  }
+function aggregateElection(startDate: string, endDate: string): boolean {
+  return automaticTripCalculationMethod(startDate, endDate) === "aggregate";
 }
 
 async function rowsFor(principal: Principal, id?: string) {
@@ -139,11 +127,6 @@ export async function createTrip(principal: Principal, input: TripWrite) {
     input.startDate!,
     input.endDate!,
   );
-  validateElection(
-    input.startDate!,
-    input.endDate!,
-    input.aggregateElection!,
-  );
   validateTripLegCoverage(input.legs!, input.startDate!, input.endDate!);
   const id = crypto.randomUUID();
   const days = normaliseDays(input.startDate!, input.endDate!, input.days);
@@ -164,7 +147,7 @@ export async function createTrip(principal: Principal, input: TripWrite) {
         "GB",
         input.startDate,
         input.endDate,
-        input.aggregateElection ? 1 : 0,
+        aggregateElection(input.startDate!, input.endDate!) ? 1 : 0,
       ),
     ...days.map((day) =>
       db
@@ -211,13 +194,15 @@ export async function createTrip(principal: Principal, input: TripWrite) {
   return (await findTrip(principal, id))!;
 }
 
-const tripColumns: Record<Exclude<keyof TripWrite, "days" | "legs">, string> = {
+const tripColumns: Record<
+  Exclude<keyof TripWrite, "days" | "legs" | "aggregateElection">,
+  string
+> = {
   name: "name",
   purpose: "purpose",
   country: "country",
   startDate: "start_date",
   endDate: "end_date",
-  aggregateElection: "aggregate_election",
 };
 
 export async function updateTrip(
@@ -241,9 +226,7 @@ export async function updateTrip(
   if (endDate < startDate) {
     throw new ApiError(400, "validation_failed", "endDate cannot precede startDate.");
   }
-  const aggregateElection =
-    input.aggregateElection ?? existing.aggregateElection;
-  validateElection(startDate, endDate, aggregateElection);
+  const nextAggregateElection = aggregateElection(startDate, endDate);
   const currentLegs: TripLegWrite[] = existing.legs.map((leg) => ({
     id: leg.id,
     sequence: leg.sequence,
@@ -258,9 +241,16 @@ export async function updateTrip(
   validateTripLegCoverage(legs, startDate, endDate);
   const days = normaliseDays(startDate, endDate, input.days, existing.days);
   const entries = Object.entries(input).filter(
-    ([key]) => key !== "days" && key !== "legs" && key !== "country",
+    ([key]) =>
+      key !== "days" &&
+      key !== "legs" &&
+      key !== "country" &&
+      key !== "aggregateElection",
   ) as [
-    Exclude<keyof TripWrite, "days" | "legs" | "country">,
+    Exclude<
+      keyof TripWrite,
+      "days" | "legs" | "country" | "aggregateElection"
+    >,
     unknown,
   ][];
   const db = database();
@@ -272,14 +262,14 @@ export async function updateTrip(
           `UPDATE trips SET ${entries
             .map(([key]) => `${tripColumns[key]} = ?`)
             .join(", ")},
+            aggregate_election = ?,
             country = 'GB',
             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE owner_id = ? AND id = ?`,
         )
         .bind(
-          ...entries.map(([key, value]) =>
-              key === "aggregateElection" ? (value ? 1 : 0) : value,
-          ),
+          ...entries.map(([, value]) => value),
+          nextAggregateElection ? 1 : 0,
           principal.ownerId,
           id,
       ),
@@ -290,10 +280,11 @@ export async function updateTrip(
         .prepare(
           `UPDATE trips
            SET country = 'GB',
+               aggregate_election = ?,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            WHERE owner_id = ? AND id = ?`,
         )
-        .bind(principal.ownerId, id),
+        .bind(nextAggregateElection ? 1 : 0, principal.ownerId, id),
     );
   }
   if (input.legs) {

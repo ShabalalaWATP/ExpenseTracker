@@ -9,6 +9,7 @@ import {
 import { TripRecords } from "./TripRecords";
 import { daysBetween, formatDate } from "./format";
 import { TripLegEditor } from "./TripLegEditor";
+import { automaticTripCalculationMethod } from "@/src/domain/trip-calculation";
 import { cleanTripDraft, validateTripDraft } from "./tripDraft";
 import type { DashboardData, TripDraft, TripLeg } from "./types";
 import { Field, StatusMessage, ViewHeader } from "./ui";
@@ -79,9 +80,6 @@ export function TripsView({
       : []),
   );
   const [attested, setAttested] = useState(Boolean(initialTrip?.attested));
-  const [method, setMethod] = useState<"daily" | "aggregate">(
-    initialTrip?.calculationMethod ?? "daily",
-  );
   const [manualOpen, setManualOpen] = useState(
     Boolean(initialTrip || initialStartDate),
   );
@@ -132,7 +130,6 @@ export function TripsView({
     setEndDate(trip.endDate);
     setEligibleDates(trip.eligibleDates ?? []);
     setAttested(Boolean(trip.attested));
-    setMethod(trip.calculationMethod ?? "daily");
     setManualOpen(true);
     setCreating(true);
   }
@@ -145,7 +142,6 @@ export function TripsView({
     setEndDate(draft.endDate);
     setEligibleDates(draft.eligibleDates);
     setAttested(draft.attested);
-    setMethod(draft.calculationMethod);
     setManualOpen(false);
     setError("");
     setCreating(false);
@@ -177,7 +173,6 @@ export function TripsView({
     setEndDate(draft.endDate);
     setEligibleDates(draft.eligibleDates);
     setAttested(draft.attested);
-    setMethod(draft.calculationMethod);
   }
 
   async function persistDraft(draft: TripDraft) {
@@ -213,7 +208,7 @@ export function TripsView({
         legs,
         eligibleDates,
         attested,
-        calculationMethod: method,
+        calculationMethod: automaticTripCalculationMethod(startDate, endDate),
       });
     } catch (caught) {
       setError(
@@ -266,7 +261,10 @@ export function TripsView({
                 legs,
                 eligibleDates,
                 attested,
-                calculationMethod: method,
+                calculationMethod: automaticTripCalculationMethod(
+                  startDate,
+                  endDate,
+                ),
               }}
               onDraftChange={applyDraft}
               onConfirmedSave={async (draft) => {
@@ -302,11 +300,6 @@ export function TripsView({
                   <div>{dates.map((date) => <label key={date}><input type="checkbox" checked={eligibleDates.includes(date)} onChange={() => toggleDate(date)} /><span>{formatDate(date)}</span></label>)}</div>
                 </fieldset>
               ) : null}
-              <fieldset className="method-choice">
-                <legend>Calculation method</legend>
-                <label><input type="radio" name="method" value="daily" checked={method === "daily"} onChange={() => setMethod("daily")} /><span><strong>Daily</strong><small>Apply the £30 limit separately to each eligible date.</small></span></label>
-                <label><input type="radio" name="method" value="aggregate" checked={method === "aggregate"} onChange={() => setMethod("aggregate")} /><span><strong>Aggregate</strong><small>Pool actual spend over two nights or more.</small></span></label>
-              </fieldset>
               <label className="attestation">
                 <input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />
                 <span><strong>I confirm these eligible dates</strong><small>The absence exceeded five hours, arose from authorised duty, and equivalent food was not provided at public expense.</small></span>

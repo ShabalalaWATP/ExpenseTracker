@@ -538,6 +538,9 @@ control and the development record contains verification evidence.
   and line-item fallbacks for existing receipt records.
 - [x] Add close-detail interactive mapping with evidence-backed receipt
   coordinates, clustered repeat visits and honest city/country fallbacks.
+- [x] Keep voice trip facts monotonic, avoid repeated questions, combine
+  eligibility confirmation and choose daily or aggregate calculation
+  automatically from the trip duration.
 
 ### Priority 3: broader use only when justified
 

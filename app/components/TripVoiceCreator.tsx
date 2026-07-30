@@ -23,6 +23,7 @@ import {
   canSaveTripFromVoice,
   emptyTripSaveGate,
   reduceTripSaveGate,
+  synchroniseTripVoiceDraft,
   tripDraftFromVoice,
   voiceDraftFromTrip,
   type TripSaveGateEvent,
@@ -54,10 +55,15 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
   const channelRef = useRef<RTCDataChannel | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const draftRef = useRef(voiceDraftFromTrip(draft));
+  const sessionActiveRef = useRef(false);
   const savingRef = useRef(false);
   const saveGateRef = useRef(emptyTripSaveGate());
   useEffect(() => {
-    draftRef.current = voiceDraftFromTrip(draft);
+    draftRef.current = synchroniseTripVoiceDraft(
+      draftRef.current,
+      draft,
+      sessionActiveRef.current,
+    );
   }, [draft]);
   function releaseMedia() {
     channelRef.current?.close();
@@ -69,10 +75,18 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
     streamRef.current = null;
   }
   function stop() {
+    sessionActiveRef.current = false;
     releaseMedia();
     savingRef.current = false;
     saveGateRef.current = emptyTripSaveGate(saveGateRef.current.order);
     setState("idle");
+  }
+  function failSession(message: string) {
+    sessionActiveRef.current = false;
+    savingRef.current = false;
+    releaseMedia();
+    setError(message);
+    setState("error");
   }
   useImperativeHandle(ref, () => ({ start, stop }));
   useEffect(() => releaseMedia, []);
@@ -137,6 +151,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
         {
           accepted: merged.rejectedFields.length === 0,
           rejectedFields: merged.rejectedFields,
+          draft: merged.draft,
           complete,
           issues,
         },
@@ -188,19 +203,13 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
         { saved: true },
         "Briefly say that the trip was saved, then end the conversation.",
       );
+      sessionActiveRef.current = false;
       setState("saved");
       releaseMedia();
     } catch (caught) {
-      savingRef.current = false;
       const messageText =
         caught instanceof Error ? caught.message : "The trip could not be saved.";
-      setError(messageText);
-      setState("error");
-      sendToolOutput(
-        message.call_id,
-        { saved: false, issue: messageText },
-        "Say the trip was not saved and suggest using the manual form.",
-      );
+      failSession(messageText);
     }
   }
 
@@ -231,8 +240,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
           : "listening",
       );
     } else if (parsed.kind === "error") {
-      setError("The voice assistant reported a connection error.");
-      setState("error");
+      failSession("The voice assistant reported a connection error.");
     }
   }
 
@@ -251,6 +259,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
       startingDraft.startDate
         ? voiceDraftFromTrip(startingDraft)
         : EMPTY_TRIP_VOICE_DRAFT;
+    sessionActiveRef.current = true;
     if (initialDraft) onDraftChange(initialDraft);
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
@@ -310,6 +319,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
         sdp: await response.text(),
       });
     } catch (caught) {
+      sessionActiveRef.current = false;
       releaseMedia();
       setError(
         caught instanceof Error

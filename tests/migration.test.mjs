@@ -20,7 +20,9 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
     INSERT INTO trips
       (id, name, country, start_date, end_date)
     VALUES
-      ('trip-1', 'August duty', 'GB', '2026-08-01', '2026-08-03');
+      ('trip-1', 'August duty', 'GB', '2026-08-01', '2026-08-03'),
+      ('trip-2', 'One day', 'GB', '2026-08-04', '2026-08-04'),
+      ('trip-3', 'Two days', 'GB', '2026-08-05', '2026-08-06');
     INSERT INTO trip_days
       (id, trip_id, date, eligible, confirmed)
     VALUES
@@ -58,6 +60,21 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   apply(db, await migration("0007_deep_tomorrow_man.sql"));
   apply(db, await migration("0008_equal_rawhide_kid.sql"));
   apply(db, await migration("0009_complete_metal_master.sql"));
+  apply(db, await migration("0010_automatic_trip_aggregation.sql"));
+
+  assert.deepEqual(
+    db
+      .prepare(
+        "SELECT id, aggregate_election FROM trips ORDER BY id",
+      )
+      .all()
+      .map((row) => ({ ...row })),
+    [
+      { id: "trip-1", aggregate_election: 1 },
+      { id: "trip-2", aggregate_election: 0 },
+      { id: "trip-3", aggregate_election: 0 },
+    ],
+  );
 
   const expense = db
     .prepare(

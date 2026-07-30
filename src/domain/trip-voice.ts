@@ -10,7 +10,6 @@ export type TripVoiceDraft = {
   startDate: string | null;
   endDate: string | null;
   legs: TripVoiceLeg[] | null;
-  calculationMethod: "daily" | "aggregate" | null;
   eligibleDates: string[] | null;
   eligibilityAttested: boolean | null;
 };
@@ -25,7 +24,6 @@ export const EMPTY_TRIP_VOICE_DRAFT: TripVoiceDraft = {
   startDate: null,
   endDate: null,
   legs: null,
-  calculationMethod: null,
   eligibleDates: null,
   eligibilityAttested: null,
 };
@@ -49,14 +47,6 @@ function cleanText(value: unknown, maximum: number): string | null | undefined {
   if (typeof value !== "string") return undefined;
   const clean = value.trim();
   return clean && clean.length <= maximum ? clean : undefined;
-}
-
-function dateSpan(startDate: string, endDate: string): number {
-  return Math.round(
-    (Date.parse(`${endDate}T00:00:00Z`) -
-      Date.parse(`${startDate}T00:00:00Z`)) /
-      86_400_000,
-  );
 }
 
 function nextDate(value: string): string {
@@ -110,8 +100,6 @@ function normaliseField(
       return isDate(value) ? value : undefined;
     case "legs":
       return normaliseLegs(value);
-    case "calculationMethod":
-      return value === "daily" || value === "aggregate" ? value : undefined;
     case "eligibleDates":
       if (
         !Array.isArray(value) ||
@@ -138,6 +126,7 @@ export function mergeTripVoiceDraft(
   const rejectedFields: Array<keyof TripVoiceDraft> = [];
   for (const field of VOICE_FIELDS) {
     if (!(field in input)) continue;
+    if (input[field] === null && draft[field] !== null) continue;
     const value = normaliseField(field, input[field]);
     if (value === undefined) {
       rejectedFields.push(field);
@@ -157,7 +146,6 @@ export function tripVoiceDraftIssues(
     ["startDate", "start date"],
     ["endDate", "end date"],
     ["legs", "complete ordered itinerary"],
-    ["calculationMethod", "calculation method"],
     ["eligibleDates", "eligible dates"],
     ["eligibilityAttested", "eligibility confirmation"],
   ] as const) {
@@ -220,18 +208,6 @@ export function tripVoiceDraftIssues(
         }
       }
     }
-  }
-  if (
-    draft.calculationMethod === "aggregate" &&
-    draft.startDate &&
-    draft.endDate &&
-    draft.endDate >= draft.startDate &&
-    dateSpan(draft.startDate, draft.endDate) < 2
-  ) {
-    issues.push({
-      field: "calculationMethod",
-      message: "Aggregation requires a trip of at least two nights.",
-    });
   }
   if (draft.eligibilityAttested === false) {
     issues.push({
@@ -339,10 +315,6 @@ export const TRIP_VOICE_DRAFT_SCHEMA = {
         },
         required: ["countryCode", "location", "startDate", "endDate"],
       },
-    },
-    calculationMethod: {
-      type: ["string", "null"],
-      enum: ["daily", "aggregate", null],
     },
     eligibleDates: {
       type: ["array", "null"],

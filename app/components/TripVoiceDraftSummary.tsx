@@ -22,7 +22,6 @@ export function TripVoiceDraftSummary({
     <dl className="trip-voice-draft" aria-label="Trip draft">
       <div><dt>Title</dt><dd>{draft.title ?? "Not yet provided"}</dd></div>
       <div><dt>Dates</dt><dd>{dateSummary}</dd></div>
-      <div><dt>Method</dt><dd>{draft.calculationMethod ?? "Not yet provided"}</dd></div>
       <div><dt>Eligibility</dt><dd>{eligibilitySummary}</dd></div>
       <div className="trip-voice-itinerary">
         <dt>Itinerary</dt>

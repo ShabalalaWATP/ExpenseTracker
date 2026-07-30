@@ -49,11 +49,6 @@ export function TripRecords({
                 >
                   {trip.attested ? "Dates confirmed" : "Needs confirmation"}
                 </span>
-                <small>
-                  {trip.calculationMethod === "aggregate"
-                    ? "Aggregate method"
-                    : "Daily method"}
-                </small>
                 <button
                   className="text-button"
                   type="button"

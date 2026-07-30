@@ -1,3 +1,4 @@
+import { automaticTripCalculationMethod } from "@/src/domain/trip-calculation";
 import { daysBetween } from "./format";
 import type { TripDraft } from "./types";
 
@@ -47,9 +48,6 @@ export function validateTripDraft(draft: TripDraft): string | null {
   if (draft.eligibleDates.some((date) => !dates.includes(date))) {
     return "Every eligible date must fall within the trip.";
   }
-  if (draft.calculationMethod === "aggregate" && dates.length < 3) {
-    return "Aggregation requires two nights or more. Choose the daily method for this trip.";
-  }
   return null;
 }
 
@@ -66,5 +64,9 @@ export function cleanTripDraft(draft: TripDraft): TripDraft {
     location: legs.map((leg) => leg.location).join(", "),
     country: legs[0].countryCode,
     legs,
+    calculationMethod: automaticTripCalculationMethod(
+      draft.startDate,
+      draft.endDate,
+    ),
   };
 }

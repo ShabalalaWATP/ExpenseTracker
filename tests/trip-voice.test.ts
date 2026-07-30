@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
+import { automaticTripCalculationMethod } from "../src/domain/trip-calculation.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { EMPTY_TRIP_VOICE_DRAFT, TRIP_VOICE_DRAFT_SCHEMA, isExplicitTripSaveConfirmation, isTripVoiceDraftComplete, mergeTripVoiceDraft, tripVoiceDraftIssues } from "../src/domain/trip-voice.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { beginTripSavePrompt, canSaveTripFromVoice, emptyTripSaveGate, reduceTripSaveGate } from "../app/components/tripVoiceState.ts";
+import { beginTripSavePrompt, canSaveTripFromVoice, emptyTripSaveGate, reduceTripSaveGate, synchroniseTripVoiceDraft, tripDraftFromVoice } from "../app/components/tripVoiceState.ts";
 
 test("voice trip facts can arrive out of order without losing valid values", () => {
   const eligibilityFirst = mergeTripVoiceDraft(EMPTY_TRIP_VOICE_DRAFT, {
@@ -53,7 +55,69 @@ test("invalid partial values are rejected and valid draft facts are preserved", 
   assert.equal(merged.draft.legs, null);
 });
 
-test("a draft is complete only with valid dates, method and eligibility", () => {
+test("null placeholders cannot erase facts already captured from speech", () => {
+  const current = {
+    ...EMPTY_TRIP_VOICE_DRAFT,
+    title: "Portsmouth training",
+    startDate: "2026-08-13",
+  };
+  const merged = mergeTripVoiceDraft(current, {
+    title: null,
+    startDate: null,
+    endDate: "2026-08-15",
+  });
+  assert.equal(merged.draft.title, "Portsmouth training");
+  assert.equal(merged.draft.startDate, "2026-08-13");
+  assert.equal(merged.draft.endDate, "2026-08-15");
+});
+
+test("active voice memory survives lossy parent form updates", () => {
+  const explicitNo = {
+    ...EMPTY_TRIP_VOICE_DRAFT,
+    eligibilityAttested: false,
+  };
+  const formDraft = {
+    title: "",
+    location: "",
+    country: "GB",
+    startDate: "",
+    endDate: "",
+    legs: [],
+    eligibleDates: [],
+    attested: false,
+    calculationMethod: "daily" as const,
+  };
+  assert.equal(
+    synchroniseTripVoiceDraft(explicitNo, formDraft, true)
+      .eligibilityAttested,
+    false,
+  );
+  assert.equal(
+    synchroniseTripVoiceDraft(
+      { ...explicitNo, eligibilityAttested: true },
+      formDraft,
+      true,
+    ).eligibilityAttested,
+    true,
+  );
+});
+
+test("trip calculation is automatic from inclusive calendar duration", () => {
+  assert.equal(
+    automaticTripCalculationMethod("2026-08-10", "2026-08-10"),
+    "daily",
+  );
+  assert.equal(
+    automaticTripCalculationMethod("2026-08-10", "2026-08-11"),
+    "daily",
+  );
+  assert.equal(
+    automaticTripCalculationMethod("2026-08-10", "2026-08-12"),
+    "aggregate",
+  );
+});
+
+test("a draft is complete with valid dates, itinerary and eligibility", () => {
   const complete = mergeTripVoiceDraft(EMPTY_TRIP_VOICE_DRAFT, {
     title: "London training",
     startDate: "2026-08-10",
@@ -72,23 +136,20 @@ test("a draft is complete only with valid dates, method and eligibility", () => 
         endDate: "2026-08-12",
       },
     ],
-    calculationMethod: "aggregate",
     eligibleDates: ["2026-08-10", "2026-08-11", "2026-08-12"],
     eligibilityAttested: true,
   }).draft;
   assert.equal(isTripVoiceDraftComplete(complete), true);
 
-  const tooShort = { ...complete, endDate: "2026-08-11" };
-  assert.match(
-    tripVoiceDraftIssues(tooShort)
-      .map((issue) => issue.message)
-      .join(" "),
-    /two nights/,
-  );
-  assert.equal(isTripVoiceDraftComplete(tooShort), false);
-
   const notEligible = { ...complete, eligibilityAttested: false };
   assert.equal(isTripVoiceDraftComplete(notEligible), false);
+
+  assert.equal(tripDraftFromVoice(complete).calculationMethod, "aggregate");
+  assert.equal(
+    tripDraftFromVoice({ ...complete, endDate: "2026-08-11" })
+      .calculationMethod,
+    "daily",
+  );
 });
 
 test("multi-country itinerary legs must cover the trip without gaps", () => {
@@ -97,7 +158,6 @@ test("multi-country itinerary legs must cover the trip without gaps", () => {
     title: "European meetings",
     startDate: "2026-08-10",
     endDate: "2026-08-14",
-    calculationMethod: "daily" as const,
     eligibleDates: ["2026-08-10"],
     eligibilityAttested: true,
   };
@@ -345,11 +405,19 @@ test("trip voice uses a server-minted ephemeral credential and explicit save too
   assert.match(server, /Please tell me about your trip/);
   assert.match(server, /are you happy for me to create this trip now/);
   assert.match(server, /Call confirm_trip immediately/);
+  assert.match(server, /Never ask again for a valid fact/);
+  assert.match(server, /every stop and nation/);
+  assert.doesNotMatch(server, /Collect:.*calculation method/);
   assert.doesNotMatch(server, /language: "en"/);
   assert.match(client, /Authorization: `Bearer \$\{session\.value\}`/);
   assert.match(client, /peer\.ontrack/);
   assert.match(client, /audioRef\.current\.play\(\)/);
   assert.match(client, /Please tell me about your trip/);
+  assert.match(client, /function failSession[\s\S]*releaseMedia\(\)/);
+  assert.ok(
+    (client.match(/failSession\(/g) ?? []).length >= 3,
+    "connection and save failures must both stop the microphone session",
+  );
   const clientUi = `${client}\n${panel}`;
   assert.match(clientUi, /OpenAI Realtime voice/);
   assert.match(clientUi, />\s*Type instead\s*</);
@@ -359,6 +427,7 @@ test("trip voice uses a server-minted ephemeral credential and explicit save too
   assert.match(route, /createTripRealtimeClientSecret/);
   assert.match(tripsView, /onClick=\{startVoiceTrip\}/);
   assert.match(tripsView, /voiceRef\.current\?\.start\(draft\)/);
+  assert.doesNotMatch(tripsView, /Calculation method/);
   assert.ok(
     tripsView.lastIndexOf("<TripVoiceCreator") <
       tripsView.lastIndexOf("<TripRecords"),

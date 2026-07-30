@@ -368,3 +368,12 @@ This document records meaningful implementation milestones, decisions and verifi
   now remain visibly failed instead of being labelled complete, and Read again
   no longer sends blank review values through the stricter save endpoint before
   retrying the secured image.
+- Shortened voice trip creation after live use showed repeated questions. Null
+  placeholders can no longer erase facts already understood, the assistant
+  receives the authoritative current draft after every update, infers
+  unambiguous countries and combines date eligibility into one question. The
+  daily-versus-aggregate choice was removed from voice and typed forms; the app
+  now applies aggregation automatically to trips spanning at least three
+  calendar dates. The server enforces the same rule for every client, and an
+  additive migration normalises existing unlocked trips while preserving
+  frozen claim-period history.
