@@ -17,7 +17,7 @@ import {
 } from "./receipt-intake-repository";
 import { updateReceiptIntake } from "./receipt-intake-review-repository";
 import { runtimeConfig } from "./runtime-config";
-import { validateImageType } from "./receipt-repository";
+import { validateImageType } from "./receipt-image-validation";
 
 const MAX_ANALYSIS_BYTES = 10 * 1024 * 1024;
 

@@ -17,7 +17,7 @@ import { parsePeriod } from "@/src/server/validation";
 
 export async function POST(request: Request): Promise<Response> {
   let ownerId = "";
-  let period = "2026-08" as const;
+  let period = "";
   let lockToken = "";
   try {
     requireSameOrigin(request);
@@ -29,12 +29,12 @@ export async function POST(request: Request): Promise<Response> {
     }
     period = parsePeriod((body as Record<string, unknown>).period);
     lockToken = await acquireClaimPeriodLock(principal.ownerId, period);
-    const state = await dashboard(principal);
+    const state = await dashboard(principal, period);
     if (!state.readiness.ready) {
       throw new ApiError(
         409,
         "readiness_not_met",
-        "Resolve the outstanding August claim checks first.",
+        `Resolve the outstanding ${period} claim checks first.`,
         state.readiness.issues,
       );
     }

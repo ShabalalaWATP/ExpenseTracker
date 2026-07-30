@@ -178,3 +178,55 @@ This document records meaningful implementation milestones, decisions and verifi
   merchant text, and records an audit event per generated report. Eight new
   tests cover range validation, the deterministic findings and the generated
   package.
+
+## 30 July 2026
+
+- Reduced the normal receipt-confirmation workflow to exception review. Receipt
+  analysis now suggests the claim date, time, location, duty reason and a
+  time-derived meal context; the owner normally supplies only an optional trip
+  link or short free-text justification. The review also offers an explicit
+  leave-unlinked choice so declining a trip suggestion is recorded rather than
+  inferred.
+- Added an immersive receipt-processing overlay with truthful staged activity,
+  batch position, reduced-motion behaviour and an explicit retry path. Clean,
+  high-confidence receipts can be confirmed only after an independent,
+  image-only verifier and the server reconciliation, duplicate, eligibility
+  and trip-link checks all pass. Required fields carrying owner provenance are
+  rejected from unattended confirmation, and bounded polling prevents an
+  `in_progress` analysis from leaving the interface waiting indefinitely.
+- Added voice-first trip creation through a short-lived OpenAI Realtime session.
+  The assistant builds and reads back a strictly validated trip draft, but the
+  server saves it only after the ordered Realtime draft and readback gate has
+  completed and the owner gives explicit spoken confirmation. The standard API
+  key remains server-side, and the existing manual form is retained for
+  privacy, permission denial and unsupported-device fallback.
+- Added automatic owner-scoped trip linking when a receipt date matches exactly
+  one eligible confirmed trip. An explicit owner selection is preserved, while
+  overlapping candidate trips create a review exception instead of an
+  arbitrary link or automatic confirmation.
+- Made receipt evidence directly useful during review and audit. Confirmed
+  expenses expose a private preview and original-file download, and generated
+  audit-response DOCX reports include the available receipt images as well as
+  the evidence register. Direct HEIC and HEIF uploads gain bounded JPEG
+  sidecars for browser preview and DOCX embedding while preserving the original
+  evidence unchanged.
+- Replaced the fixed August claims summary with a selectable calendar month.
+  Claims now separates pending receipt estimates from confirmed eligible,
+  policy-eligible, claimable, blocked and over-limit amounts, making clear that
+  an upload does not enter the claim calculation until it is confirmed.
+- Added migration `0006_parched_prism.sql` for owner-scoped duplicate
+  reservation. Atomic trip-selection and expense-insert guards prevent
+  concurrent confirmation attempts from creating duplicate expenses or
+  applying a stale automatic-link decision. Five-minute tokenised leases gate
+  every automatic write; expired leases and stale legacy analysis states
+  recover to review instead of blocking claims indefinitely.
+- Bound browser-created HEIC and HEIF preview metadata to the immutable
+  original receipt hash. Audit reports label these embedded derivatives as
+  owner-supplied and non-authoritative, retain the original evidence details,
+  and exclude a derivative when its provenance does not match.
+- Verified the final source with `npm test` (the production build and all 130
+  tests), `npm run lint`, `npx tsc --noEmit` and `git diff --check`. All passed.
+- Kept real-device acceptance open: iPhone Safari camera and HEIC processing,
+  browser preview and download, reduced-motion and assistive-technology
+  behaviour, Realtime microphone permissions, spoken-confirmation accuracy and
+  complete receipt-to-trip end-to-end flows still require verification.

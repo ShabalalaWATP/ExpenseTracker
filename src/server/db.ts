@@ -126,6 +126,8 @@ const schemaStatements = [
     expense_id TEXT REFERENCES expenses(id) ON DELETE SET NULL,
     error_code TEXT,
     error_message TEXT,
+    auto_confirm_token TEXT,
+    auto_confirm_lease_expires_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     UNIQUE (owner_id, sha256),
@@ -135,6 +137,15 @@ const schemaStatements = [
     ON receipt_intakes (owner_id, status, updated_at)`,
   `CREATE INDEX IF NOT EXISTS receipt_intakes_owner_batch_idx
     ON receipt_intakes (owner_id, batch_id)`,
+  `CREATE TABLE IF NOT EXISTS receipt_auto_confirm_reservations (
+    owner_id TEXT NOT NULL DEFAULT 'singleton-owner',
+    fingerprint TEXT NOT NULL,
+    receipt_intake_id TEXT NOT NULL REFERENCES receipt_intakes(id) ON DELETE CASCADE,
+    lease_token TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE (owner_id, fingerprint),
+    UNIQUE (owner_id, receipt_intake_id)
+  )`,
   `CREATE TABLE IF NOT EXISTS receipt_intake_revisions (
     id TEXT PRIMARY KEY NOT NULL,
     owner_id TEXT NOT NULL DEFAULT 'singleton-owner',

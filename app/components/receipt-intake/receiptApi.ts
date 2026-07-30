@@ -9,6 +9,13 @@ import type {
 
 type Envelope<T> = { data: T };
 
+export type AutoConfirmResult = {
+  outcome: "confirmed" | "needs_review" | "in_progress";
+  intake: ReceiptIntake;
+  reasons: string[];
+  expense?: unknown;
+};
+
 export class ReceiptApiError extends Error {
   constructor(
     message: string,
@@ -79,12 +86,8 @@ export async function uploadIntake(
         "X-Batch-Id": batchId,
         "X-File-Name": encodeURIComponent(file.name),
         "Idempotency-Key": idempotencyKey,
-        "X-Default-Service-Date": defaults.serviceDate,
-        "X-Default-Location": encodeURIComponent(defaults.location.trim()),
         "X-Default-Reason": encodeURIComponent(defaults.businessReason.trim()),
         "X-Default-Trip-Id": defaults.tripId,
-        "X-Default-Meal-Context": defaults.mealContext,
-        "X-Default-Category": defaults.category,
       },
       body: file,
     },
@@ -141,13 +144,26 @@ export async function patchIntake(
   return result.data.intake;
 }
 
-export async function confirmIntake(id: string): Promise<ReceiptIntake> {
+export async function confirmIntake(
+  id: string,
+  attested: boolean,
+): Promise<ReceiptIntake> {
   const result = await request<
     Envelope<{ expense: unknown; intake: ReceiptIntake }>
   >(`/api/receipt-intakes/${encodeURIComponent(id)}/confirm`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ attested }),
   });
   return result.data.intake;
+}
+
+export async function autoConfirmIntake(id: string): Promise<AutoConfirmResult> {
+  const result = await request<Envelope<AutoConfirmResult>>(
+    `/api/receipt-intakes/${encodeURIComponent(id)}/auto-confirm`, {
+    method: "POST",
+  });
+  return result.data;
 }
 
 export async function deleteIntake(id: string): Promise<void> {

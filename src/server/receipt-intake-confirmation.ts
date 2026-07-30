@@ -1,12 +1,15 @@
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
-import { auditStatement } from "./audit-repository";
 import { assertDateUnlocked } from "./claim-locks";
 import { database } from "./db";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import { assertDuplicatesReviewed } from "./receipt-duplicates";
-import { publicIntake, unresolvedFields } from "./receipt-intake-model";
+import { safeJson, type Provenance } from "./receipt-analysis-merge";
+import { unresolvedFields } from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
+import { requireReceiptAttestation } from "./receipt-intake-validation";
+import { commitReceiptIntakeExpense } from "./receipt-intake-expense";
+import { resolveReceiptTripLink } from "./receipt-trip-link";
 
 function reconciliationLines(value: string) {
   try {
@@ -23,6 +26,9 @@ function reconciliationLines(value: string) {
           : null,
         eligible:
           typeof item.eligible === "boolean" ? item.eligible : null,
+        alcoholSuspected: item.alcoholSuspected === true,
+        confidence:
+          typeof item.confidence === "number" ? item.confidence : undefined,
       }));
   } catch {
     return [];
@@ -49,7 +55,9 @@ async function releaseLock(
 export async function confirmReceiptIntake(
   principal: Principal,
   id: string,
+  confirmation: unknown,
 ) {
+  requireReceiptAttestation(confirmation);
   const initial = await requireIntake(principal, id);
   if (initial.status === "confirmed") {
     throw new ApiError(409, "receipt_confirmed", "This receipt is already confirmed.");
@@ -137,99 +145,56 @@ export async function confirmReceiptIntake(
       receiptTotalPence: row.receipt_total_pence,
     });
     await assertDateUnlocked(principal.ownerId, row.service_date);
-    if (row.trip_id) {
+    const tripLink = await resolveReceiptTripLink(principal, {
+      serviceDate: row.service_date,
+      tripId: row.trip_id,
+      provenance: safeJson<Provenance>(
+        row.correction_provenance_json,
+        {},
+      ),
+    });
+    if (tripLink.resolution.status === "ambiguous") {
+      await database()
+        .prepare(
+          `UPDATE receipt_intakes
+           SET trip_id = NULL,
+               correction_provenance_json = ?,
+               error_code = 'receipt_trip_ambiguous',
+               error_message = ?
+           WHERE owner_id = ? AND id = ? AND status = 'analysing'`,
+        )
+        .bind(
+          JSON.stringify(tripLink.provenance),
+          tripLink.errorMessage,
+          principal.ownerId,
+          id,
+        )
+        .run();
+      throw new ApiError(
+        409,
+        "receipt_trip_ambiguous",
+        tripLink.errorMessage ??
+          "Select the correct trip, or explicitly leave this receipt unlinked.",
+      );
+    }
+    if (tripLink.tripId) {
       const trip = await database()
         .prepare("SELECT id FROM trips WHERE owner_id = ? AND id = ?")
-        .bind(principal.ownerId, row.trip_id)
+        .bind(principal.ownerId, tripLink.tripId)
         .first<{ id: string }>();
       if (!trip) {
         throw new ApiError(400, "trip_invalid", "The selected trip does not exist.");
       }
     }
-    const expenseId = crypto.randomUUID();
-    const receiptId = crypto.randomUUID();
-    const db = database();
-    await db.batch([
-      db
-        .prepare(
-          `INSERT INTO expenses (
-            id, owner_id, service_date, merchant, location, business_reason,
-            receipt_total_pence, eligible_pence, gratuity_pence,
-            currency, country, trip_id, meal_context, category, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', 'GB', ?, ?, ?, ?)`,
-        )
-        .bind(
-          expenseId,
-          principal.ownerId,
-          row.service_date,
-          row.merchant,
-          row.location,
-          row.business_reason,
-          row.receipt_total_pence,
-          row.eligible_pence,
-          row.gratuity_pence,
-          row.trip_id,
-          row.meal_context,
-          row.category ?? "food",
-          row.ai_model
-            ? `Receipt details suggested by ${row.ai_model} and confirmed by the owner.`
-            : "Receipt details entered and confirmed by the owner.",
-        ),
-      db
-        .prepare(
-          `INSERT INTO receipts (
-            id, owner_id, expense_id, object_key, content_type,
-            byte_size, sha256, idempotency_key
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          receiptId,
-          principal.ownerId,
-          expenseId,
-          row.original_object_key,
-          row.content_type,
-          row.byte_size,
-          row.sha256,
-          row.idempotency_key,
-        ),
-      db
-        .prepare(
-          `UPDATE receipt_intakes
-           SET status = 'confirmed', expense_id = ?,
-               updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-           WHERE owner_id = ? AND id = ? AND status = 'analysing'
-             AND expense_id IS NULL`,
-        )
-        .bind(expenseId, principal.ownerId, id),
-      auditStatement(principal, {
-        action: "receipt_intake.confirmed",
-        entityType: "expense",
-        entityId: expenseId,
-        metadata: {
-          sourceIntakeId: id,
-          aiAssisted: Boolean(row.ai_model),
-        },
-      }),
-    ]);
-    return {
-      intake: publicIntake(await requireIntake(principal, id)),
-      expense: {
-        id: expenseId,
-        serviceDate: row.service_date,
-        merchant: row.merchant,
-        receiptTotalPence: row.receipt_total_pence,
-        eligiblePence: row.eligible_pence,
-        location: row.location,
-        businessReason: row.business_reason,
-        tripId: row.trip_id,
-        mealContext: row.meal_context,
-        category: row.category ?? "food",
-        receipt: {
-          id: receiptId,
-          url: `/api/receipts/${receiptId}`,
-        },
+    return commitReceiptIntakeExpense(
+      principal,
+      {
+        ...row,
+        trip_id: tripLink.tripId,
+        correction_provenance_json: JSON.stringify(tripLink.provenance),
       },
-    };
+      { automatic: false },
+    );
   } catch (error) {
     await releaseLock(principal, id, initial.status);
     throw error;

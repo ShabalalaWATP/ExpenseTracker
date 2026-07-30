@@ -3,6 +3,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ManualCapture } from "./receipt-intake/ManualCapture";
 import { ReceiptInbox } from "./receipt-intake/ReceiptInbox";
+import { captureDetail } from "./capture-copy";
 import { formatDate } from "./format";
 import type { DashboardData } from "./types";
 import { ViewHeader } from "./ui";
@@ -44,11 +45,7 @@ export function CaptureView({
       <ViewHeader
         eyebrow={initialDate ? `Receipt for ${formatDate(initialDate)}` : "New expense"}
         title="Capture receipts"
-        detail={
-          initialDate
-            ? "The selected calendar date will be applied to the next receipt."
-            : "Secure one receipt or a whole batch, then confirm only the details that need your attention."
-        }
+        detail={captureDetail(initialDate)}
       />
       <div className="capture-mode-switch" role="tablist" aria-label="Receipt entry method">
         <button

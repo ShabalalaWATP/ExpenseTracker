@@ -4,6 +4,12 @@ import { ApiError } from "./http";
 import { assertDateUnlocked } from "./claim-locks";
 import type { Principal } from "./principal";
 import { auditStatement } from "./audit-repository";
+import { selectExpenseReceiptSource } from "@/src/domain/receipt-evidence";
+import { directReceiptPreviewObjectKey } from "@/src/domain/receipt-evidence";
+import { validateImageType } from "./receipt-image-validation";
+import { loadVerifiedReceiptPreview } from "./receipt-preview";
+
+export { validateImageType } from "./receipt-image-validation";
 
 export const MAX_RECEIPT_BYTES = 20 * 1024 * 1024;
 
@@ -19,6 +25,10 @@ type ReceiptRecord = {
   created_at: string;
 };
 
+type ExpenseReceiptRecord = ReceiptRecord & {
+  analysis_object_key: string | null;
+};
+
 export function publicReceipt(row: ReceiptRecord) {
   return {
     id: row.id,
@@ -27,50 +37,6 @@ export function publicReceipt(row: ReceiptRecord) {
     createdAt: row.created_at,
     url: `/api/receipts/${row.id}`,
   };
-}
-
-function bytesEqual(value: Uint8Array, signature: number[]): boolean {
-  return signature.every((byte, index) => value[index] === byte);
-}
-
-export function detectImageType(bytes: Uint8Array): string | null {
-  if (bytes.length >= 3 && bytesEqual(bytes, [0xff, 0xd8, 0xff])) {
-    return "image/jpeg";
-  }
-  if (
-    bytes.length >= 8 &&
-    bytesEqual(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-  ) {
-    return "image/png";
-  }
-  if (bytes.length >= 12 && new TextDecoder().decode(bytes.slice(4, 8)) === "ftyp") {
-    const brand = new TextDecoder().decode(bytes.slice(8, 12));
-    if (["heic", "heix", "hevc", "hevx", "mif1", "msf1"].includes(brand)) {
-      return brand === "mif1" || brand === "msf1" ? "image/heif" : "image/heic";
-    }
-  }
-  return null;
-}
-
-export function validateImageType(bytes: Uint8Array, declared: string | null): string {
-  const cleanDeclared = declared?.split(";")[0].trim().toLowerCase() ?? "";
-  const detected = detectImageType(bytes);
-  const heifTypes = new Set(["image/heic", "image/heif"]);
-  const compatible =
-    detected === cleanDeclared ||
-    (detected !== null &&
-      (cleanDeclared === "" || cleanDeclared === "application/octet-stream")) ||
-    (detected !== null &&
-      heifTypes.has(detected) &&
-      heifTypes.has(cleanDeclared));
-  if (!compatible) {
-    throw new ApiError(
-      415,
-      "receipt_type_invalid",
-      "Upload a JPEG, PNG, HEIC or HEIF receipt image.",
-    );
-  }
-  return detected!;
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
@@ -211,6 +177,71 @@ export async function receiptObject(principal: Principal, id: string) {
     throw new ApiError(404, "not_found", "The receipt was not found.");
   }
   return { row, object };
+}
+
+export async function expenseReceiptObject(
+  principal: Principal,
+  expenseId: string,
+  download: boolean,
+) {
+  await ensureSchema();
+  const row = await database()
+    .prepare(
+      `SELECT r.*, i.analysis_object_key
+       FROM receipts r
+       LEFT JOIN receipt_intakes i
+         ON i.owner_id = r.owner_id
+        AND i.expense_id = r.expense_id
+        AND i.status = 'confirmed'
+       WHERE r.owner_id = ? AND r.expense_id = ?
+       LIMIT 1`,
+    )
+    .bind(principal.ownerId, expenseId)
+    .first<ExpenseReceiptRecord>();
+  if (!row) {
+    throw new ApiError(404, "not_found", "The receipt was not found.");
+  }
+
+  const bucket = getReceiptsBucket();
+  const selected = selectExpenseReceiptSource(
+    {
+      objectKey: row.object_key,
+      contentType: row.content_type,
+      analysisObjectKey:
+        row.analysis_object_key ??
+        (row.content_type === "image/heic" || row.content_type === "image/heif"
+          ? directReceiptPreviewObjectKey(principal.ownerId, row.id)
+          : null),
+    },
+    download,
+  );
+  if (!selected.original) {
+    const preview = await loadVerifiedReceiptPreview(
+      principal.ownerId,
+      selected.objectKey,
+      selected.contentType as "image/jpeg" | "image/png",
+    );
+    if (preview) {
+      return { ...preview, original: false };
+    }
+  }
+  const source = selected.original
+    ? selected
+    : {
+      objectKey: row.object_key,
+      contentType: row.content_type,
+      original: true,
+    };
+  const object = await bucket.get(source.objectKey);
+  if (!object) {
+    throw new ApiError(404, "not_found", "The receipt was not found.");
+  }
+  return {
+    body: object.body,
+    contentType: source.contentType,
+    byteSize: source.original ? row.byte_size : object.size,
+    original: source.original,
+  };
 }
 
 export async function removeReceiptObjects(

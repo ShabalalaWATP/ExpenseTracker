@@ -5,9 +5,13 @@ import type {
   ReceiptExtraction,
   ReceiptField,
 } from "./receipt-extraction";
+import { mealContextFromTime } from "./receipt-extraction";
 import {
+  appendAnalysisHistory,
   chosen,
   confidenceIssue,
+  mergedConfidence,
+  mergedExtractionSnapshot,
   safeJson,
   updateProvenance,
   type Provenance,
@@ -16,7 +20,7 @@ import { requiredMissing } from "./receipt-intake-analysis";
 import type { ReceiptIntakeRow } from "./receipt-intake-model";
 import { refreshDuplicateCandidates } from "./receipt-duplicates";
 import { receiptRevisionStatement } from "./receipt-intake-revisions";
-
+import { resolveReceiptTripLink } from "./receipt-trip-link";
 export async function persistReceiptExtraction(
   principal: Principal,
   row: ReceiptIntakeRow,
@@ -46,6 +50,13 @@ export async function persistReceiptExtraction(
     priorProvenance,
     targeted,
     "service_date",
+  );
+  const transactionTime = chosen<string | null>(
+    row,
+    extraction,
+    priorProvenance,
+    targeted,
+    "transaction_time",
   );
   const receiptTotalPence = chosen<number | null>(
     row,
@@ -82,11 +93,37 @@ export async function persistReceiptExtraction(
     targeted,
     "category",
   );
-  const provenance = updateProvenance(
-    priorProvenance,
+  const businessReason = chosen<string | null>(
+    row,
     extraction,
+    priorProvenance,
     targeted,
+    "business_reason",
   );
+  const proposedMealContext = chosen<ReceiptExtraction["mealContext"]>(
+    row,
+    extraction,
+    priorProvenance,
+    targeted,
+    "meal_context",
+  );
+  const mealContext =
+    category !== "food"
+      ? null
+      : priorProvenance.meal_context === "owner" &&
+          !targeted.has("meal_context")
+        ? proposedMealContext
+        : mealContextFromTime(
+            category,
+            transactionTime,
+            proposedMealContext,
+          );
+  const tripLink = await resolveReceiptTripLink(principal, {
+    serviceDate,
+    tripId: row.trip_id,
+    provenance: updateProvenance(priorProvenance, extraction, targeted),
+  });
+  const { provenance, tripId } = tripLink;
 
   const missing = new Set(
     targeted.size
@@ -117,6 +154,7 @@ export async function persistReceiptExtraction(
       "receipt_total",
       "eligible_amount",
       "location",
+      "business_reason",
     ] as const) {
       if (confidenceIssue(extraction, field)) uncertain.add(field);
       if (provenance[field] === "owner") {
@@ -125,6 +163,13 @@ export async function persistReceiptExtraction(
       }
     }
   }
+  // Time and meal labels improve automation but are not evidence required to
+  // create a valid expense. Their absence must not turn every receipt into a
+  // manual clarification.
+  missing.delete("transaction_time");
+  missing.delete("meal_context");
+  uncertain.delete("transaction_time");
+  uncertain.delete("meal_context");
   if (
     receiptTotalPence !== null &&
     eligiblePence !== null &&
@@ -139,7 +184,7 @@ export async function persistReceiptExtraction(
     receiptTotalPence,
     eligiblePence,
     location,
-    businessReason: row.business_reason,
+    businessReason,
   })) {
     missing.add(field);
   }
@@ -157,7 +202,7 @@ export async function persistReceiptExtraction(
       receipt_total: receiptTotalPence,
       eligible_amount: eligiblePence,
       location,
-      business_reason: row.business_reason,
+      business_reason: businessReason,
     }[field];
     if (value !== null && value !== "") missing.delete(field);
   }
@@ -166,21 +211,36 @@ export async function persistReceiptExtraction(
     ? Boolean(row.alcohol_suspected)
     : extraction.alcoholSuspected ||
       extraction.lineItems.some((item) => item.alcoholSuspected);
-  const history = safeJson<unknown[]>(row.analysis_history_json, []);
-  history.push({
-    analysedAt: new Date().toISOString(),
-    model,
-    targetedFields: [...targeted],
-    extraction: {
-      merchant: extraction.merchant,
-      serviceDate: extraction.serviceDate,
-      receiptTotalPence: extraction.receiptTotalPence,
-      eligiblePence: extraction.eligiblePence,
-      gratuityPence: extraction.gratuityPence,
+  const confidence = mergedConfidence(row, extraction, targeted);
+  const storedExtraction = mergedExtractionSnapshot(
+    row,
+    extraction,
+    targeted,
+    {
+    merchant,
+    serviceDate,
+    transactionTime,
+    receiptTotalPence,
+    eligiblePence,
+    gratuityPence,
+    locationHint: location,
+    businessReason,
+    mealContext,
+    category,
+    lineItems: targeted.size
+      ? safeJson(row.line_items_json, extraction.lineItems)
+      : extraction.lineItems,
+    alcoholSuspected,
+    confidence,
     },
-  });
+  );
+  const history = appendAnalysisHistory(row, extraction, model, targeted);
+  const tripMatchAmbiguous = tripLink.resolution.status === "ambiguous";
   const unresolvedCount =
-    missing.size + uncertain.size + Number(alcoholSuspected);
+    missing.size +
+    uncertain.size +
+    Number(alcoholSuspected) +
+    Number(tripMatchAmbiguous);
 
   await database().batch([
     database()
@@ -188,7 +248,8 @@ export async function persistReceiptExtraction(
         `UPDATE receipt_intakes
          SET status = ?, merchant = ?, service_date = ?,
              receipt_total_pence = ?, eligible_pence = ?,
-             gratuity_pence = ?, location = ?, category = ?,
+             gratuity_pence = ?, location = ?, business_reason = ?,
+             meal_context = ?, category = ?, trip_id = ?,
              line_items_json = ?, confidence_json = ?,
              missing_fields_json = ?, uncertain_fields_json = ?,
              alcohol_suspected = ?, alcohol_reviewed = 0,
@@ -196,7 +257,7 @@ export async function persistReceiptExtraction(
              extraction_json = ?, analysis_history_json = ?,
              correction_provenance_json = ?, image_edits_json = ?,
              analysis_object_key = COALESCE(?, analysis_object_key),
-             ai_model = ?, error_code = NULL, error_message = NULL,
+             ai_model = ?, error_code = ?, error_message = ?,
              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE owner_id = ? AND id = ?`,
       )
@@ -208,24 +269,27 @@ export async function persistReceiptExtraction(
         eligiblePence,
         gratuityPence,
         location,
+        businessReason,
+        mealContext,
         category,
+        tripId,
         targeted.size
           ? row.line_items_json
           : JSON.stringify(extraction.lineItems),
-        targeted.size
-          ? row.confidence_json
-          : JSON.stringify(extraction.confidence),
+        JSON.stringify(confidence),
         JSON.stringify([...missing]),
         JSON.stringify([...uncertain]),
         Number(alcoholSuspected),
-        JSON.stringify(extraction),
-        JSON.stringify(history.slice(-10)),
+        JSON.stringify(storedExtraction),
+        JSON.stringify(history),
         JSON.stringify(provenance),
         JSON.stringify(
           options.imageEdits ?? safeJson(row.image_edits_json, {}),
         ),
         options.analysisObjectKey ?? null,
         model,
+        tripLink.errorCode,
+        tripLink.errorMessage,
         principal.ownerId,
         row.id,
       ),
@@ -240,6 +304,7 @@ export async function persistReceiptExtraction(
         requiresReview: Boolean(unresolvedCount),
         lineItemCount: extraction.lineItems.length,
         targetedFields: [...targeted].join(","),
+        tripLinkStatus: tripLink.resolution.status,
       },
     }),
     receiptRevisionStatement(principal, {
@@ -250,17 +315,24 @@ export async function persistReceiptExtraction(
           : "ai_full"
         : "ai_initial",
       fields: targeted.size
-        ? [...targeted]
+        ? [
+            ...targeted,
+            ...(tripId !== row.trip_id ? ["trip_id"] : []),
+          ]
         : [
             "merchant",
             "service_date",
+            "transaction_time",
             "receipt_total",
             "eligible_amount",
             "gratuity",
             "location",
+            "business_reason",
+            "meal_context",
             "line_items",
             "alcohol",
             "category",
+            "trip_id",
           ],
       before: {
         merchant: row.merchant,
@@ -268,6 +340,9 @@ export async function persistReceiptExtraction(
         receiptTotalPence: row.receipt_total_pence,
         eligiblePence: row.eligible_pence,
         gratuityPence: row.gratuity_pence,
+        businessReason: row.business_reason,
+        mealContext: row.meal_context,
+        tripId: row.trip_id,
       },
       after: {
         merchant,
@@ -275,6 +350,9 @@ export async function persistReceiptExtraction(
         receiptTotalPence,
         eligiblePence,
         gratuityPence,
+        businessReason,
+        mealContext,
+        tripId,
       },
       model,
       transform: options.imageEdits,

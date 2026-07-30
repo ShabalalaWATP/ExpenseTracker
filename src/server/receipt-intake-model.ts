@@ -51,6 +51,8 @@ export type ReceiptIntakeRow = {
   expense_id: string | null;
   error_code: string | null;
   error_message: string | null;
+  auto_confirm_token: string | null;
+  auto_confirm_lease_expires_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -73,10 +75,14 @@ export function unresolvedFields(row: ReceiptIntakeRow): ReceiptField[] {
   if (!row.location) unresolved.add("location");
   if (!row.business_reason) unresolved.add("business_reason");
   for (const field of json<ReceiptField[]>(row.missing_fields_json, [])) {
-    unresolved.add(field);
+    if (field !== "transaction_time" && field !== "meal_context") {
+      unresolved.add(field);
+    }
   }
   for (const field of json<ReceiptField[]>(row.uncertain_fields_json, [])) {
-    unresolved.add(field);
+    if (field !== "transaction_time" && field !== "meal_context") {
+      unresolved.add(field);
+    }
   }
   if (Boolean(row.alcohol_suspected) && !Boolean(row.alcohol_reviewed)) {
     unresolved.add("alcohol");
@@ -86,6 +92,22 @@ export function unresolvedFields(row: ReceiptIntakeRow): ReceiptField[] {
 
 export function publicIntake(row: ReceiptIntakeRow) {
   const unresolved = unresolvedFields(row);
+  const provenance = json<Record<string, "ai" | "owner" | "auto">>(
+    row.correction_provenance_json,
+    {},
+  );
+  const extraction = json<{ transactionTime?: unknown }>(
+    row.extraction_json,
+    {},
+  );
+  const tripMatchStatus =
+    row.error_code === "receipt_trip_ambiguous"
+      ? "ambiguous"
+      : provenance.trip_id === "owner"
+        ? "explicit"
+        : row.trip_id
+          ? "automatic"
+          : "none";
   return {
     id: row.id,
     batchId: row.batch_id,
@@ -96,6 +118,10 @@ export function publicIntake(row: ReceiptIntakeRow) {
     previewUrl: `/api/receipt-intakes/${row.id}/image`,
     merchant: row.merchant,
     serviceDate: row.service_date,
+    transactionTime:
+      typeof extraction.transactionTime === "string"
+        ? extraction.transactionTime
+        : null,
     receiptTotalPence: row.receipt_total_pence,
     eligiblePence: row.eligible_pence,
     gratuityPence: row.gratuity_pence,
@@ -105,6 +131,11 @@ export function publicIntake(row: ReceiptIntakeRow) {
     mealContext: row.meal_context,
     category: row.category,
     tripId: row.trip_id,
+    tripMatchStatus,
+    tripMatchException:
+      row.error_code === "receipt_trip_ambiguous"
+        ? row.error_message
+        : null,
     lineItems: json(row.line_items_json, []),
     confidence: json(row.confidence_json, {}),
     missingFields: json(row.missing_fields_json, []),
@@ -112,7 +143,7 @@ export function publicIntake(row: ReceiptIntakeRow) {
     alcoholSuspected: Boolean(row.alcohol_suspected),
     alcoholReviewed: Boolean(row.alcohol_reviewed),
     analysisHistory: json(row.analysis_history_json, []),
-    correctionProvenance: json(row.correction_provenance_json, {}),
+    correctionProvenance: provenance,
     duplicateCandidates: json(row.duplicate_candidates_json, []),
     duplicateReviewed: Boolean(row.duplicate_reviewed),
     reconciliationReviewed: Boolean(row.reconciliation_reviewed),

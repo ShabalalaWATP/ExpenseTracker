@@ -11,8 +11,12 @@ import {
 } from "../types";
 import { CorrectionHistory } from "./CorrectionHistory";
 import { DuplicateReview } from "./DuplicateReview";
+import { IntakeOptionalContext } from "./IntakeOptionalContext";
+import { ReceiptConfirmationActions } from "./ReceiptConfirmationActions";
+import { ReceiptFactSummary } from "./ReceiptFactSummary";
 import { ReceiptImageAdjuster } from "./ReceiptImageAdjuster";
 import { ReceiptLineItems } from "./ReceiptLineItems";
+import { ReceiptReviewStatus } from "./ReceiptReviewStatus";
 import { ReconciliationCard } from "./ReconciliationCard";
 import { validateIntakeReview } from "./intake-review-validation";
 import {
@@ -71,6 +75,9 @@ export function IntakeReview({
     intake.category ?? "",
   );
   const [tripId, setTripId] = useState(intake.tripId ?? "");
+  const [tripDecision, setTripDecision] = useState<
+    "unchanged" | "selected" | "leave_unlinked"
+  >("unchanged");
   const [alcoholReviewed, setAlcoholReviewed] = useState(intake.alcoholReviewed);
   const [duplicateReviewed, setDuplicateReviewed] = useState(
     intake.duplicateReviewed,
@@ -78,7 +85,6 @@ export function IntakeReview({
   const [reconciliationReviewed, setReconciliationReviewed] = useState(
     intake.reconciliationReviewed,
   );
-  const [reviewed, setReviewed] = useState(false);
   const [busy, setBusy] = useState<"saving" | "confirming" | "">("");
   const [message, setMessage] = useState("");
 
@@ -86,7 +92,7 @@ export function IntakeReview({
   const confidence = (field: string) => confidenceLabel(intake, field);
 
   function fields(): IntakePatch {
-    return {
+    const review: IntakePatch = {
       merchant: merchant.trim() || null,
       serviceDate: date || null,
       receiptTotalPence: parsePence(total),
@@ -96,11 +102,21 @@ export function IntakeReview({
       businessReason: reason.trim() || null,
       mealContext: meal || null,
       category: category || null,
-      tripId: tripId || null,
       alcoholReviewed,
       duplicateReviewed,
       reconciliationReviewed,
     };
+    if (tripDecision === "selected") review.tripId = tripId;
+    if (tripDecision === "leave_unlinked") {
+      review.tripId = null;
+      review.leaveTripUnlinked = true;
+    }
+    return review;
+  }
+
+  function acceptSavedTrip(updated: ReceiptIntake) {
+    setTripId(updated.tripId ?? "");
+    setTripDecision("unchanged");
   }
 
   function validate() {
@@ -127,6 +143,7 @@ export function IntakeReview({
     try {
       const updated = await patchIntake(intake.id, fields());
       onUpdate(updated);
+      acceptSavedTrip(updated);
       setMessage("Review saved.");
       return updated;
     } catch (caught) {
@@ -146,8 +163,10 @@ export function IntakeReview({
     setBusy("confirming");
     setMessage("");
     try {
-      await patchIntake(intake.id, fields());
-      const updated = await confirmIntake(intake.id);
+      const saved = await patchIntake(intake.id, fields());
+      onUpdate(saved);
+      acceptSavedTrip(saved);
+      const updated = await confirmIntake(intake.id, true);
       onUpdate(updated);
       await onConfirmed();
       setMessage("Expense confirmed and added to your ledger.");
@@ -164,6 +183,7 @@ export function IntakeReview({
     try {
       const updated = await patchIntake(intake.id, fields());
       onUpdate(updated);
+      acceptSavedTrip(updated);
       await action();
       setMessage("Corrections saved and re-check completed.");
     } catch (caught) {
@@ -218,42 +238,18 @@ export function IntakeReview({
           ) : null}
         </header>
 
-        {canReanalyse ? (
-          <div className="review-reread">
-            <p>
-              Need a better result? Re-read the secured image with{" "}
-              {analysisModel || "the current receipt model"}. Manual corrections
-              remain unchanged unless you recheck that field.
-            </p>
-            <button type="button" onClick={() => void afterSaving(() => onReanalyse([]))}>
-              Read receipt again
-            </button>
-          </div>
-        ) : null}
-
-        {intake.alcoholSuspected ? (
-          <div className="alcohol-warning" role="alert">
-            <strong>Possible alcohol detected</strong>
-            <span>Check that the eligible amount excludes every alcoholic item.</span>
-            <label>
-              <input
-                type="checkbox"
-                checked={alcoholReviewed}
-                onChange={(event) => setAlcoholReviewed(event.target.checked)}
-                disabled={locked}
-              />
-              I checked the receipt and excluded all alcohol.
-            </label>
-          </div>
-        ) : null}
-        {intake.error ? (
-          <div className="review-error">
-            <p>{intake.error}</p>
-            {canRetryAnalysis ? (
-              <button type="button" onClick={() => void afterSaving(onRetryAnalysis)}>Retry reading</button>
-            ) : null}
-          </div>
-        ) : null}
+        <ReceiptReviewStatus
+          canReanalyse={canReanalyse}
+          analysisModel={analysisModel}
+          error={intake.error}
+          canRetryAnalysis={canRetryAnalysis}
+          alcoholSuspected={intake.alcoholSuspected}
+          alcoholReviewed={alcoholReviewed}
+          locked={locked}
+          onReadAgain={() => void afterSaving(() => onReanalyse([]))}
+          onRetryAnalysis={() => void afterSaving(onRetryAnalysis)}
+          onAlcoholReviewed={setAlcoholReviewed}
+        />
         {voiceAvailable ? (
           <VoiceClarification intake={intake} onUpdate={onUpdate} />
         ) : intake.clarificationQuestions.length ? (
@@ -262,6 +258,41 @@ export function IntakeReview({
           </p>
         ) : null}
 
+        <ReceiptFactSummary intake={intake} />
+        <IntakeOptionalContext
+          data={data}
+          reason={reason}
+          tripId={tripId}
+          tripMatchStatus={intake.tripMatchStatus}
+          tripMatchException={intake.tripMatchException}
+          tripDecision={tripDecision}
+          locked={locked}
+          reasonFlagged={flagged("businessReason")}
+          reasonConfidence={confidence("businessReason")}
+          canReanalyse={canReanalyse}
+          busy={analysisBusy || Boolean(busy)}
+          onReasonChange={setReason}
+          onTripChange={(value) => {
+            setTripId(value);
+            setTripDecision(value ? "selected" : "leave_unlinked");
+          }}
+          onLeaveTripUnlinked={() => {
+            setTripId("");
+            setTripDecision("leave_unlinked");
+          }}
+          onReasonRecheck={() =>
+            void afterSaving(() => onReanalyse(["business_reason"]))
+          }
+        />
+
+        <details
+          className="intake-fact-details"
+          open={
+            intake.missingFields.length > 0 ||
+            intake.uncertainFields.length > 0
+          }
+        >
+          <summary>Review extracted receipt facts</summary>
         <div className="intake-field-grid">
           <label className={flagged("merchant") ? "flagged" : ""}>
             <span>Merchant <small>{confidence("merchant")}</small>
@@ -270,7 +301,7 @@ export function IntakeReview({
             <input data-intake-review-field="merchant" value={merchant} onChange={(event) => setMerchant(event.target.value)} disabled={locked} />
           </label>
           <label className={flagged("serviceDate") ? "flagged" : ""}>
-            <span>Date <small>{confidence("serviceDate")}</small>
+            <span>Date {intake.transactionTime ? `· ${intake.transactionTime}` : ""} <small>{confidence("serviceDate")}</small>
               {canReanalyse ? <button type="button" className="field-reread" disabled={analysisBusy || Boolean(busy)} onClick={() => void afterSaving(() => onReanalyse(["service_date"]))}>Recheck</button> : null}
             </span>
             <input data-intake-review-field="serviceDate" type="date" value={date} onChange={(event) => setDate(event.target.value)} disabled={locked} />
@@ -306,26 +337,16 @@ export function IntakeReview({
             <span>Location <small>{confidence("location")}</small></span>
             <input data-intake-review-field="location" value={location} onChange={(event) => setLocation(event.target.value)} disabled={locked} />
           </label>
-          <label className={`wide ${flagged("businessReason") ? "flagged" : ""}`}>
-            <span>Why was it necessary?</span>
-            <textarea data-intake-review-field="businessReason" rows={2} value={reason} onChange={(event) => setReason(event.target.value)} disabled={locked} />
-          </label>
           {!category || category === "food" ? (
             <label>
-              <span>Meal context</span>
+              <span>Meal context <small>{confidence("mealContext")}</small></span>
               <select value={meal} onChange={(event) => setMeal(event.target.value as MealContext)} disabled={locked}>
                 <option value="">Not labelled</option><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Evening meal</option><option value="snack">Snack</option><option value="mixed">Mixed</option>
               </select>
             </label>
           ) : null}
-          <label>
-            <span>Trip</span>
-            <select value={tripId} onChange={(event) => setTripId(event.target.value)} disabled={locked}>
-              <option value="">No linked trip</option>
-              {data.trips.map((trip) => <option key={trip.id} value={trip.id}>{trip.title}</option>)}
-            </select>
-          </label>
         </div>
+        </details>
 
         <ReceiptLineItems items={intake.lineItems} />
 
@@ -346,22 +367,19 @@ export function IntakeReview({
         />
         <CorrectionHistory entries={intake.analysisHistory} />
 
-        {!locked ? (
-          <label className="review-attestation">
-            <input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />
-            <span>I checked the receipt details and amounts.</span>
-          </label>
-        ) : null}
         {message ? <p className="review-message" role="status">{message}</p> : null}
         {!locked ? (
-          <div className="review-actions">
-            <button type="submit" className="review-save" disabled={Boolean(busy)}>
-              {busy === "saving" ? "Saving…" : "Save review"}
-            </button>
-            <button type="button" className="review-confirm" disabled={!reviewed || duplicateBlocked || reconciliationBlocked || (intake.alcoholSuspected && !alcoholReviewed) || Boolean(busy)} onClick={() => void confirm()}>
-              {busy === "confirming" ? "Confirming…" : "Confirm expense"}
-            </button>
-          </div>
+          <ReceiptConfirmationActions
+            busy={busy}
+            blocked={
+              duplicateBlocked ||
+              reconciliationBlocked ||
+              (intake.tripMatchStatus === "ambiguous" &&
+                tripDecision === "unchanged") ||
+              (intake.alcoholSuspected && !alcoholReviewed)
+            }
+            onConfirm={() => void confirm()}
+          />
         ) : (
           <p className="confirmed-note">Confirmed and safely added to your expense ledger.</p>
         )}

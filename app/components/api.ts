@@ -134,8 +134,19 @@ export function normaliseDashboard(value: unknown): DashboardData {
       root.actualPence,
   );
   const claimable = integer(totals.claimablePence ?? root.claimablePence);
+  const confirmedEligible = integer(
+    totals.confirmedEligiblePence ??
+      totals.totalEligiblePence ??
+      totals.totalExpensesPence,
+  );
+  const policyEligible = integer(
+    totals.policyEligiblePence ??
+      totals.qualifyingActualPence ??
+      totals.actualPence,
+  );
 
   return {
+    claimPeriod: text(totals.period ?? record(root.policy).period),
     date: todayDate,
     dailyCapPence: cap,
     spentTodayPence: spent,
@@ -149,6 +160,21 @@ export function normaliseDashboard(value: unknown): DashboardData {
     excessPence: integer(
       totals.excessPence ?? root.excessPence,
       Math.max(0, actual - claimable),
+    ),
+    pendingReceiptCount: integer(totals.pendingReceiptCount),
+    pendingEstimatedEligiblePence: integer(
+      totals.pendingEstimatedEligiblePence,
+    ),
+    undatedPendingCount: integer(totals.undatedPendingCount),
+    confirmedEligiblePence: confirmedEligible,
+    policyEligiblePence: policyEligible,
+    overLimitPence: integer(
+      totals.overLimitPence,
+      Math.max(0, policyEligible - claimable),
+    ),
+    blockedConfirmedPence: integer(
+      totals.blockedConfirmedPence,
+      Math.max(0, confirmedEligible - policyEligible),
     ),
     claimReady: Boolean(readiness.ready),
     attention: Array.isArray(attentionSource)
@@ -225,8 +251,9 @@ export async function apiRequest<T>(url: string, init?: RequestInit): Promise<T>
   return (await response.json()) as T;
 }
 
-export async function getDashboard(): Promise<DashboardData> {
-  return normaliseDashboard(await apiRequest<unknown>("/api/dashboard"));
+export async function getDashboard(period?: string): Promise<DashboardData> {
+  const query = period ? `?period=${encodeURIComponent(period)}` : "";
+  return normaliseDashboard(await apiRequest<unknown>(`/api/dashboard${query}`));
 }
 
 export async function createExpense(draft: ExpenseDraft): Promise<Expense> {
@@ -257,8 +284,10 @@ export async function uploadReceipt(
   expenseId: string,
   file: File,
   idempotencyKey: string,
+  compatiblePreview?: Blob,
 ): Promise<void> {
-  const response = await fetch(`/api/expenses/${encodeURIComponent(expenseId)}/receipt`, {
+  const receiptUrl = `/api/expenses/${encodeURIComponent(expenseId)}/receipt`;
+  const response = await fetch(receiptUrl, {
     method: "PUT",
     headers: {
       "Content-Type": file.type || "application/octet-stream",
@@ -269,6 +298,17 @@ export async function uploadReceipt(
     body: file,
   });
   if (!response.ok) throw new Error(`Receipt upload failed (${response.status})`);
+  if (!compatiblePreview) return;
+  const previewResponse = await fetch(`${receiptUrl}/preview`, {
+    method: "PUT",
+    headers: { "Content-Type": compatiblePreview.type || "image/jpeg" },
+    body: compatiblePreview,
+  });
+  if (!previewResponse.ok) {
+    throw new Error(
+      `The original is stored, but its browser preview could not be prepared (${previewResponse.status}). Retry to finish.`,
+    );
+  }
 }
 
 export async function updateExpense(
@@ -311,11 +351,11 @@ export async function restoreExpense(id: string): Promise<void> {
   });
 }
 
-export async function prepareClaim(): Promise<Claim> {
+export async function prepareClaim(period: string): Promise<Claim> {
   const result = await apiRequest<unknown>("/api/claims", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ period: "2026-08" }),
+    body: JSON.stringify({ period }),
   });
   const root = record(result);
   const data = record(root.data);

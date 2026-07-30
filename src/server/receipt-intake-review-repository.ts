@@ -1,4 +1,5 @@
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
+import { decideTripReview } from "@/src/domain/receipt-trip-review";
 import { auditStatementAfterChange } from "./audit-repository";
 import { database } from "./db";
 import { ApiError } from "./http";
@@ -12,6 +13,11 @@ import {
 import { requireIntake } from "./receipt-intake-repository";
 import { receiptRevisionStatementAfterChange } from "./receipt-intake-revisions";
 import type { IntakePatch } from "./receipt-intake-validation";
+import {
+  applyResolvedTripAssignment,
+  resolveReceiptTripLink,
+  tripRevisionFields,
+} from "./receipt-trip-link";
 
 function json<T>(value: string, fallback: T): T {
   try {
@@ -123,6 +129,19 @@ export async function updateReceiptIntake(
   source: "manual" | "voice" = "manual",
 ) {
   const existing = await requireIntake(principal, id);
+  const tripDecision = decideTripReview(existing.trip_id, patch);
+  if (tripDecision.explicitlySelected) {
+    patch = { ...patch, tripId: tripDecision.tripId };
+  } else if ("tripId" in patch) {
+    const withoutRoutineTrip = { ...patch };
+    delete withoutRoutineTrip.tripId;
+    patch = withoutRoutineTrip;
+  }
+  const resultingCategory =
+    "category" in patch ? patch.category : existing.category;
+  if (resultingCategory !== "food" && patch.mealContext !== null) {
+    patch = { ...patch, mealContext: null };
+  }
   if (existing.status === "confirmed") {
     throw new ApiError(409, "receipt_confirmed", "This receipt is already confirmed.");
   }
@@ -173,13 +192,14 @@ export async function updateReceiptIntake(
       .map((key) => fieldForPatch[key])
       .filter((field): field is string => Boolean(field)),
   );
+  if (tripDecision.explicitlySelected) cleared.add("trip_id");
   const missing = json<string[]>(existing.missing_fields_json, []).filter(
     (field) => !cleared.has(field),
   );
   const uncertain = json<string[]>(existing.uncertain_fields_json, []).filter(
     (field) => !cleared.has(field),
   );
-  const provenance = json<Record<string, "ai" | "owner">>(
+  const provenance = json<Record<string, "ai" | "owner" | "auto">>(
     existing.correction_provenance_json,
     {},
   );
@@ -192,9 +212,11 @@ export async function updateReceiptIntake(
       patch.eligiblePence !== existing.eligible_pence) ||
     ("gratuityPence" in patch &&
       patch.gratuityPence !== existing.gratuity_pence);
-  const appliedPatch: IntakePatch = arithmeticChanged
+  const appliedPatchWithIntent: IntakePatch = arithmeticChanged
     ? { ...patch, reconciliationReviewed: false }
     : patch;
+  const appliedPatch = { ...appliedPatchWithIntent };
+  delete appliedPatch.leaveTripUnlinked;
   const entries = Object.entries(appliedPatch) as [keyof IntakePatch, unknown][];
   const assignments: string[] = [];
   const values: unknown[] = [];
@@ -253,6 +275,18 @@ export async function updateReceiptIntake(
     uncertain_fields_json: JSON.stringify(uncertain),
     correction_provenance_json: JSON.stringify(provenance),
   } satisfies ReceiptIntakeRow;
+  const tripLink = await resolveReceiptTripLink(principal, {
+    serviceDate: projected.service_date,
+    tripId: projected.trip_id,
+    provenance,
+  });
+  projected.trip_id = applyResolvedTripAssignment(
+    assignments,
+    values,
+    projected.trip_id,
+    tripLink.tripId,
+  );
+  projected.correction_provenance_json = JSON.stringify(tripLink.provenance);
   const duplicates = await duplicateCandidateState(principal, id, {
     merchant: projected.merchant,
     serviceDate: projected.service_date,
@@ -276,7 +310,8 @@ export async function updateReceiptIntake(
   const status =
     unresolvedFields(projected).length ||
     (duplicates.candidates.length > 0 && !duplicateReviewed) ||
-    reconciliationNeedsReview(projected)
+    reconciliationNeedsReview(projected) ||
+    tripLink.resolution.status === "ambiguous"
       ? "needs_review"
       : "ready";
   assignments.push(
@@ -301,8 +336,8 @@ export async function updateReceiptIntake(
            missing_fields_json = ?,
            uncertain_fields_json = ?,
            correction_provenance_json = ?,
-           error_code = NULL,
-           error_message = NULL,
+           error_code = ?,
+           error_message = ?,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE owner_id = ? AND id = ? AND status = 'analysing'
          AND expense_id IS NULL`,
@@ -311,16 +346,22 @@ export async function updateReceiptIntake(
       ...values,
       JSON.stringify(missing),
       JSON.stringify(uncertain),
-      JSON.stringify(provenance),
+      JSON.stringify(tripLink.provenance),
+      tripLink.errorCode,
+      tripLink.errorMessage,
       principal.ownerId,
       id,
     ),
     receiptRevisionStatementAfterChange(principal, {
       intakeId: id,
       source,
-      fields: entries.map(([key]) => key),
+      fields: tripRevisionFields(
+        entries.map(([key]) => key),
+        existing.trip_id,
+        projected.trip_id,
+      ),
       before,
-      after: { ...before, ...appliedPatch },
+      after: { ...before, ...appliedPatch, tripId: projected.trip_id },
     }),
     auditStatementAfterChange(principal, {
       action: source === "voice"

@@ -54,6 +54,7 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   apply(db, await migration("0003_neat_runaways.sql"));
   apply(db, await migration("0004_woozy_gravity.sql"));
   apply(db, await migration("0005_rapid_slapstick.sql"));
+  apply(db, await migration("0006_parched_prism.sql"));
 
   const expense = db
     .prepare(
@@ -70,6 +71,14 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
       )
       .get().count,
     3,
+  );
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'receipt_auto_confirm_reservations'",
+      )
+      .get().count,
+    1,
   );
   assert.equal(
     db
@@ -228,6 +237,279 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
       )
       .get().count,
     1,
+  );
+  db.exec(`
+    INSERT INTO receipt_intakes
+      (id, owner_id, batch_id, status, original_name,
+       original_object_key, content_type, byte_size, sha256,
+       idempotency_key, service_date)
+    VALUES
+      ('parallel-auto-a', 'singleton-owner', 'batch-auto', 'analysing',
+       'a.jpg', 'intakes/a.jpg', 'image/jpeg', 128,
+       'parallel-sha-a', 'parallel-key-a', '2026-09-01'),
+      ('parallel-auto-b', 'singleton-owner', 'batch-auto', 'analysing',
+       'b.jpg', 'intakes/b.jpg', 'image/jpeg', 128,
+       'parallel-sha-b', 'parallel-key-b', '2026-09-01'),
+      ('parallel-other-owner', 'other-owner', 'batch-auto', 'analysing',
+       'c.jpg', 'intakes/c.jpg', 'image/jpeg', 128,
+       'parallel-sha-c', 'parallel-key-c', '2026-09-01');
+    UPDATE receipt_intakes
+      SET auto_confirm_token = 'lease-a',
+          auto_confirm_lease_expires_at = '2999-01-01T00:00:00.000Z'
+      WHERE id = 'parallel-auto-a';
+    UPDATE receipt_intakes
+      SET auto_confirm_token = 'lease-b',
+          auto_confirm_lease_expires_at = '2999-01-01T00:00:00.000Z'
+      WHERE id = 'parallel-auto-b';
+    UPDATE receipt_intakes
+      SET auto_confirm_token = 'lease-other',
+          auto_confirm_lease_expires_at = '2999-01-01T00:00:00.000Z'
+      WHERE id = 'parallel-other-owner';
+  `);
+  const reserve = db.prepare(`
+    INSERT INTO receipt_auto_confirm_reservations
+      (owner_id, fingerprint, receipt_intake_id, lease_token)
+    SELECT ?, ?, ?, ?
+    WHERE EXISTS (
+      SELECT 1 FROM receipt_intakes
+      WHERE owner_id = ? AND id = ? AND status = 'analysing'
+        AND auto_confirm_token = ?
+        AND auto_confirm_lease_expires_at >
+          strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    )
+    ON CONFLICT DO NOTHING
+    RETURNING receipt_intake_id
+  `);
+  assert.equal(
+    reserve.all(
+      "singleton-owner",
+      "same-merchant-date-amount",
+      "parallel-auto-a",
+      "lease-a",
+      "singleton-owner",
+      "parallel-auto-a",
+      "lease-a",
+    )
+      .length,
+    1,
+  );
+  assert.equal(
+    reserve.all(
+      "singleton-owner",
+      "same-merchant-date-amount",
+      "parallel-auto-b",
+      "lease-b",
+      "singleton-owner",
+      "parallel-auto-b",
+      "lease-b",
+    )
+      .length,
+    0,
+  );
+  assert.equal(
+    reserve.all(
+      "other-owner",
+      "same-merchant-date-amount",
+      "parallel-other-owner",
+      "lease-other",
+      "other-owner",
+      "parallel-other-owner",
+      "lease-other",
+    )
+      .length,
+    1,
+  );
+  assert.equal(
+    db
+      .prepare(
+        "SELECT receipt_intake_id FROM receipt_auto_confirm_reservations WHERE owner_id = 'singleton-owner' AND fingerprint = 'same-merchant-date-amount'",
+      )
+      .get().receipt_intake_id,
+    "parallel-auto-a",
+  );
+  const conditionalExpense = db.prepare(`
+    INSERT INTO expenses (
+      id, owner_id, service_date, merchant, location, business_reason,
+      receipt_total_pence, eligible_pence, gratuity_pence,
+      currency, country, category
+    )
+    SELECT ?, ?, '2026-09-01', 'Same merchant', 'London',
+           'Concurrent receipt test', 1250, 1250, 0, 'GBP', 'GB', 'food'
+    WHERE EXISTS (
+      SELECT 1 FROM receipt_auto_confirm_reservations
+      WHERE owner_id = ? AND fingerprint = ? AND receipt_intake_id = ?
+        AND lease_token = ?
+    ) AND EXISTS (
+      SELECT 1 FROM receipt_intakes
+      WHERE owner_id = ? AND id = ? AND status = 'analysing'
+        AND auto_confirm_token = ?
+        AND auto_confirm_lease_expires_at >
+          strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    )
+  `);
+  assert.equal(
+    conditionalExpense.run(
+      "parallel-expense-a",
+      "singleton-owner",
+      "singleton-owner",
+      "same-merchant-date-amount",
+      "parallel-auto-a",
+      "lease-a",
+      "singleton-owner",
+      "parallel-auto-a",
+      "lease-a",
+    ).changes,
+    1,
+  );
+  assert.equal(
+    conditionalExpense.run(
+      "parallel-expense-b",
+      "singleton-owner",
+      "singleton-owner",
+      "same-merchant-date-amount",
+      "parallel-auto-b",
+      "lease-b",
+      "singleton-owner",
+      "parallel-auto-b",
+      "lease-b",
+    ).changes,
+    0,
+  );
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM expenses WHERE id LIKE 'parallel-expense-%'",
+      )
+      .get().count,
+    1,
+  );
+  db.exec(`
+    INSERT INTO receipt_intakes
+      (id, owner_id, batch_id, status, original_name,
+       original_object_key, content_type, byte_size, sha256,
+       idempotency_key, service_date, auto_confirm_token,
+       auto_confirm_lease_expires_at)
+    VALUES
+      ('interrupted-auto', 'singleton-owner', 'batch-auto', 'analysing',
+       'interrupted.jpg', 'intakes/interrupted.jpg', 'image/jpeg', 128,
+       'interrupted-sha', 'interrupted-key', '2026-09-02',
+       'expired-lease', '2000-01-01T00:00:00.000Z');
+    INSERT INTO receipt_auto_confirm_reservations
+      (owner_id, fingerprint, receipt_intake_id, lease_token)
+    VALUES
+      ('singleton-owner', 'interrupted-fingerprint', 'interrupted-auto',
+       'expired-lease');
+  `);
+  const staleReservation = reserve.all(
+    "singleton-owner",
+    "stale-worker-fingerprint",
+    "interrupted-auto",
+    "expired-lease",
+    "singleton-owner",
+    "interrupted-auto",
+    "expired-lease",
+  );
+  assert.equal(staleReservation.length, 0);
+  const staleExpense = conditionalExpense.run(
+    "stale-worker-expense",
+    "singleton-owner",
+    "singleton-owner",
+    "interrupted-fingerprint",
+    "interrupted-auto",
+    "expired-lease",
+    "singleton-owner",
+    "interrupted-auto",
+    "expired-lease",
+  );
+  assert.equal(staleExpense.changes, 0);
+  db.exec(`
+    DELETE FROM receipt_auto_confirm_reservations
+    WHERE owner_id = 'singleton-owner'
+      AND receipt_intake_id = 'interrupted-auto'
+      AND lease_token = 'expired-lease'
+      AND EXISTS (
+        SELECT 1 FROM receipt_intakes
+        WHERE owner_id = 'singleton-owner' AND id = 'interrupted-auto'
+          AND status = 'analysing'
+          AND auto_confirm_token = 'expired-lease'
+          AND auto_confirm_lease_expires_at <=
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+      );
+    UPDATE receipt_intakes
+      SET status = 'needs_review',
+          error_code = 'receipt_auto_confirmation_interrupted',
+          auto_confirm_token = NULL,
+          auto_confirm_lease_expires_at = NULL
+      WHERE owner_id = 'singleton-owner' AND id = 'interrupted-auto'
+        AND status = 'analysing'
+        AND auto_confirm_token = 'expired-lease'
+        AND auto_confirm_lease_expires_at <=
+          strftime('%Y-%m-%dT%H:%M:%fZ', 'now');
+  `);
+  assert.deepEqual(
+    {
+      ...db
+        .prepare(
+          `SELECT status, error_code, auto_confirm_token,
+                  auto_confirm_lease_expires_at
+           FROM receipt_intakes WHERE id = 'interrupted-auto'`,
+        )
+        .get(),
+    },
+    {
+      status: "needs_review",
+      error_code: "receipt_auto_confirmation_interrupted",
+      auto_confirm_token: null,
+      auto_confirm_lease_expires_at: null,
+    },
+  );
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM receipt_auto_confirm_reservations WHERE receipt_intake_id = 'interrupted-auto'",
+      )
+      .get().count,
+    0,
+  );
+  db.exec(`
+    INSERT INTO receipt_intakes
+      (id, owner_id, batch_id, status, original_name,
+       original_object_key, content_type, byte_size, sha256,
+       idempotency_key, service_date, updated_at)
+    VALUES
+      ('stale-tokenless', 'singleton-owner', 'batch-auto', 'analysing',
+       'stale.jpg', 'intakes/stale.jpg', 'image/jpeg', 128,
+       'stale-tokenless-sha', 'stale-tokenless-key', '2026-09-03',
+       '2000-01-01T00:00:00.000Z'),
+      ('active-tokenless', 'singleton-owner', 'batch-auto', 'analysing',
+       'active.jpg', 'intakes/active.jpg', 'image/jpeg', 128,
+       'active-tokenless-sha', 'active-tokenless-key', '2026-09-03',
+       strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+    UPDATE receipt_intakes
+      SET status = 'needs_review',
+          error_code = 'receipt_processing_interrupted',
+          auto_confirm_token = NULL,
+          auto_confirm_lease_expires_at = NULL
+      WHERE owner_id = 'singleton-owner' AND status = 'analysing'
+        AND expense_id IS NULL AND auto_confirm_token IS NULL
+        AND updated_at <=
+          strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes');
+  `);
+  assert.equal(
+    db
+      .prepare(
+        "SELECT status FROM receipt_intakes WHERE id = 'stale-tokenless'",
+      )
+      .get().status,
+    "needs_review",
+  );
+  assert.equal(
+    db
+      .prepare(
+        "SELECT status FROM receipt_intakes WHERE id = 'active-tokenless'",
+      )
+      .get().status,
+    "analysing",
   );
   db.close();
 });

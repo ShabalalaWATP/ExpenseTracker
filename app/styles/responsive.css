@@ -26,6 +26,31 @@
   }
 }
 
+@media (max-width: 520px) {
+  .trip-voice-heading {
+    grid-template-columns: minmax(0, 1fr) 70px;
+    gap: 14px;
+  }
+
+  .trip-mic {
+    width: 70px;
+    height: 70px;
+  }
+
+  .trip-voice-draft {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-voice-draft div:nth-child(odd) {
+    padding-right: 0;
+  }
+
+  .trip-voice-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 800px) {
   .app-frame {
     padding: calc(62px + env(safe-area-inset-top)) 0 calc(76px + env(safe-area-inset-bottom));

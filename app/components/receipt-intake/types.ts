@@ -11,9 +11,12 @@ export type IntakeStatus =
 export type ReceiptRecheckField =
   | "merchant"
   | "service_date"
+  | "transaction_time"
   | "receipt_total"
   | "eligible_amount"
   | "location"
+  | "business_reason"
+  | "meal_context"
   | "alcohol"
   | "category";
 
@@ -51,9 +54,12 @@ export interface AnalysisHistoryEntry {
   extraction: {
     merchant: string | null;
     serviceDate: string | null;
+    transactionTime: string | null;
     receiptTotalPence: number | null;
     eligiblePence: number | null;
     gratuityPence: number;
+    businessReason: string | null;
+    mealContext: MealContext | null;
   };
 }
 
@@ -67,6 +73,7 @@ export interface ReceiptIntake {
   previewUrl: string;
   merchant: string | null;
   serviceDate: string | null;
+  transactionTime: string | null;
   receiptTotalPence: number | null;
   eligiblePence: number | null;
   gratuityPence: number;
@@ -75,6 +82,8 @@ export interface ReceiptIntake {
   mealContext: MealContext | null;
   category: ExpenseCategory | null;
   tripId: string | null;
+  tripMatchStatus: "none" | "automatic" | "explicit" | "ambiguous";
+  tripMatchException: string | null;
   lineItems: ReceiptLineItem[];
   confidence: Record<string, number>;
   missingFields: string[];
@@ -82,7 +91,7 @@ export interface ReceiptIntake {
   alcoholSuspected: boolean;
   alcoholReviewed: boolean;
   analysisHistory: AnalysisHistoryEntry[];
-  correctionProvenance: Record<string, "ai" | "owner">;
+  correctionProvenance: Record<string, "ai" | "owner" | "auto">;
   duplicateCandidates: DuplicateCandidate[];
   duplicateReviewed: boolean;
   reconciliationReviewed: boolean;
@@ -117,6 +126,7 @@ export interface BatchDefaults {
 
 export interface LocalUpload {
   id: string;
+  intakeId?: string;
   idempotencyKey: string;
   batchId: string;
   defaults: BatchDefaults;
@@ -137,6 +147,7 @@ export type IntakePatch = Partial<{
   mealContext: MealContext | null;
   category: ExpenseCategory | null;
   tripId: string | null;
+  leaveTripUnlinked: boolean;
   alcoholReviewed: boolean;
   duplicateReviewed: boolean;
   reconciliationReviewed: boolean;

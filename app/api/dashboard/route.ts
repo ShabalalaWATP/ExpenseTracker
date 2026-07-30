@@ -1,11 +1,13 @@
 import { dashboard } from "@/src/server/dashboard";
 import { errorResponse, json } from "@/src/server/http";
 import { requirePrincipal } from "@/src/server/principal";
+import { parsePeriod } from "@/src/server/validation";
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   try {
     const principal = await requirePrincipal();
-    return json(await dashboard(principal));
+    const period = parsePeriod(new URL(request.url).searchParams.get("period") ?? undefined);
+    return json(await dashboard(principal, period));
   } catch (error) {
     return errorResponse(error);
   }

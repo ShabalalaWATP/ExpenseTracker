@@ -168,7 +168,7 @@ export function CalendarView({
               ? "Claim prepared"
               : selectedSupported
                 ? "Add receipt"
-                : "Outside August"}
+                : "Outside claim month"}
           </button>
         }
       />

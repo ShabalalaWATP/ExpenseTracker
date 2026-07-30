@@ -4,10 +4,12 @@ import { EXPENSE_CATEGORIES } from "../domain/expense-categories.ts";
 export const RECEIPT_FIELDS = [
   "merchant",
   "service_date",
+  "transaction_time",
   "receipt_total",
   "eligible_amount",
   "location",
   "business_reason",
+  "meal_context",
   "alcohol",
   "category",
 ] as const;
@@ -26,11 +28,15 @@ export type ExtractedLineItem = {
 export type ReceiptExtraction = {
   merchant: string | null;
   serviceDate: string | null;
+  transactionTime: string | null;
   receiptTotalPence: number | null;
   eligiblePence: number | null;
   gratuityPence: number;
   currency: "GBP" | "UNKNOWN";
+  country: "GB" | "UNKNOWN";
   locationHint: string | null;
+  businessReason: string | null;
+  mealContext: "breakfast" | "lunch" | "dinner" | "snack" | "mixed" | null;
   category: string | null;
   lineItems: ExtractedLineItem[];
   alcoholSuspected: boolean;
@@ -52,11 +58,21 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
       type: ["string", "null"],
       format: "date",
     },
+    transaction_time: {
+      type: ["string", "null"],
+      pattern: "^([01]\\d|2[0-3]):[0-5]\\d$",
+    },
     receipt_total_pence: nullableInteger,
     eligible_pence: nullableInteger,
     gratuity_pence: { type: "integer", minimum: 0 },
     currency: { type: "string", enum: ["GBP", "UNKNOWN"] },
+    country: { type: "string", enum: ["GB", "UNKNOWN"] },
     location_hint: nullableString,
+    business_reason: nullableString,
+    meal_context: {
+      type: ["string", "null"],
+      enum: ["breakfast", "lunch", "dinner", "snack", "mixed", null],
+    },
     category: {
       type: ["string", "null"],
       enum: [...EXPENSE_CATEGORIES, null],
@@ -100,9 +116,12 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
       properties: {
         merchant: { type: "number", minimum: 0, maximum: 1 },
         service_date: { type: "number", minimum: 0, maximum: 1 },
+        transaction_time: { type: "number", minimum: 0, maximum: 1 },
         receipt_total: { type: "number", minimum: 0, maximum: 1 },
         eligible_amount: { type: "number", minimum: 0, maximum: 1 },
         location: { type: "number", minimum: 0, maximum: 1 },
+        business_reason: { type: "number", minimum: 0, maximum: 1 },
+        meal_context: { type: "number", minimum: 0, maximum: 1 },
         gratuity: { type: "number", minimum: 0, maximum: 1 },
         line_items: { type: "number", minimum: 0, maximum: 1 },
         category: { type: "number", minimum: 0, maximum: 1 },
@@ -110,9 +129,12 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
       required: [
         "merchant",
         "service_date",
+        "transaction_time",
         "receipt_total",
         "eligible_amount",
         "location",
+        "business_reason",
+        "meal_context",
         "gratuity",
         "line_items",
         "category",
@@ -122,11 +144,15 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
   required: [
     "merchant",
     "service_date",
+    "transaction_time",
     "receipt_total_pence",
     "eligible_pence",
     "gratuity_pence",
     "currency",
+    "country",
     "location_hint",
+    "business_reason",
+    "meal_context",
     "category",
     "line_items",
     "alcohol_suspected",
@@ -176,6 +202,46 @@ function validDate(value: unknown): string | null {
     : null;
 }
 
+export function normaliseTransactionTime(value: unknown): string | null {
+  return typeof value === "string" &&
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+    ? value
+    : null;
+}
+
+const MEAL_CONTEXTS = [
+  "breakfast",
+  "lunch",
+  "dinner",
+  "snack",
+  "mixed",
+] as const;
+
+type MealContext = (typeof MEAL_CONTEXTS)[number];
+
+function normaliseMealContext(value: unknown): MealContext | null {
+  return typeof value === "string" &&
+    (MEAL_CONTEXTS as readonly string[]).includes(value)
+    ? (value as MealContext)
+    : null;
+}
+
+export function mealContextFromTime(
+  category: string | null,
+  transactionTime: string | null,
+  suggested: unknown = null,
+): MealContext | null {
+  if (category !== "food") return null;
+  if (!transactionTime) return normaliseMealContext(suggested);
+  const minutes =
+    Number(transactionTime.slice(0, 2)) * 60 +
+    Number(transactionTime.slice(3, 5));
+  if (minutes >= 5 * 60 && minutes < 11 * 60) return "breakfast";
+  if (minutes >= 11 * 60 && minutes < 16 * 60) return "lunch";
+  if (minutes >= 16 * 60 && minutes < 23 * 60) return "dinner";
+  return "snack";
+}
+
 export function normaliseExtraction(input: unknown): ReceiptExtraction {
   const value =
     input && typeof input === "object"
@@ -186,19 +252,29 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
     value.confidence && typeof value.confidence === "object"
       ? (value.confidence as Record<string, unknown>)
       : {};
+  const category =
+    typeof value.category === "string" &&
+    (EXPENSE_CATEGORIES as readonly string[]).includes(value.category)
+      ? value.category
+      : null;
+  const transactionTime = normaliseTransactionTime(value.transaction_time);
   return {
     merchant: optionalText(value.merchant),
     serviceDate: validDate(value.service_date),
+    transactionTime,
     receiptTotalPence: money(value.receipt_total_pence),
     eligiblePence: money(value.eligible_pence),
     gratuityPence: money(value.gratuity_pence) ?? 0,
     currency: value.currency === "GBP" ? "GBP" : "UNKNOWN",
+    country: value.country === "GB" ? "GB" : "UNKNOWN",
     locationHint: optionalText(value.location_hint),
-    category:
-      typeof value.category === "string" &&
-      (EXPENSE_CATEGORIES as readonly string[]).includes(value.category)
-        ? value.category
-        : null,
+    businessReason: optionalText(value.business_reason),
+    mealContext: mealContextFromTime(
+      category,
+      transactionTime,
+      value.meal_context,
+    ),
+    category,
     lineItems: rawItems.slice(0, 100).map((raw) => {
       const item =
         raw && typeof raw === "object"
@@ -229,9 +305,12 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
     confidence: {
       merchant: confidence(rawConfidence.merchant),
       serviceDate: confidence(rawConfidence.service_date),
+      transactionTime: confidence(rawConfidence.transaction_time),
       receiptTotal: confidence(rawConfidence.receipt_total),
       eligibleAmount: confidence(rawConfidence.eligible_amount),
       location: confidence(rawConfidence.location),
+      businessReason: confidence(rawConfidence.business_reason),
+      mealContext: confidence(rawConfidence.meal_context),
       gratuity: confidence(rawConfidence.gratuity),
       lineItems: confidence(rawConfidence.line_items),
       category: confidence(rawConfidence.category),
@@ -244,11 +323,13 @@ export function clarificationQuestions(fields: readonly string[]): string[] {
   const questions: Partial<Record<ReceiptField, string>> = {
     merchant: "What was the name of the place on this receipt?",
     service_date: "What date was this purchase made?",
+    transaction_time: "What time was this purchase made?",
     receipt_total: "What was the full receipt total?",
     eligible_amount:
       "How much was for your food and non-alcoholic drink only?",
     location: "Where were you when this expense was incurred?",
     business_reason: "Why was this expense necessary for duty?",
+    meal_context: "Was this breakfast, lunch, an evening meal or a snack?",
     alcohol:
       "Does this receipt contain alcohol, and what amount must be excluded?",
     category:

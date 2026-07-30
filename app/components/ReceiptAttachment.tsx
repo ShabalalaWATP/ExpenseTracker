@@ -1,10 +1,62 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState } from "react";
+import { receiptEvidenceUrls } from "@/src/domain/receipt-evidence";
 import { uploadReceipt } from "./api";
+import { normaliseReceipt } from "./receipt-intake/image";
 import type { Expense } from "./types";
 
 const MAX_RECEIPT_BYTES = 20 * 1_048_576;
+
+export function ReceiptEvidence({ expense }: { expense: Expense }) {
+  const [failedExpenseId, setFailedExpenseId] = useState("");
+  const previewFailed = failedExpenseId === expense.id;
+  if (expense.receiptStatus !== "stored") return null;
+  const urls = receiptEvidenceUrls(expense);
+
+  return (
+    <section className="receipt-evidence" aria-labelledby={`receipt-evidence-${expense.id}`}>
+      <div className="receipt-evidence-heading">
+        <div>
+          <p className="eyebrow">Original evidence</p>
+          <h3 id={`receipt-evidence-${expense.id}`}>Receipt photo</h3>
+        </div>
+        <span className="state-label success">Stored</span>
+      </div>
+      <div className="receipt-evidence-preview">
+        {previewFailed ? (
+          <p>
+            This photo cannot be previewed in this browser. The original is
+            still available to download.
+          </p>
+        ) : (
+          <Image
+            src={urls.preview}
+            width={800}
+            height={1100}
+            alt={`Receipt from ${expense.merchant}`}
+            unoptimized
+            onError={() => setFailedExpenseId(expense.id)}
+          />
+        )}
+      </div>
+      <div className="receipt-evidence-actions">
+        <a
+          className="secondary-button"
+          href={urls.preview}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open full size
+        </a>
+        <a className="text-button" href={urls.download} download>
+          Download original
+        </a>
+      </div>
+    </section>
+  );
+}
 
 export function ReceiptAttachment({
   expense,
@@ -29,7 +81,19 @@ export function ReceiptAttachment({
     setError("");
     if (!uploadKey.current) uploadKey.current = crypto.randomUUID();
     try {
-      await uploadReceipt(expense.id, file, uploadKey.current);
+      const needsCompatiblePreview =
+        file.type === "image/heic" ||
+        file.type === "image/heif" ||
+        /\.(?:heic|heif)$/i.test(file.name);
+      const compatiblePreview = needsCompatiblePreview
+        ? await normaliseReceipt(file)
+        : undefined;
+      await uploadReceipt(
+        expense.id,
+        file,
+        uploadKey.current,
+        compatiblePreview,
+      );
       setPending(null);
       uploadKey.current = "";
       setState("idle");

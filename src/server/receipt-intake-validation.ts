@@ -1,6 +1,6 @@
 import { ApiError } from "./http";
-import { isIsoCalendarDate } from "../domain/calendar";
 import { isExpenseCategory } from "../domain/expense-categories";
+import { isReceiptAttested } from "./receipt-attestation";
 import { validDate } from "./validation";
 
 export type IntakeDefaults = {
@@ -13,6 +13,16 @@ export type IntakeDefaults = {
   mealContext: string | null;
   category: string | null;
 };
+
+export function requireReceiptAttestation(value: unknown): void {
+  if (!isReceiptAttested(value)) {
+    throw new ApiError(
+      400,
+      "receipt_attestation_required",
+      "Confirm that you checked the receipt facts before adding the expense.",
+    );
+  }
+}
 
 function decoded(value: string | null, maximum: number): string | null {
   if (!value) return null;
@@ -35,38 +45,21 @@ export function parseIntakeHeaders(headers: Headers): IntakeDefaults {
   if (!batchId || !/^[a-zA-Z0-9-]{8,100}$/.test(batchId)) {
     throw new ApiError(400, "batch_invalid", "The upload batch is invalid.");
   }
-  const mealContext = decoded(headers.get("X-Default-Meal-Context"), 20);
-  if (
-    mealContext &&
-    !["breakfast", "lunch", "dinner", "snack", "mixed"].includes(mealContext)
-  ) {
-    throw new ApiError(400, "meal_context_invalid", "The meal context is invalid.");
-  }
-  const category = decoded(headers.get("X-Default-Category"), 30);
-  if (category && !isExpenseCategory(category)) {
-    throw new ApiError(400, "category_invalid", "The expense category is invalid.");
-  }
   const tripId = decoded(headers.get("X-Default-Trip-Id"), 100);
   if (tripId && !/^[a-zA-Z0-9-]{1,100}$/.test(tripId)) {
     throw new ApiError(400, "trip_invalid", "The selected trip is invalid.");
   }
-  const serviceDate = headers.get("X-Default-Service-Date");
-  if (serviceDate && !isIsoCalendarDate(serviceDate)) {
-    throw new ApiError(
-      400,
-      "validation_failed",
-      "serviceDate must be a real date using YYYY-MM-DD.",
-    );
-  }
   return {
     batchId,
     originalName,
-    serviceDate: serviceDate || null,
-    location: decoded(headers.get("X-Default-Location"), 160),
+    // Facts visible on the receipt are deliberately AI-owned at intake.
+    // Legacy clients cannot mark stale batch defaults as owner corrections.
+    serviceDate: null,
+    location: null,
     businessReason: decoded(headers.get("X-Default-Reason"), 300),
     tripId,
-    mealContext,
-    category,
+    mealContext: null,
+    category: null,
   };
 }
 
@@ -81,6 +74,7 @@ export type IntakePatch = {
   mealContext?: string | null;
   category?: string | null;
   tripId?: string | null;
+  leaveTripUnlinked?: boolean;
   alcoholReviewed?: boolean;
   duplicateReviewed?: boolean;
   reconciliationReviewed?: boolean;
@@ -167,6 +161,24 @@ export function parseIntakePatch(value: unknown): IntakePatch {
         ? null
         : text(input.tripId, "tripId", 100);
   }
+  if ("leaveTripUnlinked" in input) {
+    if (typeof input.leaveTripUnlinked !== "boolean") {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "leaveTripUnlinked must be true or false.",
+      );
+    }
+    result.leaveTripUnlinked = input.leaveTripUnlinked;
+  }
+  if (result.leaveTripUnlinked && result.tripId) {
+    throw new ApiError(
+      400,
+      "validation_failed",
+      "A receipt cannot select a trip and be left unlinked.",
+    );
+  }
+  if (result.leaveTripUnlinked) result.tripId = null;
   if ("alcoholReviewed" in input) {
     if (typeof input.alcoholReviewed !== "boolean") {
       throw new ApiError(

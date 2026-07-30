@@ -133,6 +133,57 @@
   gap: 18px;
 }
 
+.receipt-evidence {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 26px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--teal-soft) 38%, var(--paper-raised));
+  padding: 16px;
+}
+
+.receipt-evidence-heading,
+.receipt-evidence-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.receipt-evidence-heading h3 {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+}
+
+.receipt-evidence-preview {
+  display: grid;
+  min-height: 220px;
+  max-height: 420px;
+  place-items: center;
+  overflow: hidden;
+  background: #101817;
+}
+
+.receipt-evidence-preview img {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: contain;
+}
+
+.receipt-evidence-preview p {
+  max-width: 30ch;
+  margin: 0;
+  padding: 28px;
+  color: #fff;
+  text-align: center;
+}
+
+.receipt-evidence-actions .secondary-button {
+  flex: 1;
+  text-align: center;
+}
+
 .file-button {
   display: grid;
   min-height: 50px;

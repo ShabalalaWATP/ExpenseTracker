@@ -5,7 +5,12 @@ import {
   type PolicyTrip,
 } from "@/src/domain/jsp752";
 import { countsTowardDailyCap } from "@/src/domain/expense-categories";
-import { ukCalendarDate } from "@/src/domain/calendar";
+import { claimPeriodFigures } from "@/src/domain/claim-period";
+import {
+  isIsoCalendarMonth,
+  ukCalendarDate,
+  ukCalendarMonth,
+} from "@/src/domain/calendar";
 import { listClaims } from "./claim-repository";
 import {
   listDeletedExpenses,
@@ -16,19 +21,21 @@ import { listClaimBlockingReceiptIntakes } from "./receipt-intake-repository";
 import type { Principal } from "./principal";
 import { structuredReadinessIssue } from "./readiness-service";
 
-export const CLAIM_PERIOD = "2026-08";
+function periodLabel(period: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${period}-01T00:00:00Z`));
+}
 
-export async function dashboard(principal: Principal) {
-  const [expenses, deletedExpenses, trips, claims, receiptIntakes] =
-    await Promise.all([
-    listExpenses(principal),
-    listDeletedExpenses(principal),
-    listTrips(principal),
-    listClaims(principal),
-    listClaimBlockingReceiptIntakes(principal, CLAIM_PERIOD),
-  ]);
+function policyInputs(
+  expenses: Awaited<ReturnType<typeof listExpenses>>,
+  trips: Awaited<ReturnType<typeof listTrips>>,
+  period: string,
+) {
   const periodExpenses = expenses.filter((expense) =>
-    expense.serviceDate.startsWith(`${CLAIM_PERIOD}-`),
+    expense.serviceDate.startsWith(`${period}-`),
   );
   const policyTrips: PolicyTrip[] = trips.map((trip) => ({
     id: trip.id,
@@ -37,7 +44,7 @@ export async function dashboard(principal: Principal) {
     country: trip.country,
     aggregateElection: trip.aggregateElection,
     days: trip.days
-      .filter((day) => day.date.startsWith(`${CLAIM_PERIOD}-`))
+      .filter((day) => day.date.startsWith(`${period}-`))
       .map((day) => ({
         date: day.date,
         eligible: day.eligible,
@@ -56,30 +63,72 @@ export async function dashboard(principal: Principal) {
     hasReceipt: Boolean(expense.receipt),
     category: expense.category,
   }));
-  const calculation = calculateJsp752(policyTrips, policyExpenses);
+  return {
+    periodExpenses,
+    calculation: calculateJsp752(policyTrips, policyExpenses),
+  };
+}
+
+export async function dashboard(
+  principal: Principal,
+  requestedPeriod = ukCalendarMonth(),
+) {
+  const claimPeriod = isIsoCalendarMonth(requestedPeriod)
+    ? requestedPeriod
+    : ukCalendarMonth();
+  const claimPeriodLabel = periodLabel(claimPeriod);
+  const [expenses, deletedExpenses, trips, claims, receiptIntakes] =
+    await Promise.all([
+    listExpenses(principal),
+    listDeletedExpenses(principal),
+    listTrips(principal),
+    listClaims(principal),
+    listClaimBlockingReceiptIntakes(principal, claimPeriod),
+  ]);
+  const { periodExpenses, calculation } = policyInputs(
+    expenses,
+    trips,
+    claimPeriod,
+  );
+  const pendingPeriodReceipts = receiptIntakes.filter(
+    (intake) => intake.serviceDate?.slice(0, 7) === claimPeriod,
+  );
+  const undatedPendingCount = receiptIntakes.filter(
+    (intake) => !intake.serviceDate,
+  ).length;
+  const periodFigures = claimPeriodFigures(
+    periodExpenses,
+    pendingPeriodReceipts,
+    calculation,
+  );
   const issues = [...calculation.issues];
   for (const intake of receiptIntakes) {
     issues.push({
-      code: "receipt_intake_pending",
-      message: intake.serviceDate
-        ? `Finish reviewing ${intake.merchant || intake.originalName} before preparing August.`
-        : `Finish reviewing ${intake.originalName}; its claim date is not confirmed.`,
+      code:
+        intake.tripMatchStatus === "ambiguous"
+          ? "receipt_trip_ambiguous"
+          : "receipt_intake_pending",
+      message:
+        intake.tripMatchStatus === "ambiguous"
+          ? `${intake.merchant || intake.originalName} matches more than one confirmed eligible trip. Select the correct trip before confirming the expense.`
+          : intake.serviceDate
+            ? `Finish reviewing ${intake.merchant || intake.originalName} before preparing ${claimPeriodLabel}.`
+            : `Finish reviewing ${intake.originalName}; its claim date is not confirmed.`,
       intakeId: intake.id,
     });
   }
   for (const trip of trips) {
     const crossesClaimPeriod =
       trip.aggregateElection &&
-      (trip.startDate.slice(0, 7) !== CLAIM_PERIOD ||
-        trip.endDate.slice(0, 7) !== CLAIM_PERIOD);
+      (trip.startDate.slice(0, 7) !== claimPeriod ||
+        trip.endDate.slice(0, 7) !== claimPeriod);
     const hasPeriodExpense = periodExpenses.some(
       (expense) => expense.tripId === trip.id,
     );
     if (crossesClaimPeriod && hasPeriodExpense) {
       issues.push({
         code: "aggregate_crosses_claim_period",
-        message:
-          "This aggregated trip crosses the August boundary and needs manual review.",
+        message: `This aggregated trip crosses the ${claimPeriodLabel} boundary and needs manual review.`,
         tripId: trip.id,
       });
     }
@@ -87,24 +136,29 @@ export async function dashboard(principal: Principal) {
   if (periodExpenses.length === 0) {
     issues.push({
       code: "expenses_missing",
-      message: "Add at least one August expense before preparing the claim.",
+      message: `Add at least one confirmed ${claimPeriodLabel} expense before preparing the claim.`,
     });
   } else if (calculation.claimablePence === 0 && calculation.issues.length === 0) {
     issues.push({
       code: "claimable_spend_missing",
-      message: "There is no claimable actual spend in August.",
+      message: `There is no claimable confirmed spend in ${claimPeriodLabel}.`,
     });
   }
   const todayDate = ukCalendarDate();
+  const todayPeriod = todayDate.slice(0, 7);
+  const todayCalculation =
+    todayPeriod === claimPeriod
+      ? calculation
+      : policyInputs(expenses, trips, todayPeriod).calculation;
   // The today block reports the daily subsistence allowance, so only
   // food-category spend belongs in it; travel is claimed at actuals.
-  const todayExpenses = periodExpenses.filter(
+  const todayExpenses = expenses.filter(
     (expense) =>
       expense.serviceDate === todayDate &&
       countsTowardDailyCap(expense.category),
   );
   const todayExpenseIds = new Set(todayExpenses.map((expense) => expense.id));
-  const todayClaimablePence = calculation.lines
+  const todayClaimablePence = todayCalculation.lines
     .filter((line) => todayExpenseIds.has(line.expenseId))
     .reduce((sum, line) => sum + line.claimablePence, 0);
   const lockedPeriods = new Set(claims.map((claim) => claim.period));
@@ -116,7 +170,7 @@ export async function dashboard(principal: Principal) {
   return {
     policy: {
       ...JSP_752_POLICY,
-      period: CLAIM_PERIOD,
+      period: claimPeriod,
     },
     today: {
       date: todayDate,
@@ -144,7 +198,7 @@ export async function dashboard(principal: Principal) {
     trips,
     claims,
     summary: {
-      period: CLAIM_PERIOD,
+      period: claimPeriod,
       totalReceiptPence: calculation.totalSpendPence,
       totalExpensesPence: calculation.totalSpendPence,
       totalEligiblePence: periodExpenses.reduce(
@@ -154,13 +208,14 @@ export async function dashboard(principal: Principal) {
       totalGratuityPence: calculation.totalGratuityPence,
       qualifyingActualPence: calculation.qualifyingActualPence,
       allowancePence: calculation.allowancePence,
-      claimablePence: calculation.claimablePence,
       excessPence: Math.max(
         0,
         calculation.qualifyingActualPence - calculation.claimablePence,
       ),
       expenseCount: periodExpenses.length,
       receiptCount: periodExpenses.filter((expense) => expense.receipt).length,
+      undatedPendingCount,
+      ...periodFigures,
     },
     readiness: {
       ready: issues.length === 0,

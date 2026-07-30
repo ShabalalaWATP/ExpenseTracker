@@ -11,7 +11,7 @@ export function initialBatchDefaultState(seed: string): BatchDefaultState {
   return {
     seed,
     value: {
-      serviceDate: seed,
+      serviceDate: "",
       location: "",
       businessReason: "",
       tripId: "",
@@ -25,9 +25,8 @@ export function currentBatchDefaults(
   state: BatchDefaultState,
   seed: string,
 ): BatchDefaults {
-  return state.seed === seed
-    ? state.value
-    : { ...state.value, serviceDate: seed };
+  void seed;
+  return state.value;
 }
 
 export function uploadIdentifier(): string {

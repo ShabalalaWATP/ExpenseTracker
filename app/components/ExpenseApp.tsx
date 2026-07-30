@@ -36,7 +36,14 @@ export function ExpenseApp() {
   const [captureDate, setCaptureDate] = useState("");
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [status, setStatus] = useState("");
-  const { data, error, loading, refresh } = useDashboard();
+  const {
+    data,
+    error,
+    loading,
+    refresh,
+    claimPeriod,
+    setClaimPeriod,
+  } = useDashboard();
   const errorRef = useRef<HTMLDivElement>(null);
   const settingsReturnView = useRef<ViewName>("capture");
 
@@ -197,7 +204,7 @@ export function ExpenseApp() {
       calendar: (
         <CalendarView
           expenses={data.expenses}
-          initialDate="2026-08-01"
+          initialDate={`${claimPeriod}-01`}
           initialMode="month"
           lockedPeriods={data.claims.flatMap((claim) =>
             claim.period ? [claim.period] : [],
@@ -207,7 +214,7 @@ export function ExpenseApp() {
           onCreateTripRange={(startDate, endDate) =>
             navigateTarget({ view: "trips", startDate, endDate })
           }
-          supportedPeriod="2026-08"
+          supportedPeriod={claimPeriod}
         />
       ),
       expenses: <ExpensesView data={data} navigate={navigate} onChanged={changed} />,
@@ -220,7 +227,16 @@ export function ExpenseApp() {
           onChanged={changed}
         />
       ),
-      claims: <ClaimsView data={data} navigate={navigate} navigateTarget={navigateTarget} onChanged={changed} />,
+      claims: (
+        <ClaimsView
+          data={data}
+          navigate={navigate}
+          navigateTarget={navigateTarget}
+          onChanged={changed}
+          claimPeriod={claimPeriod}
+          onClaimPeriodChange={setClaimPeriod}
+        />
+      ),
       settings: <SettingsView onClose={closeSettings} />,
     };
     content = (
@@ -242,7 +258,7 @@ export function ExpenseApp() {
             onClose={() => {
               setSelectedExpense(null);
               if (target.expenseId) {
-                const next = { view: "expenses" as const };
+                const next = { view: target.view };
                 setTarget(next);
                 setView(next.view);
                 replaceNavigationTarget(window.history, next);

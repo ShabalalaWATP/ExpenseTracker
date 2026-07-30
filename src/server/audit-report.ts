@@ -4,6 +4,7 @@ import {
   type PolicyExpense,
   type PolicyTrip,
 } from "@/src/domain/jsp752";
+import { getReceiptsBucket } from "@/db";
 import {
   auditRangeIssue,
   MAX_AUDIT_QUESTIONS,
@@ -20,10 +21,26 @@ import { listClaims } from "./claim-repository";
 import { database } from "./db";
 import { listExpenses } from "./expense-repository";
 import { auditLedgerReview } from "./audit-ai";
+import {
+  loadAuditReceiptEvidence,
+  type AuditReceiptRecord,
+} from "./audit-receipt-evidence";
 import type { Principal } from "./principal";
 import { listTrips } from "./trip-repository";
+import { directReceiptPreviewObjectKey } from "@/src/domain/receipt-evidence";
 
 const MAX_TEXT = 2_000;
+
+type AuditReceiptRow = {
+  id: string;
+  owner_id: string;
+  expense_id: string;
+  object_key: string;
+  content_type: string;
+  byte_size: number;
+  sha256: string;
+  analysis_object_key: string | null;
+};
 
 function boundedText(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.trim().slice(0, MAX_TEXT) : fallback;
@@ -214,6 +231,57 @@ export async function planAuditReport(principal: Principal, range: AuditRange) {
   };
 }
 
+async function auditReceiptRecords(
+  principal: Principal,
+  expenseIds: readonly string[],
+): Promise<Map<string, AuditReceiptRecord>> {
+  const rows: AuditReceiptRow[] = [];
+  for (let offset = 0; offset < expenseIds.length; offset += 99) {
+    const chunk = expenseIds.slice(offset, offset + 99);
+    const placeholders = chunk.map(() => "?").join(",");
+    const result = await database()
+      .prepare(
+        `SELECT
+           r.id, r.owner_id, r.expense_id, r.object_key, r.content_type,
+           r.byte_size, r.sha256,
+           (
+             SELECT ri.analysis_object_key
+             FROM receipt_intakes ri
+             WHERE ri.owner_id = r.owner_id
+               AND ri.expense_id = r.expense_id
+               AND ri.analysis_object_key IS NOT NULL
+             ORDER BY ri.updated_at DESC
+             LIMIT 1
+           ) AS analysis_object_key
+         FROM receipts r
+         WHERE r.owner_id = ? AND r.expense_id IN (${placeholders})`,
+      )
+      .bind(principal.ownerId, ...chunk)
+      .all<AuditReceiptRow>();
+    rows.push(...result.results);
+  }
+  return new Map(
+    rows.map((row) => [
+      row.expense_id,
+      {
+        receiptId: row.id,
+        ownerId: row.owner_id,
+        expenseId: row.expense_id,
+        objectKey: row.object_key,
+        contentType: row.content_type,
+        byteSize: row.byte_size,
+        sha256: row.sha256,
+        analysisObjectKey:
+          row.analysis_object_key ??
+          (row.content_type === "image/heic" ||
+          row.content_type === "image/heif"
+            ? directReceiptPreviewObjectKey(row.owner_id, row.id)
+            : null),
+      },
+    ]),
+  );
+}
+
 export async function generateAuditReport(
   principal: Principal,
   input: {
@@ -225,6 +293,16 @@ export async function generateAuditReport(
 ) {
   const data = await auditRangeData(principal, input.range);
   const rules = ruleFindings(data.expenses, data.calculation);
+  const receiptRecords = await auditReceiptRecords(
+    principal,
+    data.expenses.map((expense) => expense.id),
+  );
+  const evidence = await loadAuditReceiptEvidence(
+    principal.ownerId,
+    data.expenses,
+    receiptRecords,
+    getReceiptsBucket(),
+  );
   const bytes = composeAuditDocx({
     ownerEmail: principal.email,
     range: input.range,
@@ -237,6 +315,7 @@ export async function generateAuditReport(
     answers: input.answers,
     ai: input.ai,
     createdAt: new Date(),
+    evidence,
   });
   await database()
     .batch([
@@ -248,6 +327,12 @@ export async function generateAuditReport(
           expenseCount: data.expenses.length,
           questionCount: input.questions.length,
           aiAssisted: input.ai.used,
+          embeddedReceiptCount: evidence.filter(
+            (item) => item.status === "embedded",
+          ).length,
+          excludedReceiptCount: evidence.filter(
+            (item) => item.status !== "embedded",
+          ).length,
         },
       }),
     ])

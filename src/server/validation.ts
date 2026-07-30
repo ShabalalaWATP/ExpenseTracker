@@ -3,6 +3,7 @@ import {
   isExpenseCategory,
   type ExpenseCategory,
 } from "@/src/domain/expense-categories";
+import { isIsoCalendarMonth, ukCalendarMonth } from "@/src/domain/calendar";
 import { ApiError } from "./http";
 
 export type ExpenseWrite = {
@@ -236,10 +237,14 @@ export function assertId(value: string): string {
   return value;
 }
 
-export function parsePeriod(value: unknown): "2026-08" {
-  const period = value === undefined ? "2026-08" : value;
-  if (period !== "2026-08") {
-    throw new ApiError(400, "validation_failed", "Only the August 2026 claim is supported.");
+export function parsePeriod(value: unknown): string {
+  const period = value === undefined ? ukCalendarMonth() : value;
+  if (!isIsoCalendarMonth(period)) {
+    throw new ApiError(
+      400,
+      "validation_failed",
+      "Claim period must use a valid YYYY-MM month.",
+    );
   }
   return period;
 }

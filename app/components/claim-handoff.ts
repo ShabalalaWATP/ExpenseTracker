@@ -6,9 +6,12 @@ export function claimDescription(expense: Expense): string {
     .join(". ");
 }
 
-export function augustClaimExpenses(expenses: readonly Expense[]): Expense[] {
+export function claimPeriodExpenses(
+  expenses: readonly Expense[],
+  period: string,
+): Expense[] {
   return expenses
-    .filter((expense) => expense.date.startsWith("2026-08"))
+    .filter((expense) => expense.date.startsWith(`${period}-`))
     .sort((a, b) =>
       a.date === b.date
         ? a.merchant.localeCompare(b.merchant, "en-GB")
@@ -16,8 +19,11 @@ export function augustClaimExpenses(expenses: readonly Expense[]): Expense[] {
     );
 }
 
-export function claimHandoffText(expenses: readonly Expense[]): string {
-  return augustClaimExpenses(expenses)
+export function claimHandoffText(
+  expenses: readonly Expense[],
+  period: string,
+): string {
+  return claimPeriodExpenses(expenses, period)
     .map(
       (expense) =>
         `${expense.date} · ${expense.merchant}\n${claimDescription(expense)}`,

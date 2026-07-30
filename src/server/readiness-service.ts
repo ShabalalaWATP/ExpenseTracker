@@ -17,6 +17,7 @@ export function structuredReadinessIssue(
     "eligibility_unconfirmed",
     "aggregate_period_overlap",
     "aggregate_crosses_claim_period",
+    "receipt_trip_ambiguous",
   ]).has(code);
   const category =
     code.includes("receipt") || issue.intakeId
@@ -40,9 +41,10 @@ export function structuredReadinessIssue(
   const title = {
     receipt_intake_pending: "Finish receipt review",
     receipt_missing: "Add receipt evidence",
-    expenses_missing: "Add an August receipt",
+    expenses_missing: "Add a receipt for this month",
     claimable_spend_missing: "Review eligible spend",
     aggregate_crosses_claim_period: "Review trip dates",
+    receipt_trip_ambiguous: "Choose the matching trip",
   }[code] ?? "Resolve claim detail";
   const entity = issue.intakeId || issue.expenseId || issue.tripId || issue.date;
   return {

@@ -52,7 +52,7 @@ export async function openAiRequest(
       503,
       "openai_unavailable",
       purpose === "voice"
-        ? "Voice is temporarily unavailable. Type the receipt detail instead."
+        ? "Voice is temporarily unavailable. Use the manual form instead."
         : "AI processing is temporarily unavailable. Review the receipt manually or retry.",
     );
   }
@@ -64,7 +64,7 @@ export async function openAiRequest(
       response.status === 429
         ? "AI is busy. Wait briefly, then retry."
         : purpose === "voice"
-          ? "Voice could not start. Type the receipt detail instead."
+          ? "Voice could not start. Use the manual form instead."
           : purpose === "audit"
             ? "The AI ledger review failed. The report continues with rule-based checks."
             : "AI could not analyse this receipt. Review it manually or retry.",
@@ -158,6 +158,13 @@ export async function createRealtimeClientSecret(
   const config = runtimeConfig();
   const fields = questions.map((question, index) => `${index + 1}. ${question}`);
   const toolField = clarificationToolField(field);
+  if (!toolField) {
+    throw new ApiError(
+      409,
+      "clarification_not_supported",
+      "Type this receipt detail instead.",
+    );
+  }
   const response = await openAiRequest(
     "/realtime/client_secrets",
     {
@@ -219,11 +226,11 @@ export async function createRealtimeClientSecret(
 function clarificationToolField(field: ReceiptField): {
   name: string;
   schema: Record<string, unknown>;
-} {
-  const fields: Record<
+} | null {
+  const fields: Partial<Record<
     ReceiptField,
     { name: string; schema: Record<string, unknown> }
-  > = {
+  >> = {
     merchant: { name: "merchant", schema: { type: "string", minLength: 1 } },
     service_date: {
       name: "serviceDate",
@@ -254,5 +261,5 @@ function clarificationToolField(field: ReceiptField): {
       },
     },
   };
-  return fields[field];
+  return fields[field] ?? null;
 }

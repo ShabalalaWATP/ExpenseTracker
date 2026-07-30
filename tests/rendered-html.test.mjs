@@ -46,7 +46,7 @@ test("builds the ExpenseTracker worker and branded client assets", async () => {
   );
   await access(
     new URL(
-      "../dist/.openai/drizzle/0005_rapid_slapstick.sql",
+      "../dist/.openai/drizzle/0006_parched_prism.sql",
       import.meta.url,
     ),
   );

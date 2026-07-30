@@ -52,7 +52,11 @@ export async function createClaimSnapshot(
     .bind(principal.ownerId, input.period)
     .first<{ id: string }>();
   if (existing) {
-    throw new ApiError(409, "claim_exists", "The August claim has already been prepared.");
+    throw new ApiError(
+      409,
+      "claim_exists",
+      `The ${input.period} claim has already been prepared.`,
+    );
   }
   const id = crypto.randomUUID();
   const snapshotJson = JSON.stringify({

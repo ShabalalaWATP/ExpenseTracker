@@ -11,6 +11,17 @@ export function isIsoCalendarDate(value: unknown): value is string {
   );
 }
 
+export function isIsoCalendarMonth(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}-01T00:00:00Z`);
+  return (
+    !Number.isNaN(parsed.valueOf()) &&
+    parsed.toISOString().slice(0, 7) === value
+  );
+}
+
 export function claimableAmountIndex(lines: unknown): Map<string, number> {
   const result = new Map<string, number>();
   if (!Array.isArray(lines)) return result;
@@ -41,4 +52,8 @@ export function ukCalendarDate(at = new Date()): string {
       .map((part) => [part.type, part.value]),
   );
   return `${value.year}-${value.month}-${value.day}`;
+}
+
+export function ukCalendarMonth(at = new Date()): string {
+  return ukCalendarDate(at).slice(0, 7);
 }

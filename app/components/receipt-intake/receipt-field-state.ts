@@ -2,15 +2,20 @@ import type { ReceiptIntake } from "./types";
 
 const fieldName: Record<string, string> = {
   serviceDate: "service_date",
+  transactionTime: "transaction_time",
   receiptTotalPence: "receipt_total",
   eligiblePence: "eligible_amount",
   businessReason: "business_reason",
+  mealContext: "meal_context",
 };
 
 const confidenceName: Record<string, string[]> = {
   serviceDate: ["serviceDate", "service_date"],
+  transactionTime: ["transactionTime", "transaction_time"],
   receiptTotalPence: ["receiptTotal", "receipt_total"],
   eligiblePence: ["eligibleAmount", "eligible_amount"],
+  businessReason: ["businessReason", "business_reason"],
+  mealContext: ["mealContext", "meal_context"],
 };
 
 export function fieldFlagged(

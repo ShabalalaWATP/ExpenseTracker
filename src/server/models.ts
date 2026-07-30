@@ -62,14 +62,16 @@ export type ClaimRow = {
   submitted_at: string | null;
 };
 
-export function mapReceipt(row: ReceiptRow) {
+export function mapReceipt(row: ReceiptRow, expenseId?: string) {
   if (!row.receipt_id) return null;
   return {
     id: row.receipt_id,
     contentType: row.content_type!,
     byteSize: row.byte_size!,
     createdAt: row.receipt_created_at!,
-    url: `/api/receipts/${row.receipt_id}`,
+    url: expenseId
+      ? `/api/expenses/${expenseId}/receipt`
+      : `/api/receipts/${row.receipt_id}`,
   };
 }
 
@@ -94,7 +96,7 @@ export function mapExpense(row: ExpenseRow) {
     deletedAt: row.deleted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    receipt: mapReceipt(row),
+    receipt: mapReceipt(row, row.id),
   };
 }
 

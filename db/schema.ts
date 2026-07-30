@@ -251,6 +251,8 @@ export const receiptIntakes = sqliteTable(
     }),
     errorCode: text("error_code"),
     errorMessage: text("error_message"),
+    autoConfirmToken: text("auto_confirm_token"),
+    autoConfirmLeaseExpiresAt: timestamp("auto_confirm_lease_expires_at"),
     createdAt: timestamp("created_at"),
     updatedAt: timestamp("updated_at"),
   },
@@ -279,6 +281,29 @@ export const receiptIntakes = sqliteTable(
     index("receipt_intakes_owner_batch_idx").on(
       table.ownerId,
       table.batchId,
+    ),
+  ],
+);
+
+export const receiptAutoConfirmReservations = sqliteTable(
+  "receipt_auto_confirm_reservations",
+  {
+    ownerId: ownerId(),
+    fingerprint: text().notNull(),
+    receiptIntakeId: text("receipt_intake_id")
+      .notNull()
+      .references(() => receiptIntakes.id, { onDelete: "cascade" }),
+    leaseToken: text("lease_token").notNull(),
+    createdAt: timestamp("created_at"),
+  },
+  (table) => [
+    uniqueIndex("receipt_auto_confirm_reservations_owner_fingerprint_uidx").on(
+      table.ownerId,
+      table.fingerprint,
+    ),
+    uniqueIndex("receipt_auto_confirm_reservations_owner_intake_uidx").on(
+      table.ownerId,
+      table.receiptIntakeId,
     ),
   ],
 );

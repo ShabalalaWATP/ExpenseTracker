@@ -8,7 +8,7 @@ import { ReceiptAttachment } from "./ReceiptAttachment";
 import { categoryLabel, type DashboardData, type Expense, type ViewName } from "./types";
 import { EmptyState, StatusMessage, ViewHeader } from "./ui";
 
-type Filter = "all" | "august" | "needs-receipt" | "ready" | "deleted";
+type Filter = "all" | "claim-month" | "needs-receipt" | "ready" | "deleted";
 
 export function ExpensesView({
   data,
@@ -29,7 +29,10 @@ export function ExpensesView({
     const source = filter === "deleted" ? data.deletedExpenses : data.expenses;
     return source
       .filter((expense) => {
-        if (filter === "august" && !expense.date.startsWith("2026-08")) return false;
+        if (
+          filter === "claim-month" &&
+          !expense.date.startsWith(`${data.claimPeriod}-`)
+        ) return false;
         if (filter === "needs-receipt" && expense.receiptStatus === "stored") return false;
         if (
           filter === "ready" &&
@@ -49,7 +52,14 @@ export function ExpensesView({
         ].some((value) => value?.toLocaleLowerCase("en-GB").includes(needle));
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [data.attention, data.deletedExpenses, data.expenses, filter, query]);
+  }, [
+    data.attention,
+    data.claimPeriod,
+    data.deletedExpenses,
+    data.expenses,
+    filter,
+    query,
+  ]);
 
   async function restore(id: string) {
     setRestoring(id);
@@ -83,7 +93,7 @@ export function ExpensesView({
         <div className="filter-group" role="group" aria-label="Filter expenses">
           {([
             ["all", "All"],
-            ["august", "August"],
+            ["claim-month", "Claim month"],
             ["needs-receipt", "Needs receipt"],
             ["ready", "Ready"],
             ["deleted", `Deleted (${data.deletedExpenses.length})`],
@@ -110,7 +120,7 @@ export function ExpensesView({
                 </span>
                 <div className="money-stack"><strong>{formatMoney(expense.eligibleAmountPence)}</strong>{expense.receiptTotalPence !== expense.eligibleAmountPence ? <small>of {formatMoney(expense.receiptTotalPence)}</small> : null}</div>
                 <div className="row-actions">
-                  {expense.receiptStatus === "stored" ? <a className="round-button" href={expense.receiptUrl ?? `/api/expenses/${encodeURIComponent(expense.id)}/receipt`} target="_blank" rel="noreferrer" aria-label={`View receipt for ${expense.merchant}`}>↗</a> : null}
+                  {expense.receiptStatus === "stored" ? <button className="round-button" type="button" onClick={() => setSelected(expense)} aria-label={`View receipt for ${expense.merchant}`}>↗</button> : null}
                   {filter !== "deleted" && expense.receiptStatus !== "stored" ? (
                     <ReceiptAttachment
                       expense={expense}

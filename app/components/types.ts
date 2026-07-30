@@ -95,6 +95,7 @@ export interface Claim {
 }
 
 export interface DashboardData {
+  claimPeriod: string;
   date?: string;
   dailyCapPence: number;
   spentTodayPence: number;
@@ -103,6 +104,13 @@ export interface DashboardData {
   actualPence: number;
   claimablePence: number;
   excessPence: number;
+  pendingReceiptCount: number;
+  pendingEstimatedEligiblePence: number;
+  undatedPendingCount: number;
+  confirmedEligiblePence: number;
+  policyEligiblePence: number;
+  overLimitPence: number;
+  blockedConfirmedPence: number;
   claimReady: boolean;
   attention: Array<{
     id: string;

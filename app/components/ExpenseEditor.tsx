@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { deleteExpense, updateExpense } from "./api";
 import { parsePence, penceInput } from "./format";
+import { ReceiptEvidence } from "./ReceiptAttachment";
 import {
   EXPENSE_CATEGORY_OPTIONS,
   type Expense,
@@ -114,6 +115,7 @@ export function ExpenseEditor({
         </div>
         <button className="round-button" type="button" onClick={onClose} aria-label="Close editor">×</button>
       </div>
+      <ReceiptEvidence expense={expense} />
       {expense.locked ? (
         <StatusMessage tone="warning">Prepared claim records are frozen. Prepare a correction rather than changing this item.</StatusMessage>
       ) : (

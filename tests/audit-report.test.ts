@@ -42,6 +42,26 @@ const auditExpense = (
   ...overrides,
 });
 
+function testPng(width = 1, height = 2): Uint8Array {
+  const bytes = new Uint8Array(24);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  bytes.set([0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52], 8);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return bytes;
+}
+
+function testJpeg(width = 1, height = 2): Uint8Array {
+  const bytes = new Uint8Array(21);
+  bytes.set([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8]);
+  bytes[7] = height >> 8;
+  bytes[8] = height & 0xff;
+  bytes[9] = width >> 8;
+  bytes[10] = width & 0xff;
+  return bytes;
+}
+
 describe("audit range validation", () => {
   it("accepts an ordered range and rejects a reversed one", () => {
     assert.equal(auditRangeIssue("2026-08-01", "2026-08-31"), null);
@@ -155,6 +175,20 @@ describe("Word report generation", () => {
       answers: { "rule-receipt-a": "The paper original is filed with the unit HR office." },
       ai: { used: true, model: "gpt-5.6-sol", summary: "Ledger looks broadly consistent." },
       createdAt: new Date("2026-09-01T09:00:00Z"),
+      evidence: [
+        {
+          expenseId: "a",
+          status: "embedded",
+          detail: "Embedded from the secure JPEG/PNG analysis copy.",
+          image: {
+            bytes: testPng(),
+            contentType: "image/png",
+            widthPx: 1,
+            heightPx: 2,
+            source: "analysis",
+          },
+        },
+      ],
     });
     const text = new TextDecoder("latin1").decode(bytes);
     assert.ok(text.includes("The paper original is filed with the unit HR office."));
@@ -162,5 +196,82 @@ describe("Word report generation", () => {
     assert.ok(text.includes("&lt;script&gt;"));
     assert.ok(!text.includes("<script>"));
     assert.ok(text.includes("Ledger looks broadly consistent."));
+    assert.ok(text.includes("Receipt evidence appendix"));
+    assert.ok(text.includes("word/media/receipt-1.png"));
+    assert.ok(text.includes('Target="media/receipt-1.png"'));
+    assert.ok(text.includes('r:embed="rIdImage1"'));
+    assert.ok(text.includes('cx="9525" cy="19050"'));
+  });
+
+  it("states why unsupported receipt evidence is not embedded", () => {
+    const bytes = composeAuditDocx({
+      ownerEmail: "owner@example.com",
+      range: { startDate: "2026-08-01", endDate: "2026-08-31" },
+      expenses: [auditExpense("heic")],
+      claims: [],
+      calculation: calculation(),
+      policyVersion: "JSP-752-v66.1",
+      observations: [],
+      questions: [],
+      answers: {},
+      ai: { used: false, model: "", summary: "" },
+      createdAt: new Date("2026-09-01T09:00:00Z"),
+      evidence: [
+        {
+          expenseId: "heic",
+          status: "heic",
+          detail:
+            "The original is HEIC/HEIF and no JPEG or PNG analysis copy is available.",
+        },
+      ],
+    });
+    const text = new TextDecoder("latin1").decode(bytes);
+    assert.ok(text.includes("Image not embedded"));
+    assert.ok(text.includes("HEIC/HEIF"));
+    assert.ok(!text.includes("word/media/receipt-1"));
+  });
+
+  it("labels a HEIC browser derivative as non-authoritative while registering the original hash", () => {
+    const originalHash = "a".repeat(64);
+    const bytes = composeAuditDocx({
+      ownerEmail: "owner@example.com",
+      range: { startDate: "2026-08-01", endDate: "2026-08-31" },
+      expenses: [auditExpense("heic-preview")],
+      claims: [],
+      calculation: calculation(),
+      policyVersion: "JSP-752-v66.1",
+      observations: [],
+      questions: [],
+      answers: {},
+      ai: { used: false, model: "", summary: "" },
+      createdAt: new Date("2026-09-01T09:00:00Z"),
+      evidence: [
+        {
+          expenseId: "heic-preview",
+          status: "embedded",
+          detail:
+            `Immutable original: image/heic, 1234 bytes, SHA-256 ${originalHash}. ` +
+            "The embedded JPEG is an owner-supplied browser-created preview, linked to that SHA-256 in secure storage metadata; it is non-authoritative and is not the immutable original.",
+          original: {
+            contentType: "image/heic",
+            byteSize: 1234,
+            sha256: originalHash,
+          },
+          image: {
+            bytes: testJpeg(),
+            contentType: "image/jpeg",
+            widthPx: 1,
+            heightPx: 2,
+            source: "owner_preview",
+          },
+        },
+      ],
+    });
+    const text = new TextDecoder("latin1").decode(bytes);
+    assert.ok(text.includes("Immutable original"));
+    assert.ok(text.includes(`SHA-256 ${originalHash}`));
+    assert.ok(text.includes("Owner-supplied browser-created JPEG preview"));
+    assert.ok(text.includes("non-authoritative; not the immutable original"));
+    assert.ok(text.includes("word/media/receipt-1.jpg"));
   });
 });

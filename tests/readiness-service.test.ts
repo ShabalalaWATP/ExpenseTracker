@@ -34,3 +34,18 @@ test("receipt blockers still open the affected expense", () => {
     expenseId: "expense-1",
   });
 });
+
+test("ambiguous receipt trip matches open the intake with a specific title", () => {
+  const issue = structuredReadinessIssue(
+    {
+      code: "receipt_trip_ambiguous",
+      intakeId: "intake-1",
+    },
+    0,
+  );
+  assert.equal(issue.title, "Choose the matching trip");
+  assert.deepEqual(issue.target, {
+    view: "capture",
+    intakeId: "intake-1",
+  });
+});

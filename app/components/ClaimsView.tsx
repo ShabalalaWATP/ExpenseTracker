@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { receiptEvidenceUrls } from "../../src/domain/receipt-evidence";
 import { prepareClaim, submitClaim } from "./api";
 import { AuditReportPanel } from "./AuditReportPanel";
 import { ClaimPackageDownloads } from "./ClaimPackageDownloads";
 import {
-  augustClaimExpenses,
+  claimPeriodExpenses,
   claimDescription,
   claimHandoffText,
 } from "./claim-handoff";
@@ -18,20 +19,29 @@ export function ClaimsView({
   navigate,
   navigateTarget,
   onChanged,
+  claimPeriod,
+  onClaimPeriodChange,
 }: {
   data: DashboardData;
   navigate: (view: ViewName) => void;
   navigateTarget: (target: NavigationTarget) => void;
   onChanged: () => Promise<void>;
+  claimPeriod: string;
+  onClaimPeriodChange: (period: string) => void;
 }) {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState("");
+  const claimPeriodLabel = new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${claimPeriod}-01T00:00:00Z`));
   const currentClaim = [...data.claims]
-    .filter((claim) => !claim.period || claim.period === "2026-08")
+    .filter((claim) => !claim.period || claim.period === claimPeriod)
     .sort((a, b) => (b.preparedAt ?? "").localeCompare(a.preparedAt ?? ""))[0];
-  const handoffExpenses = augustClaimExpenses(data.expenses);
+  const handoffExpenses = claimPeriodExpenses(data.expenses, claimPeriod);
 
   async function copy(text: string, label: string) {
     setError("");
@@ -48,8 +58,8 @@ export function ClaimsView({
     setError("");
     setMessage("");
     try {
-      await prepareClaim();
-      setMessage("The August claim snapshot is prepared and its figures are now frozen.");
+      await prepareClaim(claimPeriod);
+      setMessage(`${claimPeriodLabel} is prepared and its figures are now frozen.`);
       await onChanged();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The claim could not be prepared.");
@@ -65,7 +75,7 @@ export function ClaimsView({
     setMessage("");
     try {
       await submitClaim(currentClaim.id);
-      setMessage("August has been marked as submitted.");
+      setMessage(`${claimPeriodLabel} has been marked as submitted.`);
       await onChanged();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The claim status could not be updated.");
@@ -77,21 +87,49 @@ export function ClaimsView({
   return (
     <div className="view page-enter">
       <ViewHeader
-        eyebrow="August 2026"
-        title={data.claimReady ? "Ready to prepare" : "Finish these receipts first"}
+        eyebrow={claimPeriodLabel}
+        title={data.claimReady ? "Ready to prepare" : "Finish these checks first"}
         detail="Review the receipt evidence and totals, then freeze a submission snapshot."
       />
+      <div className="claim-period-control">
+        <label htmlFor="claim-period">Claim month</label>
+        <input
+          id="claim-period"
+          type="month"
+          value={claimPeriod}
+          onChange={(event) => {
+            if (/^\d{4}-\d{2}$/.test(event.target.value)) {
+              setMessage("");
+              setError("");
+              onClaimPeriodChange(event.target.value);
+            }
+          }}
+        />
+        <small>All totals and readiness checks below are for this month, not just today.</small>
+      </div>
       {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
       {message ? <StatusMessage tone="success">{message}</StatusMessage> : null}
 
       <section className="claim-totals" aria-labelledby="claim-totals-heading">
         <p className="eyebrow" id="claim-totals-heading">Current calculation</p>
         <dl>
-          <div><dt>Actual eligible spend</dt><dd>{formatMoney(data.actualPence)}</dd></div>
-          <div className="claimable"><dt>Claimable</dt><dd>{formatMoney(data.claimablePence)}</dd></div>
-          <div><dt>Above allowance</dt><dd>{formatMoney(data.excessPence)}</dd></div>
+          <div><dt>Confirmed eligible spend</dt><dd>{formatMoney(data.confirmedEligiblePence)}</dd></div>
+          <div><dt>Eligible after policy checks</dt><dd>{formatMoney(data.policyEligiblePence)}</dd></div>
+          <div className="claimable"><dt>Claimable after allowance</dt><dd>{formatMoney(data.claimablePence)}</dd></div>
+          <div><dt>Over £30 food limit</dt><dd>{formatMoney(data.overLimitPence)}</dd></div>
+          <div><dt>Blocked confirmed spend</dt><dd>{formatMoney(data.blockedConfirmedPence)}</dd></div>
+          <div><dt>Awaiting review (estimate)</dt><dd>{formatMoney(data.pendingEstimatedEligiblePence)}</dd></div>
         </dl>
-        <p>The configured daily limit is applied automatically. Prepared claims keep a fixed copy of the reviewed figures.</p>
+        <p>
+          {data.pendingReceiptCount
+            ? `${data.pendingReceiptCount} receipt${data.pendingReceiptCount === 1 ? " is" : "s are"} still pending for this month. `
+            : "There are no dated pending receipts for this month. "}
+          Pending estimates are shown for visibility but never count as eligible or claimable.
+          {data.undatedPendingCount
+            ? ` ${data.undatedPendingCount} undated receipt${data.undatedPendingCount === 1 ? " also needs" : "s also need"} a confirmed month.`
+            : ""}
+          {" "}Receipts dated outside this month remain with their own claim month.
+        </p>
       </section>
 
       <div className="claims-columns">
@@ -118,19 +156,19 @@ export function ClaimsView({
               <div className="claim-stamp">
                 <span>{currentClaim.status === "submitted" ? "Submitted" : "Prepared"}</span>
                 <strong>{formatMoney(currentClaim.claimablePence)}</strong>
-                <small>{currentClaim.preparedAt ? `Prepared ${formatDate(currentClaim.preparedAt.slice(0, 10))}` : "August 2026"}</small>
+                <small>{currentClaim.preparedAt ? `Prepared ${formatDate(currentClaim.preparedAt.slice(0, 10))}` : claimPeriodLabel}</small>
               </div>
               <ClaimPackageDownloads claimId={currentClaim.id} />
               {currentClaim.status !== "submitted" ? <button className="primary-button full-button" type="button" onClick={() => void markSubmitted()} disabled={busy === "submit"}>{busy === "submit" ? "Updating…" : "Mark as submitted"}</button> : <StatusMessage tone="success">This snapshot is recorded as submitted.</StatusMessage>}
             </>
-          ) : data.expenses.length ? (
+          ) : handoffExpenses.length || data.pendingReceiptCount ? (
             <>
               <p className="handoff-copy">Preparing creates an immutable claim and prevents later recalculation from silently changing these figures.</p>
               <button className="primary-button full-button" type="button" onClick={() => void prepare()} disabled={!data.claimReady || busy === "prepare"}>{busy === "prepare" ? "Preparing…" : "Prepare immutable claim"}</button>
               {!data.claimReady ? <small>Complete the readiness issues first.</small> : null}
             </>
           ) : (
-            <EmptyState title="Nothing to prepare">Add an August expense to begin this claim.</EmptyState>
+            <EmptyState title="Nothing to prepare">Add a receipt dated in {claimPeriodLabel} to begin this claim.</EmptyState>
           )}
         </section>
       </div>
@@ -140,9 +178,9 @@ export function ClaimsView({
           <div className="section-heading">
             <div>
               <p className="eyebrow">Receipt photos and descriptions</p>
-              <h2 id="submission-pack-heading">August submission pack</h2>
+              <h2 id="submission-pack-heading">{claimPeriodLabel} submission pack</h2>
             </div>
-            <button className="text-button" type="button" onClick={() => void copy(claimHandoffText(handoffExpenses), "all")}>
+            <button className="text-button" type="button" onClick={() => void copy(claimHandoffText(handoffExpenses, claimPeriod), "all")}>
               {copied === "all" ? "Copied all" : "Copy all descriptions"}
             </button>
           </div>
@@ -151,6 +189,7 @@ export function ClaimsView({
             {handoffExpenses.map((expense) => {
               const description = claimDescription(expense);
               const receiptUrl = expense.receiptUrl;
+              const evidenceUrls = receiptEvidenceUrls(expense);
               return (
                 <li key={expense.id}>
                   <div>
@@ -162,8 +201,21 @@ export function ClaimsView({
                     <button type="button" className="text-button" disabled={!description} onClick={() => void copy(description, expense.id)}>
                       {copied === expense.id ? "Copied" : "Copy where and why"}
                     </button>
-                    {receiptUrl ? <a className="text-button" href={receiptUrl} target="_blank" rel="noreferrer">View receipt</a> : null}
-                    {receiptUrl ? <a className="text-button" href={`${receiptUrl}?download=1`}>Download photo</a> : null}
+                    {receiptUrl ? (
+                      <button
+                        className="text-button"
+                        type="button"
+                        onClick={() =>
+                          navigateTarget({
+                            view: "claims",
+                            expenseId: expense.id,
+                          })
+                        }
+                      >
+                        View receipt
+                      </button>
+                    ) : null}
+                    {receiptUrl ? <a className="text-button" href={evidenceUrls.download}>Download photo</a> : null}
                   </div>
                 </li>
               );

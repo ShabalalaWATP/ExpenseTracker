@@ -7,9 +7,12 @@ import {
 const TARGETABLE_FIELDS = new Set<ReceiptField>([
   "merchant",
   "service_date",
+  "transaction_time",
   "receipt_total",
   "eligible_amount",
   "location",
+  "business_reason",
+  "meal_context",
   "alcohol",
   "category",
 ]);
@@ -18,11 +21,11 @@ export function parseTargetedFields(value: unknown): ReceiptField[] {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
   const fields = (value as Record<string, unknown>).fields;
   if (fields === undefined) return [];
-  if (!Array.isArray(fields) || fields.length > 7) {
+  if (!Array.isArray(fields) || fields.length > TARGETABLE_FIELDS.size) {
     throw new ApiError(
       400,
       "analysis_fields_invalid",
-      "Choose up to seven receipt fields to recheck.",
+      `Choose up to ${TARGETABLE_FIELDS.size} receipt fields to recheck.`,
     );
   }
   const unique = [...new Set(fields)];

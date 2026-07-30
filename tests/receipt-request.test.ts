@@ -20,5 +20,10 @@ test("receipt requests prioritise frontier reading quality", () => {
   assert.match(body.instructions, /Never apply the £30 allowance/);
   assert.match(body.instructions, /Include any eligible gratuity/);
   assert.match(body.instructions, /Reconcile items, discounts/);
+  assert.match(body.instructions, /24-hour HH:mm/);
+  assert.match(body.instructions, /05:00-10:59 breakfast/);
+  assert.match(body.instructions, /Return null for every non-food receipt/);
+  assert.match(body.instructions, /Never invent duty, purpose, authorisation/);
+  assert.match(body.instructions, /country GB only/);
   assert.equal(body.text.format.strict, true);
 });

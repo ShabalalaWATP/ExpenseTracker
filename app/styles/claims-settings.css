@@ -3,12 +3,40 @@
   border-bottom: 1px solid var(--line);
 }
 
+.claim-period-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 22px;
+}
+
+.claim-period-control label {
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.claim-period-control input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--paper-raised);
+  padding: 8px 11px;
+  color: var(--text);
+  font: inherit;
+}
+
+.claim-period-control small {
+  flex-basis: 100%;
+  color: var(--muted);
+}
+
 .claim-totals dl div {
   padding: 12px 26px;
   border-left: 1px solid var(--line);
 }
 
-.claim-totals dl div:first-child {
+.claim-totals dl div:nth-child(3n + 1) {
   padding-left: 0;
   border: 0;
 }

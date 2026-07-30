@@ -1,6 +1,7 @@
 import {
   errorResponse,
   json,
+  readJson,
   requireSameOrigin,
 } from "@/src/server/http";
 import { requirePrincipal } from "@/src/server/principal";
@@ -17,7 +18,10 @@ export async function POST(
     requireSameOrigin(request);
     const principal = await requirePrincipal();
     const id = assertId((await context.params).id);
-    return json(await confirmReceiptIntake(principal, id), 201);
+    return json(
+      await confirmReceiptIntake(principal, id, await readJson(request)),
+      201,
+    );
   } catch (error) {
     return errorResponse(error);
   }

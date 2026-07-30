@@ -5,6 +5,7 @@ import { StatusMessage } from "../ui";
 import { IntakeDefaults } from "./IntakeDefaults";
 import { IntakeReview } from "./IntakeReview";
 import { LocalQueueItem, QueueItem } from "./QueueItem";
+import { ReceiptProcessingOverlay } from "./ReceiptProcessingOverlay";
 import { UploadActions } from "./UploadActions";
 import { useReceiptInbox } from "./useReceiptInbox";
 
@@ -24,9 +25,7 @@ export function ReceiptInbox({
     initialIntakeId,
     onSaved,
   });
-  const activeCount =
-    inbox.localUploads.filter((item) => item.stage !== "failed").length +
-    inbox.processingIds.length;
+  const activeCount = inbox.processing.running;
   const reviewCount = inbox.intakes.filter((item) =>
     ["uploaded", "needs_review", "ready"].includes(item.status),
   ).length;
@@ -36,6 +35,11 @@ export function ReceiptInbox({
 
   return (
     <div className="receipt-inbox">
+      <ReceiptProcessingOverlay
+        processing={inbox.processing}
+        onRetry={inbox.retryBlockedProcessing}
+        onReturn={inbox.dismissProcessing}
+      />
       <section className="intake-compose" aria-labelledby="intake-title">
         <div className="intake-intro">
           <div>

@@ -7,8 +7,9 @@ import type {
   AuditQuestion,
   AuditRange,
 } from "./audit-findings.ts";
+import type { AuditReceiptEvidence } from "./audit-receipt-evidence.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
-import { buildDocx, type DocxBlock } from "./docx.ts";
+import { buildDocx, type DocxBlock, type DocxImage } from "./docx.ts";
 
 export type AuditClaimSummary = {
   period: string;
@@ -38,9 +39,14 @@ export function composeAuditDocx(input: {
   answers: Record<string, string>;
   ai: { used: boolean; model: string; summary: string };
   createdAt: Date;
+  evidence?: readonly AuditReceiptEvidence[];
 }): Uint8Array {
   const blocks: DocxBlock[] = [];
   const period = `${input.range.startDate} to ${input.range.endDate}`;
+  const evidenceByExpense = new Map(
+    (input.evidence ?? []).map((item) => [item.expenseId, item]),
+  );
+  const images: DocxImage[] = [];
 
   blocks.push({ kind: "title", text: "ExpenseTracker audit response" });
   blocks.push({ kind: "pair", label: "Audited period", value: period });
@@ -193,13 +199,84 @@ export function composeAuditDocx(input: {
       .map((expense) => [
         expense.serviceDate,
         expense.merchant,
-        expense.hasReceipt
-          ? "Original image stored in ExpenseTracker"
-          : "Not stored",
+        evidenceByExpense.get(expense.id)?.detail ??
+          (expense.hasReceipt
+            ? "Stored in ExpenseTracker, but not loaded into this report."
+            : "No receipt image is attached to this expense."),
       ]),
   });
 
-  blocks.push({ kind: "heading", level: 1, text: "6. Declaration" });
+  blocks.push({ kind: "heading", level: 1, text: "6. Receipt evidence appendix" });
+  const orderedExpenses = [...input.expenses].sort((a, b) =>
+    a.serviceDate.localeCompare(b.serviceDate),
+  );
+  if (!orderedExpenses.length) {
+    blocks.push({
+      kind: "paragraph",
+      text: "There are no expenses in scope, so no receipt evidence is included.",
+      muted: true,
+    });
+  }
+  orderedExpenses.forEach((expense, index) => {
+    const evidence = evidenceByExpense.get(expense.id);
+    blocks.push({
+      kind: "heading",
+      level: 2,
+      text: `6.${index + 1} ${expense.serviceDate} - ${expense.merchant}`,
+    });
+    blocks.push({
+      kind: "pair",
+      label: "Expense",
+      value: `${categoryLabel(expense.category)}, ${money(expense.eligiblePence)} eligible`,
+    });
+    if (evidence?.original) {
+      blocks.push({
+        kind: "pair",
+        label: "Immutable original",
+        value:
+          `${evidence.original.contentType}, ${evidence.original.byteSize} bytes; ` +
+          `SHA-256 ${evidence.original.sha256}`,
+      });
+    }
+    if (evidence?.status === "embedded" && evidence.image) {
+      const imageKey = `receipt-${expense.id}`;
+      images.push({
+        key: imageKey,
+        data: evidence.image.bytes,
+        contentType: evidence.image.contentType,
+        widthPx: evidence.image.widthPx,
+        heightPx: evidence.image.heightPx,
+      });
+      blocks.push({
+        kind: "pair",
+        label: "Evidence source",
+        value:
+          evidence.image.source === "analysis"
+            ? "Secure analysis copy (JPEG/PNG)"
+            : evidence.image.source === "owner_preview"
+              ? "Owner-supplied browser-created JPEG preview (non-authoritative; not the immutable original)"
+              : "Secure original receipt (JPEG/PNG)",
+      });
+      blocks.push({
+        kind: "image",
+        imageKey,
+        altText: `Receipt for ${expense.merchant} dated ${expense.serviceDate}`,
+      });
+    } else {
+      blocks.push({
+        kind: "paragraph",
+        text: `Image not embedded: ${
+          evidence?.detail ??
+          (expense.hasReceipt
+            ? "the stored receipt could not be loaded into this report."
+            : "no receipt image is attached to this expense.")
+        }`,
+        muted: true,
+      });
+    }
+  });
+
+  blocks.push({ kind: "heading", level: 1, text: "7. Declaration" });
   blocks.push({
     kind: "paragraph",
     text:
@@ -212,5 +289,6 @@ export function composeAuditDocx(input: {
     author: input.ownerEmail,
     createdAt: input.createdAt,
     blocks,
+    images,
   });
 }

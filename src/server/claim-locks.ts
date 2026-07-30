@@ -43,8 +43,8 @@ export async function acquireClaimPeriodLock(
       409,
       existing.status === "prepared" ? "claim_exists" : "claim_preparing",
       existing.status === "prepared"
-        ? "The August claim has already been prepared."
-        : "The August claim is already being prepared.",
+        ? `The ${period} claim has already been prepared.`
+        : `The ${period} claim is already being prepared.`,
     );
   }
   const id = crypto.randomUUID();
@@ -69,7 +69,7 @@ export async function acquireClaimPeriodLock(
     throw new ApiError(
       409,
       "claim_preparing",
-      "The August claim is already being prepared.",
+      `The ${period} claim is already being prepared.`,
     );
   }
   if (Number(result.meta.changes ?? 0) !== 1) {

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { createTrip, updateTrip } from "./tripApi";
+import { TripVoiceCreator } from "./TripVoiceCreator";
 import { daysBetween, formatDate } from "./format";
 import type { DashboardData } from "./types";
 import { EmptyState, Field, StatusMessage, ViewHeader } from "./ui";
@@ -38,6 +39,9 @@ export function TripsView({
   const [method, setMethod] = useState<"daily" | "aggregate">(
     initialTrip?.calculationMethod ?? "daily",
   );
+  const [manualOpen, setManualOpen] = useState(
+    Boolean(initialTrip || initialStartDate),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const dates = startDate && endDate && endDate >= startDate
@@ -73,6 +77,7 @@ export function TripsView({
     setEligibleDates(trip.eligibleDates ?? []);
     setAttested(Boolean(trip.attested));
     setMethod(trip.calculationMethod ?? "daily");
+    setManualOpen(true);
     setCreating(true);
   }
 
@@ -85,6 +90,7 @@ export function TripsView({
     setEligibleDates([]);
     setAttested(false);
     setMethod("daily");
+    setManualOpen(false);
     setError("");
     setCreating(true);
   }
@@ -95,35 +101,68 @@ export function TripsView({
     setError("");
   }
 
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (!title.trim() || !location.trim() || !startDate || !endDate || endDate < startDate) {
-      setError("Enter a title, UK location and valid date range.");
-      return;
+  function applyDraft(draft: {
+    title: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+    eligibleDates: string[];
+    attested: boolean;
+    calculationMethod: "daily" | "aggregate";
+  }) {
+    setTitle(draft.title);
+    setLocation(draft.location);
+    setStartDate(draft.startDate);
+    setEndDate(draft.endDate);
+    setEligibleDates(draft.eligibleDates);
+    setAttested(draft.attested);
+    setMethod(draft.calculationMethod);
+  }
+
+  async function persistDraft(draft: {
+    title: string;
+    location: string;
+    country: "GB";
+    startDate: string;
+    endDate: string;
+    eligibleDates: string[];
+    attested: boolean;
+    calculationMethod: "daily" | "aggregate";
+  }) {
+    if (
+      !draft.title.trim() ||
+      !draft.location.trim() ||
+      !draft.startDate ||
+      !draft.endDate ||
+      draft.endDate < draft.startDate
+    ) {
+      throw new Error("Enter a title, UK location and valid date range.");
     }
-    if (!eligibleDates.length || !attested) {
-      setError("Confirm at least one eligible date and complete the eligibility attestation.");
-      return;
+    if (!draft.eligibleDates.length || !draft.attested) {
+      throw new Error(
+        "Confirm at least one eligible date and complete the eligibility attestation.",
+      );
     }
-    if (method === "aggregate" && dates.length < 3) {
-      setError("Aggregation requires two nights or more. Choose the daily method for this trip.");
-      return;
+    const draftDates = daysBetween(draft.startDate, draft.endDate);
+    if (
+      draft.eligibleDates.some((date) => !draftDates.includes(date))
+    ) {
+      throw new Error("Every eligible date must fall within the trip.");
+    }
+    if (draft.calculationMethod === "aggregate" && draftDates.length < 3) {
+      throw new Error(
+        "Aggregation requires two nights or more. Choose the daily method for this trip.",
+      );
     }
     setSaving(true);
-    setError("");
     try {
-      const draft = {
-        title: title.trim(),
-        location: location.trim(),
-        country: "GB",
-        startDate,
-        endDate,
-        eligibleDates,
-        attested,
-        calculationMethod: method,
-      } as const;
-      if (editingId) await updateTrip(editingId, draft);
-      else await createTrip(draft);
+      const cleanDraft = {
+        ...draft,
+        title: draft.title.trim(),
+        location: draft.location.trim(),
+      };
+      if (editingId) await updateTrip(editingId, cleanDraft);
+      else await createTrip(cleanDraft);
       await onChanged();
       setCreating(false);
       setTitle("");
@@ -131,10 +170,29 @@ export function TripsView({
       setStartDate("");
       setEndDate("");
       setEditingId("");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The trip could not be saved.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      await persistDraft({
+        title,
+        location,
+        country: "GB",
+        startDate,
+        endDate,
+        eligibleDates,
+        attested,
+        calculationMethod: method,
+      });
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "The trip could not be saved.",
+      );
     }
   }
 
@@ -184,9 +242,38 @@ export function TripsView({
         {creating ? (
           <section className="trip-form-panel" aria-labelledby="trip-form-heading">
             <div className="editor-top">
-              <div><p className="eyebrow">{editingId ? "Update duty period" : "New duty period"}</p><h2 id="trip-form-heading">Trip details</h2></div>
+              <div><p className="eyebrow">{editingId ? "Update duty period" : "New duty period"}</p><h2 id="trip-form-heading">{editingId || manualOpen ? "Trip details" : "Tell us about the trip"}</h2></div>
               {data.trips.length ? <button className="round-button" type="button" onClick={closeForm} aria-label="Close trip form">×</button> : null}
             </div>
+            {!editingId && !manualOpen ? (
+              <TripVoiceCreator
+                draft={{
+                  title,
+                  location,
+                  country: "GB",
+                  startDate,
+                  endDate,
+                  eligibleDates,
+                  attested,
+                  calculationMethod: method,
+                }}
+                onDraftChange={applyDraft}
+                onConfirmedSave={async (draft) => {
+                  setError("");
+                  try {
+                    await persistDraft(draft);
+                  } catch (caught) {
+                    const message =
+                      caught instanceof Error
+                        ? caught.message
+                        : "The trip could not be saved.";
+                    setError(message);
+                    throw new Error(message);
+                  }
+                }}
+                onManual={() => setManualOpen(true)}
+              />
+            ) : (
             <form onSubmit={save}>
               {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
               <Field label="Trip title" required><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="For example, London training" /></Field>
@@ -214,6 +301,7 @@ export function TripsView({
               </label>
               <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving trip…" : editingId ? "Update trip" : "Save trip"}</button></div>
             </form>
+            )}
           </section>
         ) : null}
       </div>

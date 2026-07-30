@@ -58,6 +58,7 @@ export async function operationalStatus(principal: Principal) {
         `SELECT error_code, error_message, updated_at
          FROM receipt_intakes
          WHERE owner_id = ? AND error_code IS NOT NULL
+           AND error_code <> 'receipt_trip_ambiguous'
          ORDER BY updated_at DESC LIMIT 1`,
       )
       .bind(principal.ownerId)

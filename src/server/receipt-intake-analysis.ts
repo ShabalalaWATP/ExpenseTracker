@@ -4,6 +4,7 @@ import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import type { ReceiptField } from "./receipt-extraction";
 import type { IntakePatch } from "./receipt-intake-validation";
+import { receiptSha256 } from "./receipt-intake-storage";
 
 export function safeAnalysisError(error: unknown): {
   code: string;
@@ -46,8 +47,10 @@ export async function beginReceiptAnalysis(
     );
   }
   try {
+    const sha256 = await receiptSha256(bytes);
     await getReceiptsBucket().put(objectKey, bytes, {
       httpMetadata: { contentType },
+      customMetadata: { sha256 },
     });
   } catch {
     await database()
@@ -90,7 +93,7 @@ export function isAllowedClarificationPatch(
   field: ReceiptField | undefined,
   patch: IntakePatch,
 ): boolean {
-  const keyForField = {
+  const keyForField: Partial<Record<ReceiptField, keyof IntakePatch>> = {
     merchant: "merchant",
     service_date: "serviceDate",
     receipt_total: "receiptTotalPence",
@@ -99,7 +102,7 @@ export function isAllowedClarificationPatch(
     business_reason: "businessReason",
     alcohol: "alcoholReviewed",
     category: "category",
-  } as const;
+  };
   const allowedKey = field ? keyForField[field] : null;
   const suppliedKeys = Object.keys(patch);
   return (

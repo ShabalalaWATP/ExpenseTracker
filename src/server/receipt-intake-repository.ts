@@ -11,10 +11,8 @@ import {
   type ReceiptIntakeRow,
 } from "./receipt-intake-model";
 import type { IntakeDefaults } from "./receipt-intake-validation";
-import {
-  MAX_RECEIPT_BYTES,
-  validateImageType,
-} from "./receipt-repository";
+import { validateImageType } from "./receipt-image-validation";
+import { MAX_RECEIPT_BYTES } from "./receipt-repository";
 import {
   intakeImageExtension,
   receiptSha256,

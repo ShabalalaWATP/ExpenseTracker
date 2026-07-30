@@ -85,7 +85,7 @@ export function CalendarDayDrawer({
               <button className="secondary-button" type="button" onClick={onClearFilter}>Show all claims</button>
             ) : (
               <button className="primary-button" type="button" disabled={!supported || locked} onClick={onAdd}>
-                {locked ? "Prepared period is locked" : supported ? "Add receipt for this date" : "Only August 2026 can be claimed"}
+                {locked ? "Prepared period is locked" : supported ? "Add receipt for this date" : `Only ${supportedPeriod ?? "the selected month"} can be claimed`}
               </button>
             )
           }
