@@ -37,7 +37,6 @@ export function tripRealtimeSessionBody(config = runtimeConfig()) {
           name: "update_trip_draft",
           description:
             "Replace the structured trip draft after the user provides or corrects a fact. This never saves the trip.",
-          strict: true,
           parameters: TRIP_VOICE_DRAFT_SCHEMA,
         },
         {
@@ -45,7 +44,6 @@ export function tripRealtimeSessionBody(config = runtimeConfig()) {
           name: "confirm_trip",
           description:
             "Request saving only after reading the complete summary and receiving an explicit spoken yes.",
-          strict: true,
           parameters: {
             type: "object",
             additionalProperties: false,

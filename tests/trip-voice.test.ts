@@ -325,7 +325,11 @@ test("trip voice uses a server-minted ephemeral credential and explicit save too
   );
 
   assert.match(server, /\/realtime\/client_secrets/);
-  assert.match(server, /strict: true/);
+  assert.doesNotMatch(
+    server,
+    /strict: true/,
+    "Realtime function tools must not include the unsupported strict field",
+  );
   assert.match(server, /confirm_trip/);
   assert.match(server, /explicitly says yes/);
   assert.doesNotMatch(server, /language: "en"/);
