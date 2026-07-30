@@ -1,11 +1,63 @@
 .statistics-filters {
   display: grid;
-  grid-template-columns: 1.1fr repeat(3, minmax(130px, 1fr)) auto;
+  grid-template-columns: minmax(260px, 1.6fr) repeat(4, minmax(120px, 1fr)) auto;
   align-items: end;
   gap: 12px;
   margin: 28px 0 8px;
   padding-block: 16px;
   border-block: 1px solid var(--line);
+}
+
+.statistics-range-control {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.statistics-range-control > span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statistics-range {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper) 78%, var(--ink));
+}
+
+.statistics-range button {
+  min-height: 42px;
+  padding: 7px 10px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.statistics-range button:first-child {
+  border-left: 0;
+}
+
+.statistics-range button:hover,
+.statistics-range button:focus-visible {
+  color: var(--ink);
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
+}
+
+.statistics-range button[aria-pressed="true"] {
+  background: var(--action);
+  color: white;
 }
 
 .statistics-filters label {

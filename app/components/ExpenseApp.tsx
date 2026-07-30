@@ -245,7 +245,6 @@ export function ExpenseApp() {
         <StatisticsView
           data={data}
           claimPeriod={claimPeriod}
-          onClaimPeriodChange={setClaimPeriod}
           onOpenExpense={setSelectedExpense}
         />
       ),

@@ -508,6 +508,8 @@ control and the development record contains verification evidence.
   and country-level location visualisations without live geocoding.
 - [x] Add filters, period comparison, allowance heatmaps, receipt-line-item
   food analysis, currency analysis and tap-through claim inspection.
+- [x] Add week, month, three-month and annual Statistics ranges with
+  like-for-like preceding-period comparisons.
 - [x] Add controlled AI semantic food-style tags plus deterministic merchant
   and line-item fallbacks for existing receipt records.
 - [x] Add close-detail interactive mapping with evidence-backed receipt

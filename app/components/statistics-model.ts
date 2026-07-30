@@ -1,6 +1,8 @@
 import type { Expense } from "./types";
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
 import { FOOD_STYLE_LABELS, inferFoodStyleTags, normaliseFoodStyleTags } from "../../src/domain/food-style.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import { statisticsPeriod, type StatisticsPeriod } from "./statistics-period.ts";
 
 export type StatisticsFilters = {
   tripId?: string;
@@ -104,11 +106,6 @@ function countryCode(expense: Expense): string {
   return original && original !== "UNKNOWN" ? original : expense.country.toUpperCase();
 }
 
-function previousPeriod(period: string): string {
-  const date = new Date(Date.UTC(Number(period.slice(0, 4)), Number(period.slice(5, 7)) - 2, 1));
-  return date.toISOString().slice(0, 7);
-}
-
 function matchesFilters(expense: Expense, filters: StatisticsFilters): boolean {
   return (!filters.tripId || expense.tripId === filters.tripId) &&
     (!filters.mealContext || expense.mealContext === filters.mealContext) &&
@@ -117,13 +114,26 @@ function matchesFilters(expense: Expense, filters: StatisticsFilters): boolean {
 
 function periodExpenses(
   expenses: readonly Expense[],
-  period: string,
+  startDate: string,
+  endDate: string,
   filters: StatisticsFilters,
 ): Expense[] {
   return expenses.filter((expense) =>
     !expense.deletedAt &&
-    expense.date.startsWith(`${period}-`) &&
+    expense.date >= startDate &&
+    expense.date <= endDate &&
     matchesFilters(expense, filters));
+}
+
+function datesBetween(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
 }
 
 function ranked(
@@ -207,14 +217,15 @@ function median(values: number[]): number {
 
 export function buildStatistics(
   expenses: readonly Expense[],
-  claimPeriod: string,
+  selectedPeriod: StatisticsPeriod | string,
   filters: StatisticsFilters = {},
 ): StatisticsModel {
-  const selected = periodExpenses(expenses, claimPeriod, filters);
+  const period = typeof selectedPeriod === "string"
+    ? statisticsPeriod("month", `${selectedPeriod}-01`)
+    : selectedPeriod;
+  const selected = periodExpenses(expenses, period.startDate, period.endDate, filters);
   const food = selected.filter((expense) => !expense.category || expense.category === "food");
-  const days = new Date(Date.UTC(Number(claimPeriod.slice(0, 4)), Number(claimPeriod.slice(5, 7)), 0)).getUTCDate();
-  const daily = Array.from({ length: days }, (_, index): DailyStat => {
-    const date = `${claimPeriod}-${String(index + 1).padStart(2, "0")}`;
+  const daily = datesBetween(period.startDate, period.endDate).map((date, index): DailyStat => {
     const entries = selected.filter((expense) => expense.date === date);
     const foodEntries = entries.filter((expense) => !expense.category || expense.category === "food");
     return {
@@ -228,7 +239,12 @@ export function buildStatistics(
     };
   });
   const totalPence = selected.reduce((sum, expense) => sum + expense.eligibleAmountPence, 0);
-  const previousTotalPence = periodExpenses(expenses, previousPeriod(claimPeriod), filters)
+  const previousTotalPence = periodExpenses(
+    expenses,
+    period.previousStartDate,
+    period.previousEndDate,
+    filters,
+  )
     .reduce((sum, expense) => sum + expense.eligibleAmountPence, 0);
   const activeDays = daily.filter((day) => day.count).length;
   const withReceipt = selected.filter((expense) => expense.receiptStatus === "stored" || expense.receiptUrl).length;

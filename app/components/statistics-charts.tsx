@@ -5,6 +5,21 @@ import { formatMoney } from "./format";
 import type { DailyStat, RankedStat } from "./statistics-model";
 
 const MEAL_COLOURS = ["#2d7ff9", "#41a5ff", "#52c7c0", "#86d7ff", "#97a7c3", "#ff6675"];
+const WEEKDAY_FORMAT = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" });
+const MONTH_FORMAT = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" });
+
+function trendAxisLabel(day: DailyStat, index: number, length: number): string | null {
+  const date = new Date(`${day.date}T00:00:00Z`);
+  const dayOfMonth = date.getUTCDate();
+  if (length <= 10) return WEEKDAY_FORMAT.format(date);
+  if (length <= 45) {
+    return index === 0 || index === length - 1 || dayOfMonth % 5 === 0
+      ? String(dayOfMonth)
+      : null;
+  }
+  if (dayOfMonth === 1) return MONTH_FORMAT.format(date);
+  return index === length - 1 ? `${dayOfMonth} ${MONTH_FORMAT.format(date)}` : null;
+}
 
 export function RankedBars({
   items,
@@ -89,8 +104,10 @@ export function SpendTrend({
             }}
           >
             <circle cx={x(index)} cy={y(day.totalPence)} r={day.count ? 6 : 2} />
-            {(day.day === 1 || day.day % 5 === 0) ? (
-              <text x={x(index)} y={height - 14} textAnchor="middle">{day.day}</text>
+            {trendAxisLabel(day, index, daily.length) ? (
+              <text x={x(index)} y={height - 14} textAnchor="middle">
+                {trendAxisLabel(day, index, daily.length)}
+              </text>
             ) : null}
           </g>
         ))}
@@ -162,7 +179,7 @@ export function AllowanceHeatmap({
               onClick={() => onSelect(day)}
               aria-label={`${day.date}: ${formatMoney(day.foodPence)} food spend, ${Math.round(ratio * 100)}% of daily limit`}
             >
-              <span>{day.day}</span>
+              <span>{Number(day.date.slice(8, 10))}</span>
               <i style={{ height: `${Math.min(100, ratio * 100)}%` }} />
               {day.foodPence ? <small>{Math.round(ratio * 100)}%</small> : null}
             </button>

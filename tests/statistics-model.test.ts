@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { buildStatistics } from "../app/components/statistics-model.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
+import { statisticsPeriod } from "../app/components/statistics-period.ts";
 import type { Expense } from "../app/components/types.ts";
 
 function expense(overrides: Partial<Expense> = {}): Expense {
@@ -97,6 +99,43 @@ describe("statistics model", () => {
     assert.equal(model.totalPence, 2000);
     assert.equal(model.previousTotalPence, 1000);
     assert.equal(model.changePercent, 100);
+  });
+
+  it("filters a week and compares it with the preceding week", () => {
+    const period = statisticsPeriod("week", "2026-08-12");
+    const model = buildStatistics([
+      expense({ id: "selected", date: "2026-08-12", eligibleAmountPence: 2400 }),
+      expense({ id: "previous", date: "2026-08-05", eligibleAmountPence: 1200 }),
+      expense({ id: "outside", date: "2026-08-18", eligibleAmountPence: 9000 }),
+    ], period);
+
+    assert.deepEqual(model.expenses.map((item) => item.id), ["selected"]);
+    assert.equal(model.daily.length, 7);
+    assert.equal(model.previousTotalPence, 1200);
+    assert.equal(model.changePercent, 100);
+  });
+
+  it("covers the full three-month and annual selections", () => {
+    const expenses = [
+      expense({ id: "january", date: "2026-01-15", eligibleAmountPence: 500 }),
+      expense({ id: "june", date: "2026-06-01", eligibleAmountPence: 600 }),
+      expense({ id: "august", date: "2026-08-31", eligibleAmountPence: 800 }),
+      expense({ id: "last-year", date: "2025-12-31", eligibleAmountPence: 1000 }),
+    ];
+    const quarter = buildStatistics(
+      expenses,
+      statisticsPeriod("three_months", "2026-08-12"),
+    );
+    const annual = buildStatistics(
+      expenses,
+      statisticsPeriod("annual", "2026-08-12"),
+    );
+
+    assert.deepEqual(quarter.expenses.map((item) => item.id), ["june", "august"]);
+    assert.equal(quarter.daily.length, 92);
+    assert.deepEqual(annual.expenses.map((item) => item.id), ["january", "june", "august"]);
+    assert.equal(annual.daily.length, 365);
+    assert.equal(annual.previousTotalPence, 1000);
   });
 
   it("recognises Butchies as fried chicken for existing receipt data", () => {

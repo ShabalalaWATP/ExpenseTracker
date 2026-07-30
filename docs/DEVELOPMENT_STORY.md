@@ -310,3 +310,7 @@ This document records meaningful implementation milestones, decisions and verifi
   editable manual fields without losing a partial voice draft. The duplicate
   inner Start control was removed, and Recorded trips now forms a distinct
   ledger below the creation workspace.
+- Added a dedicated Statistics range control for Monday-to-Sunday weeks,
+  calendar months, three-calendar-month windows and calendar years. Every
+  chart, map, ranking and KPI now uses the selected range, with an equivalent
+  preceding-period comparison and axis labels that adapt to the time span.

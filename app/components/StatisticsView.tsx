@@ -19,44 +19,60 @@ import {
 } from "./statistics-charts";
 import { DetailedLocationMap } from "./DetailedLocationMap";
 import { StatisticsDrilldown } from "./StatisticsDrilldown";
+import {
+  statisticsPeriod,
+  type StatisticsRange,
+} from "./statistics-period";
 
 type Drilldown = { title: string; expenseIds: string[] };
 
-function changeLabel(value: number | null): string {
-  if (value === null) return "No previous-month baseline";
-  if (value === 0) return "No change from last month";
-  return `${Math.abs(value)}% ${value > 0 ? "higher" : "lower"} than last month`;
+const RANGE_OPTIONS: { value: StatisticsRange; label: string }[] = [
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "three_months", label: "3 months" },
+  { value: "annual", label: "Annual" },
+];
+
+function changeLabel(value: number | null, comparisonLabel: string): string {
+  if (value === null) return `No baseline for ${comparisonLabel}`;
+  if (value === 0) return `No change from ${comparisonLabel}`;
+  return `${Math.abs(value)}% ${value > 0 ? "higher" : "lower"} than ${comparisonLabel}`;
 }
 
 export function StatisticsView({
   data,
   claimPeriod,
-  onClaimPeriodChange,
   onOpenExpense,
 }: {
   data: DashboardData;
   claimPeriod: string;
-  onClaimPeriodChange: (period: string) => void;
   onOpenExpense: (expense: Expense) => void;
 }) {
   const [filters, setFilters] = useState<StatisticsFilters>({});
+  const [range, setRange] = useState<StatisticsRange>("month");
+  const [anchorDate, setAnchorDate] = useState(`${claimPeriod}-01`);
   const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
+  const period = useMemo(
+    () => statisticsPeriod(range, anchorDate),
+    [anchorDate, range],
+  );
   const statistics = useMemo(
-    () => buildStatistics(data.expenses, claimPeriod, filters),
-    [claimPeriod, data.expenses, filters],
+    () => buildStatistics(data.expenses, period, filters),
+    [data.expenses, filters, period],
   );
   const filterScope = useMemo(
-    () => buildStatistics(data.expenses, claimPeriod, {
+    () => buildStatistics(data.expenses, period, {
       tripId: filters.tripId,
       mealContext: filters.mealContext,
     }),
-    [claimPeriod, data.expenses, filters.mealContext, filters.tripId],
+    [data.expenses, filters.mealContext, filters.tripId, period],
   );
-  const periodLabel = new Intl.DateTimeFormat("en-GB", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${claimPeriod}-01T00:00:00Z`));
+  const availableYears = useMemo(() => {
+    const years = data.expenses
+      .map((expense) => expense.date.slice(0, 4))
+      .filter((year) => /^\d{4}$/.test(year));
+    return [...new Set([...years, anchorDate.slice(0, 4)])].sort().reverse();
+  }, [anchorDate, data.expenses]);
 
   const openSelection = useCallback((title: string, expenseIds: string[]) => {
     if (expenseIds.length) setDrilldown({ title, expenseIds });
@@ -88,22 +104,48 @@ export function StatisticsView({
     <div className="view page-enter statistics-view">
       <ViewHeader
         eyebrow="Statistics"
-        title={`${periodLabel}, in detail`}
+        title={`${period.label}, in detail`}
         detail="Tap any chart, day or map dot to inspect its claims and open the original receipts."
       />
 
       <section className="statistics-filters" aria-label="Statistics filters">
+        <div className="statistics-range-control">
+          <span>Range</span>
+          <div className="statistics-range" role="group" aria-label="Statistics time range">
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={range === option.value}
+                onClick={() => setRange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <label>
-          <span>Month</span>
-          <input
-            type="month"
-            value={claimPeriod}
-            onChange={(event) => {
-              if (/^\d{4}-\d{2}$/.test(event.target.value)) {
-                onClaimPeriodChange(event.target.value);
-              }
-            }}
-          />
+          <span>{range === "week" ? "Week containing" : range === "three_months" ? "Ending month" : range === "annual" ? "Year" : "Month"}</span>
+          {range === "week" ? (
+            <input
+              type="date"
+              value={anchorDate}
+              onChange={(event) => /^\d{4}-\d{2}-\d{2}$/.test(event.target.value) && setAnchorDate(event.target.value)}
+            />
+          ) : range === "annual" ? (
+            <select
+              value={anchorDate.slice(0, 4)}
+              onChange={(event) => setAnchorDate(`${event.target.value}-01-01`)}
+            >
+              {availableYears.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          ) : (
+            <input
+              type="month"
+              value={anchorDate.slice(0, 7)}
+              onChange={(event) => /^\d{4}-\d{2}$/.test(event.target.value) && setAnchorDate(`${event.target.value}-01`)}
+            />
+          )}
         </label>
         <label>
           <span>Trip</span>
@@ -146,13 +188,13 @@ export function StatisticsView({
 
       {!statistics.expenses.length ? (
         <EmptyState title="No expenses match this selection">
-          Change the month or filters, or add a receipt to start building useful patterns.
+          Change the period or filters, or add a receipt to start building useful patterns.
         </EmptyState>
       ) : (
         <>
           <dl className="stats-kpis">
             <div><dt>Eligible spend</dt><dd>{formatMoney(statistics.totalPence)}</dd><small>{statistics.expenses.length} receipts</small></div>
-            <div><dt>Monthly movement</dt><dd>{statistics.changePercent === null ? "—" : `${statistics.changePercent > 0 ? "+" : ""}${statistics.changePercent}%`}</dd><small>{changeLabel(statistics.changePercent)}</small></div>
+            <div><dt>Period movement</dt><dd>{statistics.changePercent === null ? "—" : `${statistics.changePercent > 0 ? "+" : ""}${statistics.changePercent}%`}</dd><small>{changeLabel(statistics.changePercent, period.comparisonLabel)}</small></div>
             <div><dt>Average active day</dt><dd>{formatMoney(statistics.averageActiveDayPence)}</dd><small>Days with recorded spend</small></div>
             <div><dt>Median receipt</dt><dd>{formatMoney(statistics.medianReceiptPence)}</dd><small>Less distorted by large bills</small></div>
             <div><dt>Receipt coverage</dt><dd>{statistics.receiptCoverage}%</dd><small>Claims with stored evidence</small></div>
@@ -163,7 +205,7 @@ export function StatisticsView({
               <div><p className="eyebrow">Spend trend</p><h2 id="spend-rhythm">Eligible spend by day</h2></div>
               <strong>{formatMoney(statistics.totalPence)}</strong>
             </div>
-            <SpendTrend daily={statistics.daily} periodLabel={periodLabel} onSelect={openDay} />
+            <SpendTrend daily={statistics.daily} periodLabel={period.label} onSelect={openDay} />
           </section>
 
           <section className="stats-section" aria-labelledby="allowance-use">

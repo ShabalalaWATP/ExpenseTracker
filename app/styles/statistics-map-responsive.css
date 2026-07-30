@@ -147,6 +147,10 @@
     backdrop-filter: blur(14px);
   }
 
+  .statistics-range-control {
+    grid-column: 1 / -1;
+  }
+
   .stats-ranked button {
     grid-template-columns: minmax(100px, 1fr) minmax(64px, 0.9fr);
   }
