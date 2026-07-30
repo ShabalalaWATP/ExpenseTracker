@@ -131,7 +131,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
       sendToolOutput(
         message.call_id,
         { accepted: false, issue: "Invalid structured data." },
-        "Ask the user for that detail again.",
+        "Correct the tool arguments from the conversation and call update_trip_draft again. Ask the user only if a required fact is genuinely missing or the audio was unclear.",
       );
       return;
     }
@@ -156,8 +156,8 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
           issues,
         },
         complete
-          ? "Read the complete trip summary aloud, then ask exactly: Does that all sound right, and are you happy for me to create this trip now? After a clear approval, call confirm_trip immediately without asking again."
-          : "Ask one short follow-up question for the first issue. Do not ask again for a valid fact already in the draft.",
+          ? "Read back the trip name, location, dates and justification in one concise summary, then ask exactly: Does that all sound right, and are you happy for me to create this trip now? After a clear approval, call confirm_trip immediately without asking again."
+          : "Treat the returned draft as authoritative. Ask one short question only about a genuinely missing, conflicting or invalid fact. Never ask for dates when valid start and end dates are already present.",
       );
       return;
     }
@@ -188,7 +188,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
         message.call_id,
         { saved: false, issues },
         issues.length
-          ? "The trip is incomplete. Ask for the first missing or invalid detail."
+          ? "The trip is incomplete. Ask one concise question only about a genuinely missing or conflicting fact. Do not repeat a question for any valid value already in the draft."
           : "Ask exactly: Does that all sound right, and are you happy for me to create this trip now? Wait for a new, clear answer.",
       );
       return;
@@ -294,7 +294,7 @@ export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
             type: "response.create",
             response: {
               instructions:
-                "Start speaking immediately with exactly: Please tell me about your trip, including where you went and when. Do not give a setup explanation and do not ask only for a title. Invite the user to describe the trip naturally, extract every supported detail from their answer, then actively ask one concise question at a time for anything still needed.",
+                "Start speaking immediately with exactly: Please tell me your trip name, where you went, the dates, and a brief reason. You can say it all in one sentence. Do not give a setup explanation. Extract all four details from the answer in one update. Ask a follow-up only for a genuinely missing, unclear or conflicting fact, and never ask again for valid dates already in the draft.",
             },
           }),
         );

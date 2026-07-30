@@ -10,8 +10,7 @@ export type TripVoiceDraft = {
   startDate: string | null;
   endDate: string | null;
   legs: TripVoiceLeg[] | null;
-  eligibleDates: string[] | null;
-  eligibilityAttested: boolean | null;
+  justification: string | null;
 };
 
 export type TripVoiceDraftIssue = {
@@ -24,8 +23,7 @@ export const EMPTY_TRIP_VOICE_DRAFT: TripVoiceDraft = {
   startDate: null,
   endDate: null,
   legs: null,
-  eligibleDates: null,
-  eligibilityAttested: null,
+  justification: null,
 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -100,17 +98,8 @@ function normaliseField(
       return isDate(value) ? value : undefined;
     case "legs":
       return normaliseLegs(value);
-    case "eligibleDates":
-      if (
-        !Array.isArray(value) ||
-        value.length > 370 ||
-        !value.every(isDate)
-      ) {
-        return undefined;
-      }
-      return [...new Set(value)].sort();
-    case "eligibilityAttested":
-      return typeof value === "boolean" ? value : undefined;
+    case "justification":
+      return cleanText(value, 500);
   }
 }
 
@@ -121,7 +110,26 @@ export function mergeTripVoiceDraft(
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
     return { draft: current, rejectedFields: VOICE_FIELDS };
   }
-  const input = patch as Record<string, unknown>;
+  const rawInput = patch as Record<string, unknown>;
+  const input = { ...rawInput };
+  const proposedStart = isDate(rawInput.startDate)
+    ? rawInput.startDate
+    : current.startDate;
+  const proposedEnd = isDate(rawInput.endDate)
+    ? rawInput.endDate
+    : current.endDate;
+  if (
+    Array.isArray(rawInput.legs) &&
+    rawInput.legs.length === 1 &&
+    rawInput.legs[0] &&
+    typeof rawInput.legs[0] === "object" &&
+    !Array.isArray(rawInput.legs[0])
+  ) {
+    const leg = { ...(rawInput.legs[0] as Record<string, unknown>) };
+    if (proposedStart) leg.startDate = proposedStart;
+    if (proposedEnd) leg.endDate = proposedEnd;
+    input.legs = [leg];
+  }
   const draft = { ...current };
   const rejectedFields: Array<keyof TripVoiceDraft> = [];
   for (const field of VOICE_FIELDS) {
@@ -146,8 +154,7 @@ export function tripVoiceDraftIssues(
     ["startDate", "start date"],
     ["endDate", "end date"],
     ["legs", "complete ordered itinerary"],
-    ["eligibleDates", "eligible dates"],
-    ["eligibilityAttested", "eligibility confirmation"],
+    ["justification", "short justification"],
   ] as const) {
     if (
       draft[field] === null ||
@@ -166,17 +173,6 @@ export function tripVoiceDraftIssues(
       field: "endDate",
       message: "The end date cannot be before the start date.",
     });
-  }
-  if (draft.startDate && draft.endDate && draft.eligibleDates) {
-    for (const date of draft.eligibleDates) {
-      if (date < draft.startDate || date > draft.endDate) {
-        issues.push({
-          field: "eligibleDates",
-          message: "Every eligible date must fall within the trip.",
-        });
-        break;
-      }
-    }
   }
   if (draft.startDate && draft.endDate && draft.legs?.length) {
     if (
@@ -208,12 +204,6 @@ export function tripVoiceDraftIssues(
         }
       }
     }
-  }
-  if (draft.eligibilityAttested === false) {
-    issues.push({
-      field: "eligibilityAttested",
-      message: "The eligible-date conditions have not been confirmed.",
-    });
   }
   return issues;
 }
@@ -305,23 +295,22 @@ export const TRIP_VOICE_DRAFT_SCHEMA = {
           },
           location: { type: "string", minLength: 1, maxLength: 160 },
           startDate: {
-            type: "string",
+            type: ["string", "null"],
             pattern: "^\\d{4}-\\d{2}-\\d{2}$",
           },
           endDate: {
-            type: "string",
+            type: ["string", "null"],
             pattern: "^\\d{4}-\\d{2}-\\d{2}$",
           },
         },
         required: ["countryCode", "location", "startDate", "endDate"],
       },
     },
-    eligibleDates: {
-      type: ["array", "null"],
-      items: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
-      maxItems: 370,
+    justification: {
+      type: ["string", "null"],
+      minLength: 1,
+      maxLength: 500,
     },
-    eligibilityAttested: { type: ["boolean", "null"] },
   },
   required: VOICE_FIELDS,
 } as const;

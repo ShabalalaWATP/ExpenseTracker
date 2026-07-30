@@ -18,6 +18,7 @@ function newTripDraft(): TripDraft {
   return {
     title: "",
     location: "",
+    justification: "",
     country: "GB",
     startDate: "",
     endDate: "",
@@ -54,6 +55,9 @@ export function TripsView({
   );
   const [editingId, setEditingId] = useState(initialTrip?.id ?? "");
   const [title, setTitle] = useState(initialTrip?.title ?? "");
+  const [justification, setJustification] = useState(
+    initialTrip?.justification ?? "",
+  );
   const [startDate, setStartDate] = useState(initialStartDate ?? initialTrip?.startDate ?? "");
   const [endDate, setEndDate] = useState(initialEndDate ?? initialStartDate ?? initialTrip?.endDate ?? "");
   const [legs, setLegs] = useState<TripLeg[]>(
@@ -125,6 +129,7 @@ export function TripsView({
     voiceRef.current?.stop();
     setEditingId(trip.id);
     setTitle(trip.title);
+    setJustification(trip.justification ?? "");
     setLegs(trip.legs);
     setStartDate(trip.startDate);
     setEndDate(trip.endDate);
@@ -137,6 +142,7 @@ export function TripsView({
   function resetNewTrip(draft = newTripDraft()) {
     setEditingId("");
     setTitle(draft.title);
+    setJustification(draft.justification);
     setLegs(draft.legs);
     setStartDate(draft.startDate);
     setEndDate(draft.endDate);
@@ -168,6 +174,7 @@ export function TripsView({
 
   function applyDraft(draft: TripDraft) {
     setTitle(draft.title);
+    setJustification(draft.justification);
     setLegs(draft.legs);
     setStartDate(draft.startDate);
     setEndDate(draft.endDate);
@@ -175,8 +182,11 @@ export function TripsView({
     setAttested(draft.attested);
   }
 
-  async function persistDraft(draft: TripDraft) {
-    const issue = validateTripDraft(draft);
+  async function persistDraft(
+    draft: TripDraft,
+    allowPendingEligibility = false,
+  ) {
+    const issue = validateTripDraft(draft, allowPendingEligibility);
     if (issue) throw new Error(issue);
     setSaving(true);
     try {
@@ -186,6 +196,7 @@ export function TripsView({
       await onChanged();
       setCreating(false);
       setTitle("");
+      setJustification("");
       setLegs([]);
       setStartDate("");
       setEndDate("");
@@ -202,6 +213,7 @@ export function TripsView({
       await persistDraft({
         title,
         location: legs.map((leg) => leg.location).join(", "),
+        justification,
         country: legs[0]?.countryCode ?? "",
         startDate,
         endDate,
@@ -222,7 +234,7 @@ export function TripsView({
       <ViewHeader
         eyebrow={`${data.trips.length} ${data.trips.length === 1 ? "trip" : "trips"}`}
         title="Trips"
-        detail="Start a live voice conversation, or type the itinerary yourself."
+        detail="Say the trip name, location, dates and reason naturally, or type them."
         action={
           <button
             className="primary-button"
@@ -246,7 +258,7 @@ export function TripsView({
             <small>
               {creating
                 ? "Every field remains editable before saving."
-                : "The assistant asks for each detail and speaks its questions aloud."}
+                : "Say the trip name, location, dates and reason together. The assistant only follows up if something is genuinely missing."}
             </small>
           </div>
           <div hidden={creating}>
@@ -255,6 +267,7 @@ export function TripsView({
               draft={{
                 title,
                 location: legs.map((leg) => leg.location).join(", "),
+                justification,
                 country: legs[0]?.countryCode ?? "",
                 startDate,
                 endDate,
@@ -270,7 +283,7 @@ export function TripsView({
               onConfirmedSave={async (draft) => {
                 setError("");
                 try {
-                  await persistDraft(draft);
+                  await persistDraft(draft, true);
                 } catch (caught) {
                   const message =
                     caught instanceof Error
@@ -292,6 +305,16 @@ export function TripsView({
             <form onSubmit={save}>
               {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
               <Field label="Trip title" required><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="For example, European training visit" /></Field>
+              <Field label="Why the trip was needed" required>
+                <textarea
+                  value={justification}
+                  onChange={(event) => setJustification(event.target.value)}
+                  placeholder="For example, attended equipment training for the project team."
+                  rows={3}
+                  maxLength={500}
+                  required
+                />
+              </Field>
               <TripLegEditor legs={legs} onChange={updateLegs} />
               {dates.length ? (
                 <fieldset className="date-checks">

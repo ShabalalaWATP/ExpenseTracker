@@ -29,6 +29,7 @@ export function tripVoiceStatus(state: VoiceState): string {
 export function voiceDraftFromTrip(draft: TripDraft): TripVoiceDraft {
   return {
     title: draft.title.trim() || null,
+    justification: draft.justification.trim() || null,
     startDate: draft.startDate || null,
     endDate: draft.endDate || null,
     legs: draft.legs.length
@@ -39,8 +40,6 @@ export function voiceDraftFromTrip(draft: TripDraft): TripVoiceDraft {
           endDate: leg.endDate,
         }))
       : null,
-    eligibleDates: draft.eligibleDates.length ? draft.eligibleDates : null,
-    eligibilityAttested: draft.attested || null,
   };
 }
 
@@ -60,6 +59,7 @@ export function tripDraftFromVoice(draft: TripVoiceDraft): TripDraft {
   return {
     title: draft.title ?? "",
     location: legs.map((leg) => leg.location).join(", "),
+    justification: draft.justification ?? "",
     country: legs[0]?.countryCode ?? "",
     startDate: draft.startDate ?? "",
     endDate: draft.endDate ?? "",
@@ -68,8 +68,8 @@ export function tripDraftFromVoice(draft: TripVoiceDraft): TripDraft {
       draft.startDate ?? "",
       draft.endDate ?? "",
     ),
-    eligibleDates: draft.eligibleDates ?? [],
-    attested: draft.eligibilityAttested === true,
+    eligibleDates: [],
+    attested: false,
   };
 }
 
@@ -160,7 +160,7 @@ function includesFinalSaveQuestion(transcript: string): boolean {
     "vuoi che salvi questo viaggio",
     "devo guardar esta viagem",
     "quer que eu guarde esta viagem",
-  ].some((question) => clean.includes(question));
+  ].some((question) => clean.endsWith(question));
 }
 
 export function reduceTripSaveGate(

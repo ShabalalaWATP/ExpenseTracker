@@ -179,11 +179,17 @@ export function normaliseTrip(value: unknown): Trip {
     endDate: text(item.endDate),
   };
   const itinerary = legs.length ? legs : [fallbackLeg];
+  const itineraryLocation = itinerary
+    .map((leg) => leg.location)
+    .filter(Boolean)
+    .join(", ");
+  const purpose = text(item.justification ?? item.purpose);
   const eligibleDays = days.map(record).filter((day) => Boolean(day.eligible));
   return {
     id: text(item.id),
     title: text(item.title ?? item.name, "Untitled trip"),
-    location: text(item.location ?? item.purpose) || itinerary[0].location,
+    location: text(item.location) || itineraryLocation,
+    justification: purpose,
     country: text(item.country) || itinerary[0].countryCode,
     startDate: text(item.startDate) || itinerary[0].startDate,
     endDate: text(item.endDate) || itinerary.at(-1)?.endDate || "",

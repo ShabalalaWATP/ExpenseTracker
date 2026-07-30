@@ -1,15 +1,21 @@
-import { automaticTripCalculationMethod } from "@/src/domain/trip-calculation";
-import { daysBetween } from "./format";
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
+import { automaticTripCalculationMethod } from "../../src/domain/trip-calculation.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
+import { daysBetween } from "./format.ts";
 import type { TripDraft } from "./types";
 
-export function validateTripDraft(draft: TripDraft): string | null {
+export function validateTripDraft(
+  draft: TripDraft,
+  allowPendingEligibility = false,
+): string | null {
   if (
     !draft.title.trim() ||
+    !draft.justification.trim() ||
     !draft.startDate ||
     !draft.endDate ||
     draft.endDate < draft.startDate
   ) {
-    return "Enter a title and a valid itinerary.";
+    return "Enter a title, a short justification and a valid itinerary.";
   }
   if (
     !draft.legs.length ||
@@ -41,12 +47,15 @@ export function validateTripDraft(draft: TripDraft): string | null {
       return "Itinerary legs must be chronological without date gaps or overlaps.";
     }
   }
-  if (!draft.eligibleDates.length || !draft.attested) {
-    return "Confirm at least one eligible date and complete the eligibility attestation.";
-  }
   const dates = daysBetween(draft.startDate, draft.endDate);
   if (draft.eligibleDates.some((date) => !dates.includes(date))) {
     return "Every eligible date must fall within the trip.";
+  }
+  if (
+    !allowPendingEligibility &&
+    (!draft.eligibleDates.length || !draft.attested)
+  ) {
+    return "Select and confirm the eligible dates.";
   }
   return null;
 }
@@ -61,6 +70,7 @@ export function cleanTripDraft(draft: TripDraft): TripDraft {
   return {
     ...draft,
     title: draft.title.trim(),
+    justification: draft.justification.trim(),
     location: legs.map((leg) => leg.location).join(", "),
     country: legs[0].countryCode,
     legs,

@@ -131,6 +131,7 @@ export interface Trip {
   id: string;
   title: string;
   location: string;
+  justification?: string;
   country: string;
   startDate: string;
   endDate: string;
@@ -201,6 +202,7 @@ export interface ExpenseDraft {
 export interface TripDraft {
   title: string;
   location: string;
+  justification: string;
   country: string;
   startDate: string;
   endDate: string;

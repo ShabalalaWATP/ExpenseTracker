@@ -538,9 +538,11 @@ control and the development record contains verification evidence.
   and line-item fallbacks for existing receipt records.
 - [x] Add close-detail interactive mapping with evidence-backed receipt
   coordinates, clustered repeat visits and honest city/country fallbacks.
-- [x] Keep voice trip facts monotonic, avoid repeated questions, combine
-  eligibility confirmation and choose daily or aggregate calculation
-  automatically from the trip duration.
+- [x] Capture the trip name, location, dates and short justification from one
+  natural voice description, keep recognised facts monotonic, avoid repeated
+  date questions, and choose daily or aggregate calculation automatically from
+  the trip duration. Preserve a final spoken readback and explicit save
+  approval.
 - [x] Keep automatic and owner-confirmed receipt ledger inserts aligned with
   the expense schema, with regression coverage for SQL value counts.
 - [x] Support selections of at least ten receipts through one global bounded
@@ -579,8 +581,10 @@ exact duplicate and one intentionally poor image. Confirm truthful per-item
 progress, bounded concurrency, cancellation, retry and reload recovery.
 Complete the iPhone 16 HEIC, Safari backgrounding, receipt view/download,
 receipt-bearing audit report, immersive processing and Realtime microphone
-acceptance checks before treating AI-assisted capture as proven. Exercise voice
-trip ordering, readback and explicit spoken save confirmation, manual fallback,
-unique automatic trip matching, explicit leave-unlinked and overlapping-trip
-exception review end to end. Complete an empty-environment recovery drill
-before treating the app as a formal system of record.
+acceptance checks before treating AI-assisted capture as proven. Exercise a
+single-utterance voice trip in the form “name, location, dates, reason”, plus
+multi-country ordering, one genuinely missing detail, readback and explicit
+spoken save confirmation. Also check manual fallback, unique automatic trip
+matching, explicit leave-unlinked and overlapping-trip exception review end to
+end. Complete an empty-environment recovery drill before treating the app as a
+formal system of record.

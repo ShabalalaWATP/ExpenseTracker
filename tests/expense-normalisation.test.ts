@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { normaliseExpense } from "../app/components/expense-normalisation.ts";
+import { normaliseExpense, normaliseTrip } from "../app/components/expense-normalisation.ts";
 
 test("normalises analytics coordinates and extracted receipt line items", () => {
   const expense = normaliseExpense({
@@ -57,4 +57,48 @@ test("rejects incomplete or out-of-range analytics coordinates", () => {
       precision: "city",
     },
   }).locationCoordinates, null);
+});
+
+test("preserves a trip justification separately from its itinerary location", () => {
+  const trip = normaliseTrip({
+    id: "trip-1",
+    name: "Manchester supplier visit",
+    purpose: "To inspect equipment with the supplier.",
+    startDate: "2026-08-10",
+    endDate: "2026-08-12",
+    legs: [
+      {
+        sequence: 0,
+        countryCode: "GB",
+        location: "Manchester",
+        startDate: "2026-08-10",
+        endDate: "2026-08-12",
+      },
+    ],
+  });
+
+  assert.equal(trip.location, "Manchester");
+  assert.equal(trip.justification, "To inspect equipment with the supplier.");
+});
+
+test("keeps a legacy location-shaped purpose visible instead of losing data", () => {
+  const trip = normaliseTrip({
+    id: "trip-legacy",
+    name: "Legacy visit",
+    purpose: "Manchester",
+    startDate: "2026-08-10",
+    endDate: "2026-08-12",
+    legs: [
+      {
+        sequence: 0,
+        countryCode: "GB",
+        location: "Manchester",
+        startDate: "2026-08-10",
+        endDate: "2026-08-12",
+      },
+    ],
+  });
+
+  assert.equal(trip.location, "Manchester");
+  assert.equal(trip.justification, "Manchester");
 });

@@ -427,3 +427,10 @@ This document records meaningful implementation milestones, decisions and verifi
 - Added a pre-decode JPEG/PNG dimension guard on both client and server. It
   allows 48 MP iPhone 16 photos but rejects hostile or corrupted image headers
   above 12,000 pixels per edge or 60 MP before they can exhaust Safari memory.
+- Simplified Realtime trip creation around one natural description containing
+  the trip name, location, dates and short justification. The assistant now
+  extracts all four together, derives a factual title when needed, infers an
+  unambiguous country and reuses the overall dates for a single-location
+  itinerary. It asks at most one concise question about genuinely unresolved
+  information, never re-asks a valid date, and retains the final spoken
+  readback and explicit save approval.

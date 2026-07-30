@@ -16,7 +16,10 @@ export function TripRecords({
           <p className="eyebrow">Your itinerary history</p>
           <h2 id="trip-list-heading">Recorded trips</h2>
         </div>
-        <small>Claims during an eligible active trip link automatically.</small>
+        <small>
+          Voice trips save immediately. Confirm their eligible dates here
+          before receipt auto-linking.
+        </small>
       </div>
       {trips.length ? (
         <ul className="trip-list">
@@ -40,6 +43,7 @@ export function TripRecords({
                 <small>
                   {formatDate(trip.startDate)} to {formatDate(trip.endDate)}
                 </small>
+                {trip.justification ? <small>{trip.justification}</small> : null}
               </div>
               <div className="trip-state">
                 <span
@@ -47,7 +51,9 @@ export function TripRecords({
                     trip.attested ? "success" : "warning"
                   }`}
                 >
-                  {trip.attested ? "Dates confirmed" : "Needs confirmation"}
+                  {trip.attested
+                    ? "Dates confirmed"
+                    : "Confirm eligible dates"}
                 </span>
                 <button
                   className="text-button"

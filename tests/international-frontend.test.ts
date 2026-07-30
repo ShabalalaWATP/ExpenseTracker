@@ -83,5 +83,8 @@ test("trip UI sends and reads an ordered repeatable itinerary", async () => {
   assert.match(editor, /Move leg/);
   assert.match(tripApi, /legs,/);
   assert.match(tripApi, /sequence: index/);
+  assert.match(tripApi, /purpose: draft\.justification/);
+  assert.doesNotMatch(tripApi, /purpose: draft\.location/);
   assert.match(summary, /draft\.legs\.map/);
+  assert.match(summary, /Reason/);
 });

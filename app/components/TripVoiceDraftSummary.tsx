@@ -1,5 +1,5 @@
 import type { TripVoiceDraft } from "@/src/domain/trip-voice";
-import { countryName, daysBetween, formatDate } from "./format";
+import { countryName, formatDate } from "./format";
 
 export function TripVoiceDraftSummary({
   draft,
@@ -10,19 +10,14 @@ export function TripVoiceDraftSummary({
     draft.startDate && draft.endDate
       ? `${formatDate(draft.startDate)} to ${formatDate(draft.endDate)}`
       : "Not yet provided";
-  const eligibilitySummary = draft.eligibleDates?.length
-    ? `${draft.eligibleDates.length} of ${
-        draft.startDate && draft.endDate
-          ? daysBetween(draft.startDate, draft.endDate).length
-          : draft.eligibleDates.length
-      } dates`
-    : "Not yet confirmed";
-
   return (
     <dl className="trip-voice-draft" aria-label="Trip draft">
       <div><dt>Title</dt><dd>{draft.title ?? "Not yet provided"}</dd></div>
       <div><dt>Dates</dt><dd>{dateSummary}</dd></div>
-      <div><dt>Eligibility</dt><dd>{eligibilitySummary}</dd></div>
+      <div>
+        <dt>Reason</dt>
+        <dd>{draft.justification ?? "Not yet provided"}</dd>
+      </div>
       <div className="trip-voice-itinerary">
         <dt>Itinerary</dt>
         <dd>

@@ -14,7 +14,7 @@ function tripBody(draft: TripDraft) {
   }));
   return {
     name: draft.title,
-    purpose: draft.location,
+    purpose: draft.justification,
     country: "GB",
     startDate: draft.startDate,
     endDate: draft.endDate,
