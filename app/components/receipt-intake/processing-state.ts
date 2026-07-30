@@ -13,6 +13,7 @@ export type ReceiptProcessingStage =
 
 export type ReceiptProcessingJob = {
   id: string;
+  intakeId?: string;
   name: string;
   stage: ReceiptProcessingStage;
   secured: boolean;
@@ -32,6 +33,7 @@ export type ReceiptProcessingSummary = {
 };
 
 export function receiptAnalysisCompletion(intake: {
+  status?: string;
   errorCode: string | null;
   error: string | null;
 }): {
@@ -39,8 +41,10 @@ export function receiptAnalysisCompletion(intake: {
   error?: string;
 } {
   const failed =
+    intake.status === "failed" ||
     intake.errorCode === "ai_daily_limit" ||
     intake.errorCode === "receipt_processing_interrupted" ||
+    intake.errorCode === "receipt_auto_confirmation_interrupted" ||
     intake.errorCode?.startsWith("openai_") ||
     intake.errorCode?.startsWith("analysis_");
   return failed && intake.error
@@ -50,7 +54,15 @@ export function receiptAnalysisCompletion(intake: {
 
 export function beginProcessingBatch(
   current: readonly ReceiptProcessingJob[],
-  files: readonly { id: string; name: string; waiting?: boolean }[],
+  files: readonly {
+    id: string;
+    name: string;
+    waiting?: boolean;
+    failed?: boolean;
+    secured?: boolean;
+    intakeId?: string;
+    error?: string;
+  }[],
 ): ReceiptProcessingJob[] {
   const unfinished = current.some(
     (job) => job.stage !== "completed" && job.stage !== "failed",
@@ -64,8 +76,14 @@ export function beginProcessingBatch(
       .map((file) => ({
         id: file.id,
         name: file.name,
-        stage: file.waiting ? ("waiting" as const) : ("queued" as const),
-        secured: false,
+        stage: file.failed
+          ? ("failed" as const)
+          : file.waiting
+            ? ("waiting" as const)
+            : ("queued" as const),
+        secured: file.secured ?? false,
+        intakeId: file.intakeId,
+        error: file.error,
       })),
   ];
 }

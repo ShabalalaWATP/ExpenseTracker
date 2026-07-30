@@ -541,6 +541,19 @@ control and the development record contains verification evidence.
 - [x] Keep voice trip facts monotonic, avoid repeated questions, combine
   eligibility confirmation and choose daily or aggregate calculation
   automatically from the trip duration.
+- [x] Keep automatic and owner-confirmed receipt ledger inserts aligned with
+  the expense schema, with regression coverage for SQL value counts.
+- [x] Support selections of at least ten receipts through one global bounded
+  queue, with a twenty-item admission limit, two concurrent receipt workflows
+  and serial high-resolution image preparation.
+- [x] Make bulk capture recoverable across reloads and transient failures by
+  storing files separately from queue state, resuming from authoritative server
+  status, retaining failed items for explicit retry and cleaning terminal data.
+- [x] Harden R2/D1 partial-failure and duplicate handling so concurrent bulk
+  uploads cannot mask the primary error or strand untracked receipt evidence.
+- [x] Make IndexedDB file/state persistence atomic and sequential per selected
+  batch, preserve a secured-evidence retry path, and reject hostile oversized
+  JPEG/PNG dimensions before browser decode.
 
 ### Priority 3: broader use only when justified
 
@@ -561,6 +574,9 @@ against a non-sensitive receipt set, including weak or missing receipt fields.
 Measure low-reasoning, 5 MP receipt latency and accuracy against the same set
 before deciding whether difficult receipts need an automatic higher-reasoning
 or larger-image retry.
+Run a live ten-receipt iPhone Safari acceptance batch containing JPG, HEIC, an
+exact duplicate and one intentionally poor image. Confirm truthful per-item
+progress, bounded concurrency, cancellation, retry and reload recovery.
 Complete the iPhone 16 HEIC, Safari backgrounding, receipt view/download,
 receipt-bearing audit report, immersive processing and Realtime microphone
 acceptance checks before treating AI-assisted capture as proven. Exercise voice

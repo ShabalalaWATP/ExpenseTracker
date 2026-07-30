@@ -395,3 +395,35 @@ This document records meaningful implementation milestones, decisions and verifi
   added. The state is dismissible but not retryable. Deleting an unconfirmed
   inbox receipt continues to remove its duplicate block so it can be added
   again intentionally.
+- Fixed the final receipt-to-ledger transaction after a live Pizza Pilgrims
+  scan proved that upload, extraction, independent verification and trip
+  matching could all succeed before confirmation returned 500. Both automatic
+  and owner-confirmed expense inserts supplied 27 values for 26 columns. The
+  surplus value is removed and a source-contract regression test now keeps the
+  insert column and value counts aligned.
+- Reworked receipt capture as a durable bounded queue so one selection can hold
+  at least ten receipts without starting ten simultaneous image and AI jobs.
+  The app accepts up to twenty queued receipts, runs at most two receipt
+  workflows concurrently, and serialises high-resolution image preparation to
+  reduce iPhone Safari memory pressure. Fresh uploads, restored drafts, retries
+  and resumed server work all share the same scheduler.
+- Separated immutable receipt files from mutable IndexedDB queue state. Failed
+  items remain visible with an explicit retry action, terminal files are
+  cleaned up, queued work can be cancelled, and reload recovery follows the
+  server's authoritative intake status instead of repeating completed upload
+  or extraction stages.
+- Made each local file-and-state write atomic and persisted a selected batch
+  sequentially, while allowing already-persisted receipts to enter the bounded
+  upload scheduler immediately. This avoids a burst of IndexedDB transactions
+  when ten or more photos are selected. Retry can now fall back to the secured
+  analysis copy or original after the local `File` reference is released.
+- Hardened the R2-to-D1 intake boundary for bulk races and partial failures.
+  Discarded intakes no longer block a deliberate re-upload, ambiguous object
+  writes use the same cleanup path as database commit failures, and an audit
+  marker preserves cleanup responsibility if an orphaned object cannot be
+  removed. An ambiguous D1 response first reconciles the exact intended intake
+  before any evidence deletion. Recovery integrity checks now report orphaned
+  receipt objects as unhealthy.
+- Added a pre-decode JPEG/PNG dimension guard on both client and server. It
+  allows 48 MP iPhone 16 photos but rejects hostile or corrupted image headers
+  above 12,000 pixels per edge or 60 MP before they can exhaust Safari memory.

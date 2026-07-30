@@ -26,8 +26,11 @@ export function detectImageType(bytes: Uint8Array): string | null {
   return null;
 }
 
+export const MAX_RECEIPT_SOURCE_DIMENSION = 12_000;
+export const MAX_RECEIPT_SOURCE_PIXELS = 60_000_000;
+
 function validDimensions(width: number, height: number): boolean {
-  return width > 0 && height > 0 && width <= 100_000 && height <= 100_000;
+  return width > 0 && height > 0;
 }
 
 function pngDimensions(
@@ -84,4 +87,19 @@ export function imageDimensions(
   return contentType === "image/png"
     ? pngDimensions(bytes)
     : jpegDimensions(bytes);
+}
+
+export function safeReceiptImageDimensions(
+  dimensions: { width: number; height: number },
+): boolean {
+  const { width, height } = dimensions;
+  return (
+    Number.isSafeInteger(width) &&
+    Number.isSafeInteger(height) &&
+    width > 0 &&
+    height > 0 &&
+    width <= MAX_RECEIPT_SOURCE_DIMENSION &&
+    height <= MAX_RECEIPT_SOURCE_DIMENSION &&
+    width <= MAX_RECEIPT_SOURCE_PIXELS / height
+  );
 }

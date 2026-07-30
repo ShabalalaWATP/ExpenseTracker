@@ -18,7 +18,15 @@ export function useInitialReceiptInbox({
 }: {
   initialIntakeId?: string;
   beginProcessing: (
-    files: readonly { id: string; name: string; waiting?: boolean }[],
+    files: readonly {
+      id: string;
+      name: string;
+      waiting?: boolean;
+      failed?: boolean;
+      secured?: boolean;
+      intakeId?: string;
+      error?: string;
+    }[],
   ) => void;
   processRef: MutableRefObject<(item: LocalUpload) => Promise<void>>;
   setAi: Dispatch<SetStateAction<AiStatus | null>>;
@@ -54,9 +62,18 @@ export function useInitialReceiptInbox({
             id: item.id,
             name: item.file.name,
             waiting: item.stage === "waiting-online",
+            failed: item.stage === "failed",
+            secured: Boolean(item.intakeId),
+            intakeId: item.intakeId,
+            error: item.error,
           })),
         );
-        draftResult.value.forEach((item) => void processRef.current(item));
+        draftResult.value
+          .filter(
+            (item) =>
+              item.stage === "queued" || item.stage === "waiting-online",
+          )
+          .forEach((item) => void processRef.current(item));
       } else {
         setError(
           "Safari could not open the local recovery queue. New photos can still upload while this page remains open.",

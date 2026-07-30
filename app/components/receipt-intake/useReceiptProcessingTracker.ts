@@ -15,7 +15,15 @@ export function useReceiptProcessingTracker() {
   const [jobs, setJobs] = useState<ReceiptProcessingJob[]>([]);
 
   const begin = useCallback(function begin(
-    files: readonly { id: string; name: string; waiting?: boolean }[],
+    files: readonly {
+      id: string;
+      name: string;
+      waiting?: boolean;
+      failed?: boolean;
+      secured?: boolean;
+      intakeId?: string;
+      error?: string;
+    }[],
   ) {
     setJobs((current) => beginProcessingBatch(current, files));
   }, []);
@@ -23,7 +31,7 @@ export function useReceiptProcessingTracker() {
   const mark = useCallback(function mark(
     id: string,
     stage: ReceiptProcessingStage,
-    changes: { secured?: boolean; error?: string } = {},
+    changes: { secured?: boolean; error?: string; intakeId?: string } = {},
   ) {
     setJobs((current) =>
       updateProcessingJob(current, id, {

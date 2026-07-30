@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { normaliseReceipt } from "./image";
 import {
   analyseIntake,
@@ -19,6 +19,7 @@ import {
   pollAutoConfirmation,
 } from "./auto-confirm-polling";
 import { receiptAnalysisCompletion } from "./processing-state";
+import { receiptRetrySource } from "./receipt-retry-source";
 
 type ProcessingTracker = ReturnType<typeof useReceiptProcessingTracker>;
 
@@ -43,21 +44,40 @@ export async function finishReceiptAnalysis(
   ).intake;
 }
 
-export function createReceiptAnalysisActions({
-  analysisFiles,
+export function useReceiptAnalysisActions({
+  getAnalysisFile,
   processing,
   setProcessingIds,
   setError,
   updateIntake,
   confirmed,
 }: {
-  analysisFiles: MutableRefObject<Map<string, File>>;
+  getAnalysisFile: (id: string) => File | undefined;
   processing: ProcessingTracker;
   setProcessingIds: Dispatch<SetStateAction<string[]>>;
   setError: Dispatch<SetStateAction<string>>;
   updateIntake: (intake: ReceiptIntake) => void;
   confirmed: (id: string) => Promise<void>;
 }) {
+  async function analyseSecuredReceipt(
+    intake: ReceiptIntake,
+    fields: ReceiptRecheckField[],
+    jobId: string,
+  ): Promise<ReceiptIntake> {
+    if (intake.hasAnalysisCopy) {
+      return reanalyseIntake(intake.id, fields);
+    }
+    const response = await fetch(intake.previewUrl, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error("The secured original could not be opened.");
+    }
+    const image = await normaliseReceipt(await response.blob());
+    processing.mark(jobId, "analysing", { secured: true });
+    return analyseIntake(intake.id, image);
+  }
+
   async function run(
     intake: ReceiptIntake,
     start: "preparing" | "analysing",
@@ -79,10 +99,15 @@ export function createReceiptAnalysisActions({
       if (analysed.status === "confirmed") await confirmed(analysed.id);
       const completion = receiptAnalysisCompletion(analysed);
       if (completion.error) setError(completion.error);
-      processing.mark(jobId, completion.stage, {
-        secured: true,
-        error: completion.error,
-      });
+      if (analysed.status === "needs_review" && !completion.error) {
+        processing.remove([jobId]);
+      } else {
+        processing.mark(jobId, completion.stage, {
+          secured: true,
+          error: completion.error,
+          intakeId: analysed.id,
+        });
+      }
       return completion.stage === "completed" ? "completed" : "failed";
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : fallback;
@@ -107,6 +132,7 @@ export function createReceiptAnalysisActions({
       intake: ReceiptIntake,
       jobId: string,
     ): Promise<boolean> => {
+      processing.begin([{ id: jobId, name: intake.originalName }]);
       processing.mark(jobId, "confirming", { secured: true });
       try {
         const confirmedIntake = (
@@ -115,9 +141,15 @@ export function createReceiptAnalysisActions({
         updateIntake(confirmedIntake);
         if (confirmedIntake.status === "confirmed") {
           await confirmed(confirmedIntake.id);
+          processing.mark(jobId, "completed", {
+            secured: true,
+            intakeId: confirmedIntake.id,
+          });
+          return true;
+        } else {
+          processing.remove([jobId]);
         }
-        processing.mark(jobId, "completed", { secured: true });
-        return true;
+        return false;
       } catch (caught) {
         const message =
           caught instanceof Error
@@ -135,12 +167,16 @@ export function createReceiptAnalysisActions({
       }
     },
     retryAnalysis: async (intake: ReceiptIntake) => {
-      const file = analysisFiles.current.get(intake.id);
-      if (!file) return "failed";
+      const file = getAnalysisFile(intake.id);
       return run(
         intake,
-        "preparing",
+        receiptRetrySource(intake, Boolean(file)) === "analysis-copy"
+          ? "analysing"
+          : "preparing",
         async (jobId) => {
+          if (!file) {
+            return analyseSecuredReceipt(intake, [], jobId);
+          }
           const image = await normaliseReceipt(file);
           processing.mark(jobId, "analysing", { secured: true });
           return analyseIntake(intake.id, image);
@@ -152,20 +188,7 @@ export function createReceiptAnalysisActions({
       run(
         intake,
         intake.hasAnalysisCopy ? "analysing" : "preparing",
-        async (jobId) => {
-          if (intake.hasAnalysisCopy) {
-            return reanalyseIntake(intake.id, fields);
-          }
-          const response = await fetch(intake.previewUrl, {
-            cache: "no-store",
-          });
-          if (!response.ok) {
-            throw new Error("The secured original could not be opened.");
-          }
-          const image = await normaliseReceipt(await response.blob());
-          processing.mark(jobId, "analysing", { secured: true });
-          return analyseIntake(intake.id, image);
-        },
+        (jobId) => analyseSecuredReceipt(intake, fields, jobId),
         "The receipt could not be read again.",
       ),
     analyseWithEdits: (intake: ReceiptIntake, edits: ImageEdits) =>

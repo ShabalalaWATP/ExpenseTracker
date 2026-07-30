@@ -2,23 +2,23 @@
 
 import type {
   Dispatch,
-  MutableRefObject,
   SetStateAction,
 } from "react";
 import { deleteIntake } from "./receiptApi";
-import type { createReceiptAnalysisActions } from "./receipt-analysis-actions";
+import type { useReceiptAnalysisActions } from "./receipt-analysis-actions";
 import type { LocalUpload, ReceiptIntake } from "./types";
 import type { useReceiptProcessingTracker } from "./useReceiptProcessingTracker";
 
-type AnalysisActions = ReturnType<typeof createReceiptAnalysisActions>;
+type AnalysisActions = ReturnType<typeof useReceiptAnalysisActions>;
 type ProcessingTracker = ReturnType<typeof useReceiptProcessingTracker>;
 
-export function createReceiptQueueActions({
+export function useReceiptQueueActions({
   intakes,
   selectedId,
-  uploadsRef,
-  analysisFiles,
-  processRef,
+  getUploads,
+  getAnalysisFile,
+  deleteAnalysisFile,
+  scheduleFile,
   processing,
   analysisActions,
   removeLocal,
@@ -29,9 +29,10 @@ export function createReceiptQueueActions({
 }: {
   intakes: ReceiptIntake[];
   selectedId: string;
-  uploadsRef: MutableRefObject<LocalUpload[]>;
-  analysisFiles: MutableRefObject<Map<string, File>>;
-  processRef: MutableRefObject<(item: LocalUpload) => Promise<void>>;
+  getUploads: () => LocalUpload[];
+  getAnalysisFile: (id: string) => File | undefined;
+  deleteAnalysisFile: (id: string) => void;
+  scheduleFile: (item: LocalUpload) => Promise<void>;
   processing: ProcessingTracker;
   analysisActions: AnalysisActions;
   removeLocal: (id: string) => Promise<void>;
@@ -59,7 +60,7 @@ export function createReceiptQueueActions({
     const removable = intakes.filter(
       (item) => item.status !== "confirmed",
     );
-    const locals = uploadsRef.current.filter(
+    const locals = getUploads().filter(
       (item) => item.stage !== "uploading" && item.stage !== "normalising",
     );
     const total = removable.length + locals.length;
@@ -77,7 +78,7 @@ export function createReceiptQueueActions({
     for (const item of removable) {
       try {
         await deleteIntake(item.id);
-        analysisFiles.current.delete(item.id);
+        deleteAnalysisFile(item.id);
       } catch {
         failed.add(item.id);
       }
@@ -104,31 +105,42 @@ export function createReceiptQueueActions({
           job.stage === "pending",
       )
       .forEach((job) => {
+        const local = getUploads().find((item) => item.id === job.id);
+        if (local) {
+          void scheduleFile(local);
+          return;
+        }
+        const mappedIntake = job.intakeId
+          ? intakes.find((item) => item.id === job.intakeId)
+          : null;
+        if (mappedIntake) {
+          processing.remove([job.id]);
+          if (mappedIntake.status === "ready") {
+            void analysisActions.retryAutomaticConfirmation(
+              mappedIntake,
+              `analysis:${mappedIntake.id}`,
+            );
+          } else if (
+            mappedIntake.status === "uploaded" ||
+            mappedIntake.status === "needs_review" ||
+            mappedIntake.status === "failed"
+          ) {
+            void analysisActions.reanalyse(mappedIntake, []);
+          }
+          return;
+        }
         if (job.id.startsWith("analysis:")) {
           const intake = intakes.find(
             (item) => `analysis:${item.id}` === job.id,
           );
           if (intake) {
-            if (analysisFiles.current.has(intake.id)) {
+            if (getAnalysisFile(intake.id)) {
               void analysisActions.retryAnalysis(intake);
             } else if (intake.hasAnalysisCopy) {
               void analysisActions.reanalyse(intake, []);
             }
           }
           return;
-        }
-        const local = uploadsRef.current.find((item) => item.id === job.id);
-        const ready = local?.intakeId
-          ? intakes.find((item) => item.id === local.intakeId)
-          : null;
-        if (local && ready?.status === "ready") {
-          void analysisActions
-            .retryAutomaticConfirmation(ready, local.id)
-            .then((succeeded) => {
-              if (succeeded) void removeLocal(local.id);
-            });
-        } else if (local) {
-          void processRef.current(local);
         }
       });
   }

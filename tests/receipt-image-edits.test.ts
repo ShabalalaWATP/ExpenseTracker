@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-// @ts-expect-error Node's TypeScript stripping requires the source extension.
 import {
   MAX_ANALYSIS_DIMENSION,
   MAX_ANALYSIS_PIXELS,
   cropGeometry,
   normaliseImageEdits,
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
 } from "../app/components/receipt-intake/image.ts";
 
 test("receipt analysis derivatives stay within the low-latency vision budget", () => {

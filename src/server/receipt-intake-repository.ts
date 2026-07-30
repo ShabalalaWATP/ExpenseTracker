@@ -24,20 +24,8 @@ import {
   recoverStaleTokenlessAnalysis,
 } from "./receipt-intake-auto-confirm-lease";
 import { recoverExpiredReceiptAnalysis } from "./receipt-analysis-lease";
-
-async function requireOwnedTrip(
-  principal: Principal,
-  tripId: string | null,
-): Promise<void> {
-  if (!tripId) return;
-  const trip = await database()
-    .prepare("SELECT id FROM trips WHERE owner_id = ? AND id = ?")
-    .bind(principal.ownerId, tripId)
-    .first<{ id: string }>();
-  if (!trip) {
-    throw new ApiError(400, "trip_invalid", "The selected trip does not exist.");
-  }
-}
+import { receiptIntakeCommitFailureHandler } from "./receipt-intake-upload-failure";
+import { requireOwnedReceiptTrip } from "./receipt-intake-trip-validation";
 
 export async function requireIntake(
   principal: Principal,
@@ -137,7 +125,7 @@ export async function createReceiptIntake(
   }
   const idempotencyKey = validIntakeIdempotencyKey(idempotencyValue);
   const contentType = validateImageType(bytes, declaredType);
-  await requireOwnedTrip(principal, defaults.tripId);
+  await requireOwnedReceiptTrip(principal, defaults.tripId);
   const db = database();
   const hash = await receiptSha256(bytes);
   const pendingDeletion = await db
@@ -192,10 +180,23 @@ export async function createReceiptIntake(
   const objectKey =
     `receipt-intakes/${principal.ownerId}/${id}/original.${intakeImageExtension(contentType)}`;
   const bucket = getReceiptsBucket();
-  await bucket.put(objectKey, bytes, {
-    httpMetadata: { contentType },
-    customMetadata: { sha256: hash },
+  const handleCommitFailure = receiptIntakeCommitFailureHandler({
+    principal,
+    database: db,
+    bucket,
+    objectKey,
+    hash,
+    intakeId: id,
   });
+  try {
+    await bucket.put(objectKey, bytes, {
+      httpMetadata: { contentType },
+      customMetadata: { sha256: hash },
+    });
+  } catch (error) {
+    const committed = await handleCommitFailure(error);
+    return { intake: publicIntake(committed), created: true };
+  }
   try {
     await db.batch([
       db
@@ -248,22 +249,8 @@ export async function createReceiptIntake(
       }),
     ]);
   } catch (error) {
-    await bucket.delete(objectKey);
-    const concurrentDuplicate = await db
-      .prepare(
-        "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ? AND id <> ? AND discarded_at IS NULL",
-      )
-      .bind(principal.ownerId, hash, id)
-      .first<{ id: string }>();
-    if (concurrentDuplicate) {
-      throw new ApiError(
-        409,
-        "receipt_duplicate",
-        "This receipt has already been added.",
-        { existingId: concurrentDuplicate.id, existingKind: "intake" },
-      );
-    }
-    throw error;
+    const committed = await handleCommitFailure(error);
+    return { intake: publicIntake(committed), created: true };
   }
   return {
     intake: publicIntake(await requireIntake(principal, id)),

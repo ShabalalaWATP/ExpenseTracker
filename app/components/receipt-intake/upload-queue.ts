@@ -2,6 +2,10 @@ import type { BatchDefaults, ReceiptIntake } from "./types";
 
 export const MAX_UPLOAD_BATCH = 20;
 
+export function availableReceiptUploadSlots(current: number): number {
+  return Math.max(0, MAX_UPLOAD_BATCH - Math.max(0, current));
+}
+
 export type BatchDefaultState = {
   seed: string;
   value: BatchDefaults;

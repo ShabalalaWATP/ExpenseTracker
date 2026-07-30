@@ -1,16 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import type { LocalUpload } from "./types";
-import { removeUploadDraft, saveUploadDraft } from "./upload-drafts";
+import {
+  removeUploadDraft,
+  saveUploadDraftState,
+} from "./upload-drafts";
 
 export function useLocalUploadQueue() {
-  const [localUploads, setLocalUploads] = useState<LocalUpload[]>([]);
+  const [localUploads, setLocalUploadsState] = useState<LocalUpload[]>([]);
   const uploadsRef = useRef<LocalUpload[]>([]);
 
-  useEffect(() => {
-    uploadsRef.current = localUploads;
-  }, [localUploads]);
+  const setLocalUploads: Dispatch<SetStateAction<LocalUpload[]>> = useCallback(
+    (action) => {
+      const next =
+        typeof action === "function" ? action(uploadsRef.current) : action;
+      uploadsRef.current = next;
+      setLocalUploadsState(next);
+    },
+    [],
+  );
 
   async function updateLocal(
     local: LocalUpload,
@@ -20,7 +35,7 @@ export function useLocalUploadQueue() {
     setLocalUploads((items) =>
       items.map((item) => (item.id === local.id ? changed : item)),
     );
-    await saveUploadDraft(changed).catch(() => {});
+    await saveUploadDraftState(changed).catch(() => {});
     return changed;
   }
 

@@ -32,6 +32,20 @@ describe("receipt batch processing state", () => {
     });
   });
 
+  it("reports interrupted auto-confirmation as retryable failure", () => {
+    assert.deepEqual(
+      receiptAnalysisCompletion({
+        status: "needs_review",
+        errorCode: "receipt_auto_confirmation_interrupted",
+        error: "Automatic confirmation was interrupted.",
+      }),
+      {
+        stage: "failed",
+        error: "Automatic confirmation was interrupted.",
+      },
+    );
+  });
+
   it("keeps a successful analysis requiring review out of the failure state", () => {
     assert.deepEqual(
       receiptAnalysisCompletion({

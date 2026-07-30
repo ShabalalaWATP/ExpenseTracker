@@ -191,9 +191,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function listIntakes(): Promise<ReceiptIntake[]> {
+export async function listIntakes(
+  signal?: AbortSignal,
+): Promise<ReceiptIntake[]> {
   const result = await request<Envelope<{ intakes: unknown[] }>>(
     "/api/receipt-intakes",
+    { signal },
   );
   return result.data.intakes.map(normaliseReceiptIntake);
 }

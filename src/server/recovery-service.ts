@@ -5,6 +5,7 @@ import { database, ensureSchema } from "./db";
 import { sha256Hex, streamBytes, utf8 } from "./binary";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
+import { evidenceIntegrityHealthy } from "./recovery-integrity";
 import { buildZip, type ZipEntry } from "./zip";
 
 type EvidenceRecord = {
@@ -126,7 +127,7 @@ export async function checkEvidenceIntegrity(
         !expectedKeys.has(key) &&
         !key.includes("/analysis-"),
     );
-  return {
+  const report = {
     checkedAt: new Date().toISOString(),
     expectedObjects: expected.length,
     storedObjects: stored.length,
@@ -135,11 +136,8 @@ export async function checkEvidenceIntegrity(
     sizeMismatches,
     hashMismatches,
     orphanedObjects,
-    healthy:
-      missing.length === 0 &&
-      sizeMismatches.length === 0 &&
-      hashMismatches.length === 0,
   };
+  return { ...report, healthy: evidenceIntegrityHealthy(report) };
 }
 
 export async function getRecoveryPlan(

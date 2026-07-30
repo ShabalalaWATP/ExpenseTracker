@@ -2,6 +2,8 @@ import type { ImageEdits } from "./types";
 
 export const MAX_ANALYSIS_DIMENSION = 2560;
 export const MAX_ANALYSIS_PIXELS = 5_000_000;
+export const MAX_RECEIPT_SOURCE_DIMENSION = 12_000;
+export const MAX_RECEIPT_SOURCE_PIXELS = 60_000_000;
 const JPEG_QUALITY = 0.9;
 const MAX_ANALYSIS_BYTES = 9 * 1_048_576;
 const MAX_RECEIPT_BYTES = 20 * 1_048_576;
@@ -75,6 +77,95 @@ export function receiptAnalysisImage(file: Blob): Promise<Blob> {
   return normaliseReceipt(file);
 }
 
+function bytesEqual(value: Uint8Array, signature: readonly number[]): boolean {
+  return signature.every((byte, index) => value[index] === byte);
+}
+
+function pngDimensions(
+  bytes: Uint8Array,
+): { width: number; height: number } | null {
+  if (
+    bytes.byteLength < 24 ||
+    !bytesEqual(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  ) {
+    return null;
+  }
+  if (new TextDecoder().decode(bytes.slice(12, 16)) !== "IHDR") return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { width: view.getUint32(16), height: view.getUint32(20) };
+}
+
+const JPEG_SOF_MARKERS = new Set([
+  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
+]);
+
+function jpegDimensions(
+  bytes: Uint8Array,
+): { width: number; height: number } | null {
+  if (
+    bytes.byteLength < 3 ||
+    !bytesEqual(bytes, [0xff, 0xd8, 0xff])
+  ) {
+    return null;
+  }
+  let offset = 2;
+  while (offset + 3 < bytes.byteLength) {
+    if (bytes[offset] !== 0xff) return null;
+    while (offset < bytes.byteLength && bytes[offset] === 0xff) offset += 1;
+    const marker = bytes[offset];
+    offset += 1;
+    if (
+      marker === 0xd8 ||
+      marker === 0xd9 ||
+      (marker >= 0xd0 && marker <= 0xd7)
+    ) {
+      continue;
+    }
+    if (offset + 1 >= bytes.byteLength) return null;
+    const length = (bytes[offset] << 8) | bytes[offset + 1];
+    if (length < 2 || offset + length > bytes.byteLength) return null;
+    if (JPEG_SOF_MARKERS.has(marker)) {
+      if (length < 7) return null;
+      return {
+        height: (bytes[offset + 3] << 8) | bytes[offset + 4],
+        width: (bytes[offset + 5] << 8) | bytes[offset + 6],
+      };
+    }
+    if (marker === 0xda) return null;
+    offset += length;
+  }
+  return null;
+}
+
+export function safeReceiptSourceDimensions(
+  dimensions: { width: number; height: number },
+): boolean {
+  const { width, height } = dimensions;
+  return (
+    Number.isSafeInteger(width) &&
+    Number.isSafeInteger(height) &&
+    width > 0 &&
+    height > 0 &&
+    width <= MAX_RECEIPT_SOURCE_DIMENSION &&
+    height <= MAX_RECEIPT_SOURCE_DIMENSION &&
+    width <= MAX_RECEIPT_SOURCE_PIXELS / height
+  );
+}
+
+export async function validateReceiptSourceDimensions(file: Blob): Promise<void> {
+  const firstBytes = new Uint8Array(await file.slice(0, 24).arrayBuffer());
+  const png = pngDimensions(firstBytes);
+  let dimensions = png;
+  if (!dimensions && bytesEqual(firstBytes, [0xff, 0xd8, 0xff])) {
+    dimensions = jpegDimensions(new Uint8Array(await file.arrayBuffer()));
+  }
+  if (dimensions && !safeReceiptSourceDimensions(dimensions)) {
+    throw new Error(
+      "This receipt image has unsafe dimensions. Use a photo no larger than 60 megapixels.",
+    );
+  }
+}
+
 async function decodeImage(file: Blob): Promise<ImageBitmap | HTMLImageElement> {
   const url = URL.createObjectURL(file);
   try {
@@ -126,6 +217,7 @@ export async function normaliseReceipt(
   file: Blob,
   requestedEdits: Partial<ImageEdits> = DEFAULT_IMAGE_EDITS,
 ): Promise<Blob> {
+  await validateReceiptSourceDimensions(file);
   const source = await decodeImage(file);
   try {
     const width = source.width;

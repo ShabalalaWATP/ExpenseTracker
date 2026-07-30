@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-// @ts-expect-error Node's TypeScript stripping requires the source extension.
 import {
   RECEIPT_EXTRACTION_PROMPT_CACHE_KEY,
   RECEIPT_IMAGE_DETAIL,
   RECEIPT_REASONING_EFFORT,
   RECEIPT_VERIFICATION_IMAGE_DETAIL,
   receiptRequestBody,
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
 } from "../src/server/receipt-request.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { RECEIPT_EXTRACTION_SCHEMA } from "../src/server/receipt-extraction-schema.ts";

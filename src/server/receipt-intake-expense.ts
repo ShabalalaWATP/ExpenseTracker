@@ -6,6 +6,8 @@ import { database } from "./db";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import { assertReceiptConversionIntegrity } from "./receipt-conversion-integrity";
+import { receiptExpenseCompletionGuard } from "./receipt-expense-completion-guard";
+import { receiptExpenseMetadata } from "./receipt-expense-metadata";
 import { publicIntake, type ReceiptIntakeRow } from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
 
@@ -28,12 +30,10 @@ export async function commitReceiptIntakeExpense(
   await assertReceiptConversionIntegrity(principal, row);
   const expenseId = crypto.randomUUID();
   const receiptId = crypto.randomUUID();
-  const category = row.category ?? "food";
-  const notes = row.ai_model
-    ? options.automatic
-      ? `Receipt details suggested by ${row.ai_model} and automatically confirmed after strict checks.`
-      : `Receipt details suggested by ${row.ai_model} and confirmed by the owner.`
-    : "Receipt details entered and confirmed by the owner.";
+  const { category, notes } = receiptExpenseMetadata(
+    row,
+    options.automatic,
+  );
   const db = database();
   const expenseInsert = options.automatic
     ? db
@@ -48,8 +48,8 @@ export async function commitReceiptIntakeExpense(
             translation_json, conversion_json, trip_id, trip_leg_id,
             meal_context, category, notes
           )
-          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', ?, ?, ?, ?, ?, ?, ?, ?,
-                 ?, ?, ?, ?, ?, ?, ?, ?, ?
+           SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', ?, ?, ?, ?, ?, ?, ?, ?,
+                  ?, ?, ?, ?, ?, ?, ?, ?
           WHERE EXISTS (
             SELECT 1 FROM receipt_auto_confirm_reservations
             WHERE owner_id = ? AND fingerprint = ? AND receipt_intake_id = ?
@@ -131,8 +131,8 @@ export async function commitReceiptIntakeExpense(
             translation_json, conversion_json, trip_id, trip_leg_id,
             meal_context, category, notes
           )
-          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', ?, ?, ?, ?, ?, ?, ?, ?,
-                 ?, ?, ?, ?, ?, ?, ?, ?, ?
+           SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', ?, ?, ?, ?, ?, ?, ?, ?,
+                  ?, ?, ?, ?, ?, ?, ?, ?
           WHERE (? IS NULL AND ? IS NULL) OR EXISTS (
             SELECT 1
             FROM trip_legs leg
@@ -287,20 +287,11 @@ export async function commitReceiptIntakeExpense(
           ]
         : []),
     );
-  const completionGuard = db
-    .prepare(
-      `SELECT CASE
-         WHEN EXISTS (
-           SELECT 1 FROM receipt_intakes
-           WHERE owner_id = ? AND id = ? AND status = 'confirmed'
-             AND expense_id = ?
-             AND auto_confirm_token IS NULL
-             AND auto_confirm_lease_expires_at IS NULL
-         ) THEN 1
-         ELSE abs(-9223372036854775808)
-       END`,
-    )
-    .bind(principal.ownerId, row.id, expenseId);
+  const completionGuard = receiptExpenseCompletionGuard(
+    principal,
+    row.id,
+    expenseId,
+  );
   await db.batch([
     expenseInsert,
     receiptInsert,

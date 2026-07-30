@@ -1,7 +1,17 @@
 import { ApiError } from "./http";
-import { detectImageType } from "./receipt-image-inspection";
+import {
+  detectImageType,
+  imageDimensions,
+  safeReceiptImageDimensions,
+} from "./receipt-image-inspection";
 
-export { detectImageType, imageDimensions } from "./receipt-image-inspection";
+export {
+  detectImageType,
+  imageDimensions,
+  MAX_RECEIPT_SOURCE_DIMENSION,
+  MAX_RECEIPT_SOURCE_PIXELS,
+  safeReceiptImageDimensions,
+} from "./receipt-image-inspection";
 
 export function validateImageType(
   bytes: Uint8Array,
@@ -23,6 +33,16 @@ export function validateImageType(
       "receipt_type_invalid",
       "Upload a JPEG, PNG, HEIC or HEIF receipt image.",
     );
+  }
+  if (detected === "image/jpeg" || detected === "image/png") {
+    const dimensions = imageDimensions(bytes, detected);
+    if (dimensions && !safeReceiptImageDimensions(dimensions)) {
+      throw new ApiError(
+        413,
+        "receipt_dimensions_too_large",
+        "This receipt image has unsafe dimensions. Use a photo no larger than 60 megapixels.",
+      );
+    }
   }
   return detected!;
 }
