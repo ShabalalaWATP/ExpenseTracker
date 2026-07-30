@@ -1,5 +1,6 @@
 import type {
   AiStatus,
+  AnalysisHistoryEntry,
   BatchDefaults,
   ImageEdits,
   IntakePatch,
@@ -22,6 +23,29 @@ function text(value: unknown): string | undefined {
 
 function optionalInteger(value: unknown): number | undefined {
   return Number.isSafeInteger(value) ? (value as number) : undefined;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function analysisHistory(value: unknown): AnalysisHistoryEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate) => {
+    const entry = record(candidate);
+    const extraction = record(entry.extraction);
+    const analysedAt = text(entry.analysedAt);
+    const model = text(entry.model);
+    if (!analysedAt || !model) return [];
+    return [{
+      analysedAt,
+      model,
+      targetedFields: stringArray(entry.targetedFields),
+      extraction: extraction as AnalysisHistoryEntry["extraction"],
+    }];
+  });
 }
 
 export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
@@ -73,6 +97,18 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
   return {
     ...(item as unknown as ReceiptIntake),
     lineItems: lineItems as ReceiptIntake["lineItems"],
+    analysisHistory: analysisHistory(item.analysisHistory),
+    clarificationQuestions: stringArray(item.clarificationQuestions),
+    duplicateCandidates: Array.isArray(item.duplicateCandidates)
+      ? (item.duplicateCandidates as ReceiptIntake["duplicateCandidates"])
+      : [],
+    missingFields: stringArray(item.missingFields),
+    uncertainFields: stringArray(item.uncertainFields),
+    confidence: record(item.confidence) as ReceiptIntake["confidence"],
+    correctionProvenance: record(
+      item.correctionProvenance,
+    ) as ReceiptIntake["correctionProvenance"],
+    imageEdits: record(item.imageEdits) as ReceiptIntake["imageEdits"],
     originalCurrency: text(item.originalCurrency) ?? "UNKNOWN",
     originalCountry: text(item.originalCountry) ?? "UNKNOWN",
     originalLanguage: text(item.originalLanguage),
@@ -98,12 +134,12 @@ export type AutoConfirmResult = {
 };
 
 export class ReceiptApiError extends Error {
-  constructor(
-    message: string,
-    readonly retryable: boolean,
-  ) {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
     super(message);
     this.name = "ReceiptApiError";
+    this.retryable = retryable;
   }
 }
 
