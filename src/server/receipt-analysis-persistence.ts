@@ -1,5 +1,6 @@
-import { auditStatement } from "./audit-repository";
+import { auditStatementAfterChange } from "./audit-repository";
 import { database } from "./db";
+import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import type {
   ReceiptExtraction,
@@ -19,7 +20,7 @@ import {
 import { requiredMissing } from "./receipt-intake-analysis";
 import type { ReceiptIntakeRow } from "./receipt-intake-model";
 import { refreshDuplicateCandidates } from "./receipt-duplicates";
-import { receiptRevisionStatement } from "./receipt-intake-revisions";
+import { receiptRevisionStatementAfterChange } from "./receipt-intake-revisions";
 import { resolveReceiptTripLink } from "./receipt-trip-link";
 import {
   convertReceiptToGbp,
@@ -34,7 +35,8 @@ export async function persistReceiptExtraction(
     targetedFields?: readonly ReceiptField[];
     imageEdits?: Record<string, number>;
     analysisObjectKey?: string;
-  } = {},
+    analysisToken: string;
+  },
 ): Promise<void> {
   const targeted = new Set(options.targetedFields ?? []);
   const priorProvenance = safeJson<Provenance>(
@@ -320,7 +322,7 @@ export async function persistReceiptExtraction(
     Number(alcoholSuspected) +
     Number(tripMatchAmbiguous);
 
-  await database().batch([
+  const results = await database().batch<{ id: string }>([
     database()
       .prepare(
         `UPDATE receipt_intakes
@@ -341,9 +343,12 @@ export async function persistReceiptExtraction(
              extraction_json = ?, analysis_history_json = ?,
              correction_provenance_json = ?, image_edits_json = ?,
              analysis_object_key = COALESCE(?, analysis_object_key),
+             analysis_token = NULL, analysis_lease_expires_at = NULL,
              ai_model = ?, error_code = ?, error_message = ?,
              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-         WHERE owner_id = ? AND id = ?`,
+         WHERE owner_id = ? AND id = ? AND status = 'analysing'
+           AND analysis_token = ?
+         RETURNING id`,
       )
       .bind(
         unresolvedCount ? "needs_review" : "ready",
@@ -389,8 +394,9 @@ export async function persistReceiptExtraction(
         tripLink.errorMessage,
         principal.ownerId,
         row.id,
+        options.analysisToken,
       ),
-    auditStatement(principal, {
+    auditStatementAfterChange(principal, {
       action: targeted.size
         ? "receipt_intake.field_reanalysed"
         : "receipt_intake.analysed",
@@ -404,7 +410,7 @@ export async function persistReceiptExtraction(
         tripLinkStatus: tripLink.resolution.status,
       },
     }),
-    receiptRevisionStatement(principal, {
+    receiptRevisionStatementAfterChange(principal, {
       intakeId: row.id,
       source: row.extraction_json
         ? targeted.size
@@ -455,6 +461,13 @@ export async function persistReceiptExtraction(
       transform: options.imageEdits,
     }),
   ]);
+  if (!results[0]?.results?.some((result) => result.id === row.id)) {
+    throw new ApiError(
+      409,
+      "receipt_analysis_superseded",
+      "This analysis was cancelled or replaced before it could be saved.",
+    );
+  }
   await refreshDuplicateCandidates(principal, row.id, {
     merchant,
     serviceDate,

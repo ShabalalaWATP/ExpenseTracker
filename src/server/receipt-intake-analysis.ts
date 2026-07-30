@@ -6,6 +6,7 @@ import type { ReceiptField } from "./receipt-extraction";
 import type { IntakePatch } from "./receipt-intake-validation";
 import { receiptSha256 } from "./receipt-intake-storage";
 import { recoverStaleTokenlessAnalysis } from "./receipt-intake-auto-confirm-lease";
+import { STALE_RECEIPT_ANALYSIS_MINUTES } from "../shared/receipt-processing-policy";
 
 export function safeAnalysisError(error: unknown): {
   code: string;
@@ -27,20 +28,37 @@ export async function beginReceiptAnalysis(
   objectKey: string,
   bytes: Uint8Array,
   contentType: "image/jpeg" | "image/png",
-): Promise<void> {
+): Promise<string> {
   await recoverStaleTokenlessAnalysis(principal, id);
-  const locked = await database()
-    .prepare(
-      `UPDATE receipt_intakes
-       SET status = 'analysing',
-           error_code = NULL, error_message = NULL,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE owner_id = ? AND id = ?
-         AND status IN ('uploaded', 'needs_review', 'ready', 'failed')
-       RETURNING id`,
-    )
-    .bind(principal.ownerId, id)
-    .first<{ id: string }>();
+  const analysisToken = crypto.randomUUID();
+  const sha256 = await receiptSha256(bytes);
+  let locked: { id: string } | null;
+  try {
+    locked = await database()
+      .prepare(
+        `UPDATE receipt_intakes
+         SET status = 'analysing',
+             analysis_previous_object_key = analysis_object_key,
+             analysis_object_key = ?,
+             analysis_token = ?,
+             analysis_lease_expires_at =
+               strftime(
+                 '%Y-%m-%dT%H:%M:%fZ',
+                 'now',
+                 '+${STALE_RECEIPT_ANALYSIS_MINUTES} minutes'
+               ),
+             error_code = NULL, error_message = NULL,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE owner_id = ? AND id = ?
+           AND status IN ('uploaded', 'needs_review', 'ready', 'failed')
+         RETURNING id`,
+      )
+      .bind(objectKey, analysisToken, principal.ownerId, id)
+      .first<{ id: string }>();
+  } catch (error) {
+    await getReceiptsBucket().delete(objectKey).catch(() => {});
+    throw error;
+  }
   if (!locked) {
     throw new ApiError(
       409,
@@ -49,7 +67,6 @@ export async function beginReceiptAnalysis(
     );
   }
   try {
-    const sha256 = await receiptSha256(bytes);
     await getReceiptsBucket().put(objectKey, bytes, {
       httpMetadata: { contentType },
       customMetadata: { sha256 },
@@ -59,18 +76,42 @@ export async function beginReceiptAnalysis(
       .prepare(
         `UPDATE receipt_intakes
          SET status = 'needs_review',
+             analysis_object_key = analysis_previous_object_key,
+             analysis_previous_object_key = NULL,
+             analysis_token = NULL, analysis_lease_expires_at = NULL,
              error_code = 'analysis_storage_failed',
-             error_message = 'The analysis copy could not be stored. The original remains safe.'
-         WHERE owner_id = ? AND id = ?`,
+             error_message = 'The analysis copy could not be stored. The original remains safe.',
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE owner_id = ? AND id = ? AND status = 'analysing'
+           AND analysis_token = ?`,
       )
-      .bind(principal.ownerId, id)
-      .run();
+      .bind(principal.ownerId, id, analysisToken)
+      .run()
+      .catch(() => {});
     throw new ApiError(
       503,
       "analysis_storage_failed",
       "The analysis copy could not be stored. The original remains safe.",
     );
   }
+  const current = await database()
+    .prepare(
+      `SELECT id FROM receipt_intakes
+       WHERE owner_id = ? AND id = ? AND status = 'analysing'
+         AND analysis_token = ? AND discarded_at IS NULL`,
+    )
+    .bind(principal.ownerId, id, analysisToken)
+    .first<{ id: string }>()
+    .catch(() => null);
+  if (!current) {
+    await getReceiptsBucket().delete(objectKey).catch(() => {});
+    throw new ApiError(
+      409,
+      "receipt_analysis_superseded",
+      "This analysis was cancelled before its image could be secured.",
+    );
+  }
+  return analysisToken;
 }
 
 export function requiredMissing(values: {

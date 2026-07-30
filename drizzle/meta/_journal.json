@@ -57,6 +57,20 @@
       "when": 1785415573823,
       "tag": "0007_deep_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785443022256,
+      "tag": "0008_equal_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785443399871,
+      "tag": "0009_complete_metal_master",
+      "breakpoints": true
     }
   ]
 }

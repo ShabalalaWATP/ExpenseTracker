@@ -148,7 +148,7 @@ const intakeTriggers = [
    BEGIN SELECT RAISE(ABORT, 'claim_period_locked'); END`,
   `CREATE TRIGGER IF NOT EXISTS receipt_intakes_claim_lock_delete
    BEFORE DELETE ON receipt_intakes
-   WHEN ${intakeLocked("OLD")}
+   WHEN OLD.discarded_at IS NULL AND (${intakeLocked("OLD")})
    BEGIN SELECT RAISE(ABORT, 'claim_period_locked'); END`,
 ];
 

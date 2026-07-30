@@ -19,6 +19,11 @@ import {
   validIntakeIdempotencyKey,
 } from "./receipt-intake-storage";
 import { deleteReceiptIntakeAfterRecord } from "./receipt-intake-deletion";
+import {
+  recoverExpiredAutoConfirmLease,
+  recoverStaleTokenlessAnalysis,
+} from "./receipt-intake-auto-confirm-lease";
+import { recoverExpiredReceiptAnalysis } from "./receipt-analysis-lease";
 
 async function requireOwnedTrip(
   principal: Principal,
@@ -40,6 +45,23 @@ export async function requireIntake(
 ): Promise<ReceiptIntakeRow> {
   await ensureSchema();
   const row = await database()
+    .prepare(
+      "SELECT * FROM receipt_intakes WHERE owner_id = ? AND id = ? AND discarded_at IS NULL",
+    )
+    .bind(principal.ownerId, id)
+    .first<ReceiptIntakeRow>();
+  if (!row) {
+    throw new ApiError(404, "not_found", "The receipt was not found.");
+  }
+  return row;
+}
+
+async function requireIntakeForDeletion(
+  principal: Principal,
+  id: string,
+): Promise<ReceiptIntakeRow> {
+  await ensureSchema();
+  const row = await database()
     .prepare("SELECT * FROM receipt_intakes WHERE owner_id = ? AND id = ?")
     .bind(principal.ownerId, id)
     .first<ReceiptIntakeRow>();
@@ -49,12 +71,28 @@ export async function requireIntake(
   return row;
 }
 
+async function recoverInterruptedAnalysis(
+  principal: Principal,
+  row: ReceiptIntakeRow,
+): Promise<boolean> {
+  if (row.status !== "analysing") return false;
+  return row.analysis_token
+    ? recoverExpiredReceiptAnalysis(principal, row.id, row.analysis_token)
+    : row.auto_confirm_token
+    ? recoverExpiredAutoConfirmLease(
+        principal,
+        row.id,
+        row.auto_confirm_token,
+      )
+    : recoverStaleTokenlessAnalysis(principal, row.id);
+}
+
 export async function listReceiptIntakes(principal: Principal) {
   await ensureSchema();
   const result = await database()
     .prepare(
       `SELECT * FROM receipt_intakes
-       WHERE owner_id = ? AND status <> 'confirmed'
+       WHERE owner_id = ? AND status <> 'confirmed' AND discarded_at IS NULL
        ORDER BY updated_at DESC
        LIMIT 100`,
     )
@@ -73,6 +111,7 @@ export async function listClaimBlockingReceiptIntakes(
       `SELECT * FROM receipt_intakes
        WHERE owner_id = ?
          AND status <> 'confirmed'
+         AND discarded_at IS NULL
          AND (service_date IS NULL OR service_date LIKE ?)
        ORDER BY updated_at DESC`,
     )
@@ -101,9 +140,18 @@ export async function createReceiptIntake(
   await requireOwnedTrip(principal, defaults.tripId);
   const db = database();
   const hash = await receiptSha256(bytes);
+  const pendingDeletion = await db
+    .prepare(
+      "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ? AND discarded_at IS NOT NULL",
+    )
+    .bind(principal.ownerId, hash)
+    .first<{ id: string }>();
+  if (pendingDeletion) {
+    await deleteReceiptIntake(principal, pendingDeletion.id);
+  }
   const prior = await db
     .prepare(
-      "SELECT * FROM receipt_intakes WHERE owner_id = ? AND idempotency_key = ?",
+      "SELECT * FROM receipt_intakes WHERE owner_id = ? AND idempotency_key = ? AND discarded_at IS NULL",
     )
     .bind(principal.ownerId, idempotencyKey)
     .first<ReceiptIntakeRow>();
@@ -120,7 +168,7 @@ export async function createReceiptIntake(
 
   const duplicateIntake = await db
     .prepare(
-      "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ?",
+      "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ? AND discarded_at IS NULL",
     )
     .bind(principal.ownerId, hash)
     .first<{ id: string }>();
@@ -203,7 +251,7 @@ export async function createReceiptIntake(
     await bucket.delete(objectKey);
     const concurrentDuplicate = await db
       .prepare(
-        "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ? AND id <> ?",
+        "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ? AND id <> ? AND discarded_at IS NULL",
       )
       .bind(principal.ownerId, hash, id)
       .first<{ id: string }>();
@@ -227,32 +275,43 @@ export async function deleteReceiptIntake(
   principal: Principal,
   id: string,
 ): Promise<void> {
-  const row = await requireIntake(principal, id);
-  if (row.status === "confirmed") {
+  let row = await requireIntakeForDeletion(principal, id);
+  if (!row.discarded_at && row.status === "confirmed") {
     throw new ApiError(
       409,
       "receipt_confirmed",
       "Delete the linked expense instead of its confirmed evidence.",
     );
   }
-  if (row.status === "analysing") {
+  if (!row.discarded_at && row.status === "analysing") {
+    await recoverInterruptedAnalysis(principal, row);
+    row = await requireIntakeForDeletion(principal, id);
+  }
+  if (!row.discarded_at && row.status === "analysing") {
     throw new ApiError(
       409,
       "receipt_analysis_in_progress",
-      "Wait for receipt analysis to finish before removing it.",
+      "Receipt processing is still active. Stop waiting, then try Remove again shortly.",
     );
   }
   await deleteReceiptIntakeAfterRecord(
     {
       originalObjectKey: row.original_object_key,
       analysisObjectKey: row.analysis_object_key,
+      previousAnalysisObjectKey: row.analysis_previous_object_key,
     },
     async () => {
+      if (row.discarded_at) return;
       const results = await database().batch<{ id: string }>([
         database()
           .prepare(
-            `DELETE FROM receipt_intakes
-             WHERE owner_id = ? AND id = ?
+            `UPDATE receipt_intakes
+             SET discarded_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                 analysis_token = NULL, analysis_lease_expires_at = NULL,
+                 auto_confirm_token = NULL,
+                 auto_confirm_lease_expires_at = NULL,
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE owner_id = ? AND id = ? AND discarded_at IS NULL
                AND status NOT IN ('analysing', 'confirmed')
                AND expense_id IS NULL
                AND updated_at = ?
@@ -275,6 +334,16 @@ export async function deleteReceiptIntake(
       }
     },
     getReceiptsBucket(),
+    async () => {
+      await database()
+        .prepare(
+          `DELETE FROM receipt_intakes
+           WHERE owner_id = ? AND id = ? AND discarded_at IS NOT NULL
+             AND expense_id IS NULL`,
+        )
+        .bind(principal.ownerId, id)
+        .run();
+    },
   );
 }
 

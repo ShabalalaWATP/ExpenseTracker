@@ -57,7 +57,7 @@ export function createReceiptQueueActions({
 
   async function clearQueue() {
     const removable = intakes.filter(
-      (item) => !["analysing", "confirmed"].includes(item.status),
+      (item) => item.status !== "confirmed",
     );
     const locals = uploadsRef.current.filter(
       (item) => item.stage !== "uploading" && item.stage !== "normalising",
@@ -90,7 +90,7 @@ export function createReceiptQueueActions({
     setSelectedId((selected) => (removed.has(selected) ? "" : selected));
     if (failed.size) {
       setError(
-        `${failed.size} receipt${failed.size === 1 ? " was" : "s were"} not removed. Analysing or already-confirmed receipts stay in place; try again once they settle.`,
+        `${failed.size} receipt${failed.size === 1 ? " was" : "s were"} not removed. A current AI check is still protected; stop waiting and try Remove again shortly.`,
       );
     }
   }

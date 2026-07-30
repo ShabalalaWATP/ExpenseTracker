@@ -62,6 +62,10 @@ export type ReceiptIntakeRow = {
   expense_id: string | null;
   error_code: string | null;
   error_message: string | null;
+  analysis_token: string | null;
+  analysis_lease_expires_at: string | null;
+  analysis_previous_object_key: string | null;
+  discarded_at: string | null;
   auto_confirm_token: string | null;
   auto_confirm_lease_expires_at: string | null;
   created_at: string;

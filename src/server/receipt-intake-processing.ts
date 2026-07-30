@@ -18,8 +18,59 @@ import {
 import { updateReceiptIntake } from "./receipt-intake-review-repository";
 import { runtimeConfig } from "./runtime-config";
 import { validateImageType } from "./receipt-image-validation";
+import { recoverExpiredReceiptAnalysis } from "./receipt-analysis-lease";
+import { recoverStaleTokenlessAnalysis } from "./receipt-intake-auto-confirm-lease";
 
 const MAX_ANALYSIS_BYTES = 10 * 1024 * 1024;
+
+async function removeSupersededAnalysisCopy(
+  principal: Principal,
+  id: string,
+  previousObjectKey: string | null,
+  currentObjectKey: string,
+): Promise<void> {
+  if (!previousObjectKey || previousObjectKey === currentObjectKey) return;
+  try {
+    await getReceiptsBucket().delete(previousObjectKey);
+    await database()
+      .prepare(
+        `UPDATE receipt_intakes
+         SET analysis_previous_object_key = NULL
+         WHERE owner_id = ? AND id = ?
+           AND analysis_previous_object_key = ?`,
+      )
+      .bind(principal.ownerId, id, previousObjectKey)
+      .run();
+  } catch {
+    // Keep the previous key on the row so later removal can retry cleanup.
+  }
+}
+
+async function clearTrackedPreviousAnalysisCopy(
+  principal: Principal,
+  row: Awaited<ReturnType<typeof requireIntake>>,
+): Promise<void> {
+  const key = row.analysis_previous_object_key;
+  if (!key) return;
+  try {
+    await getReceiptsBucket().delete(key);
+  } catch {
+    throw new ApiError(
+      503,
+      "analysis_cleanup_pending",
+      "An older analysis copy is still being secured. Try again shortly.",
+    );
+  }
+  await database()
+    .prepare(
+      `UPDATE receipt_intakes
+       SET analysis_previous_object_key = NULL
+       WHERE owner_id = ? AND id = ? AND status <> 'analysing'
+         AND analysis_previous_object_key = ?`,
+    )
+    .bind(principal.ownerId, row.id, key)
+    .run();
+}
 
 export async function analyseReceiptIntake(
   principal: Principal,
@@ -32,6 +83,18 @@ export async function analyseReceiptIntake(
   } = {},
 ) {
   let existing = await requireIntake(principal, id);
+  if (existing.status === "analysing") {
+    if (existing.analysis_token) {
+      await recoverExpiredReceiptAnalysis(
+        principal,
+        id,
+        existing.analysis_token,
+      );
+    } else if (!existing.auto_confirm_token) {
+      await recoverStaleTokenlessAnalysis(principal, id);
+    }
+    existing = await requireIntake(principal, id);
+  }
   if (existing.status === "confirmed") {
     throw new ApiError(409, "receipt_confirmed", "This receipt is already confirmed.");
   }
@@ -50,10 +113,13 @@ export async function analyseReceiptIntake(
       "Use the Safari-compatible JPEG analysis image.",
     );
   }
+  await clearTrackedPreviousAnalysisCopy(principal, existing);
+  existing = await requireIntake(principal, id);
   const analysisObjectKey = `receipt-intakes/${principal.ownerId}/${id}/analysis-${crypto.randomUUID()}.${
     contentType === "image/png" ? "png" : "jpg"
   }`;
-  await beginReceiptAnalysis(
+  const previousAnalysisObjectKey = existing.analysis_object_key;
+  const analysisToken = await beginReceiptAnalysis(
     principal,
     id,
     analysisObjectKey,
@@ -63,25 +129,33 @@ export async function analyseReceiptIntake(
   existing = await requireIntake(principal, id);
 
   if (!runtimeConfig().openAiApiKey) {
-    await database()
+    const saved = await database()
       .prepare(
         `UPDATE receipt_intakes
          SET status = 'needs_review',
              analysis_object_key = ?,
              error_code = 'openai_not_configured',
-             error_message = 'AI setup is needed. You can still enter the details manually.'
-         WHERE owner_id = ? AND id = ?`,
+             error_message = 'AI setup is needed. You can still enter the details manually.',
+             analysis_token = NULL, analysis_lease_expires_at = NULL
+         WHERE owner_id = ? AND id = ? AND status = 'analysing'
+           AND analysis_token = ?`,
       )
-      .bind(analysisObjectKey, principal.ownerId, id)
+      .bind(analysisObjectKey, principal.ownerId, id, analysisToken)
       .run();
-    if (
-      existing.analysis_object_key &&
-      existing.analysis_object_key !== analysisObjectKey
-    ) {
-      await getReceiptsBucket()
-        .delete(existing.analysis_object_key)
-        .catch(() => {});
+    if (Number(saved.meta.changes ?? 0) !== 1) {
+      await getReceiptsBucket().delete(analysisObjectKey).catch(() => {});
+      throw new ApiError(
+        409,
+        "receipt_analysis_superseded",
+        "This analysis was cancelled or replaced before it could be saved.",
+      );
     }
+    await removeSupersededAnalysisCopy(
+      principal,
+      id,
+      previousAnalysisObjectKey,
+      analysisObjectKey,
+    );
     return publicIntake(await requireIntake(principal, id));
   }
 
@@ -97,18 +171,11 @@ export async function analyseReceiptIntake(
       targetedFields: options.targetedFields,
       imageEdits: options.imageEdits,
       analysisObjectKey,
+      analysisToken,
     });
-    if (
-      existing.analysis_object_key &&
-      existing.analysis_object_key !== analysisObjectKey
-    ) {
-      await getReceiptsBucket()
-        .delete(existing.analysis_object_key)
-        .catch(() => {});
-    }
   } catch (error) {
     const current = await requireIntake(principal, id).catch(() => null);
-    if (current && current.analysis_object_key !== analysisObjectKey) {
+    if (!current || current.analysis_object_key !== analysisObjectKey) {
       await getReceiptsBucket().delete(analysisObjectKey).catch(() => {});
     }
     const safe = safeAnalysisError(error);
@@ -116,13 +183,21 @@ export async function analyseReceiptIntake(
       .prepare(
         `UPDATE receipt_intakes
          SET status = 'needs_review', error_code = ?, error_message = ?,
+             analysis_token = NULL, analysis_lease_expires_at = NULL,
              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE owner_id = ? AND id = ? AND status = 'analysing'`,
+          WHERE owner_id = ? AND id = ? AND status = 'analysing'
+            AND analysis_token = ?`,
       )
-      .bind(safe.code, safe.message, principal.ownerId, id)
+      .bind(safe.code, safe.message, principal.ownerId, id, analysisToken)
       .run()
       .catch(() => {});
   }
+  await removeSupersededAnalysisCopy(
+    principal,
+    id,
+    previousAnalysisObjectKey,
+    analysisObjectKey,
+  );
   return publicIntake(await requireIntake(principal, id));
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { isStaleReceiptAnalysis } from "@/src/shared/receipt-processing-policy";
 import type { DashboardData } from "../types";
 import { StatusMessage } from "../ui";
 import { IntakeDefaults } from "./IntakeDefaults";
@@ -21,12 +22,20 @@ export function ReceiptInbox({
   initialIntakeId?: string;
   onSaved: () => Promise<void>;
 }) {
-  const [openedAt] = useState(() => Date.now());
   const inbox = useReceiptInbox({
     initialDate,
     initialIntakeId,
     onSaved,
   });
+  const [clock, setClock] = useState(() => Date.now());
+  const hasAnalysingReceipt = inbox.intakes.some(
+    (intake) => intake.status === "analysing",
+  );
+  useEffect(() => {
+    if (!hasAnalysingReceipt) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [hasAnalysingReceipt]);
   const activeCount = inbox.processing.running;
   const reviewCount = inbox.intakes.filter((item) =>
     ["uploaded", "needs_review", "ready"].includes(item.status),
@@ -159,9 +168,10 @@ export function ReceiptInbox({
                       inbox.ai?.configured &&
                       (intake.hasAnalysisCopy ||
                         (intake.status === "analysing" &&
-                          openedAt -
-                            new Date(intake.updatedAt).valueOf() >=
-                            15 * 60_000)) &&
+                          isStaleReceiptAnalysis(
+                            intake.updatedAt,
+                            clock,
+                          ))) &&
                       intake.status !== "confirmed" &&
                       !processing,
                     )}

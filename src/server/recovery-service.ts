@@ -56,6 +56,7 @@ async function evidenceRows(principal: Principal): Promise<EvidenceRecord[]> {
               i.content_type, i.byte_size, i.sha256, i.created_at
        FROM receipt_intakes i
        WHERE i.owner_id = ?
+         AND i.discarded_at IS NULL
          AND NOT EXISTS (
            SELECT 1 FROM receipts r
            WHERE r.owner_id = i.owner_id

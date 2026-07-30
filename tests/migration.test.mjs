@@ -56,6 +56,8 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   apply(db, await migration("0005_rapid_slapstick.sql"));
   apply(db, await migration("0006_parched_prism.sql"));
   apply(db, await migration("0007_deep_tomorrow_man.sql"));
+  apply(db, await migration("0008_equal_rawhide_kid.sql"));
+  apply(db, await migration("0009_complete_metal_master.sql"));
 
   const expense = db
     .prepare(
@@ -565,6 +567,31 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
       )
       .get().status,
     "analysing",
+  );
+  db.exec(`
+    INSERT INTO receipt_intakes
+      (id, owner_id, batch_id, status, original_name,
+       original_object_key, content_type, byte_size, sha256,
+       idempotency_key, service_date, discarded_at)
+    VALUES
+      ('discarded-intake', 'singleton-owner', 'batch-delete', 'needs_review',
+       'discarded.jpg', 'intakes/discarded.jpg', 'image/jpeg', 128,
+       'discarded-sha', 'discarded-key', '2026-10-03',
+       '2026-10-04T00:00:00.000Z');
+    INSERT INTO claim_period_locks
+      (id, owner_id, period, status, token)
+    VALUES
+      ('discarded-period-lock', 'singleton-owner', '2026-10', 'prepared',
+       'discarded-period-token');
+    DELETE FROM receipt_intakes WHERE id = 'discarded-intake';
+  `);
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM receipt_intakes WHERE id = 'discarded-intake'",
+      )
+      .get().count,
+    0,
   );
   db.close();
 });

@@ -1,6 +1,7 @@
 export type ReceiptIntakeObjectKeys = {
   originalObjectKey: string;
   analysisObjectKey: string | null;
+  previousAnalysisObjectKey?: string | null;
 };
 
 export type ReceiptObjectStore = {
@@ -9,17 +10,23 @@ export type ReceiptObjectStore = {
 
 export async function deleteReceiptIntakeAfterRecord(
   keys: ReceiptIntakeObjectKeys,
-  deleteRecord: () => Promise<unknown>,
+  discardRecord: () => Promise<unknown>,
   objectStore: ReceiptObjectStore,
+  finalizeRecord: () => Promise<unknown> = async () => {},
 ): Promise<void> {
-  // The database delete is trigger-protected by the claim-period lock. Never
-  // remove evidence until that authoritative state transition has succeeded.
-  await deleteRecord();
+  // The database tombstone is trigger-protected by the claim-period lock and
+  // retains every object key until R2 confirms deletion.
+  await discardRecord();
 
   await Promise.all([
     objectStore.delete(keys.originalObjectKey),
     keys.analysisObjectKey
       ? objectStore.delete(keys.analysisObjectKey)
       : Promise.resolve(),
+    keys.previousAnalysisObjectKey &&
+    keys.previousAnalysisObjectKey !== keys.analysisObjectKey
+      ? objectStore.delete(keys.previousAnalysisObjectKey)
+      : Promise.resolve(),
   ]);
+  await finalizeRecord();
 }

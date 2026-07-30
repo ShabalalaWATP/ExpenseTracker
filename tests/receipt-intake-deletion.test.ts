@@ -42,7 +42,8 @@ test("receipt objects are removed only after the database record", async () => {
   await deleteReceiptIntakeAfterRecord(
     {
       originalObjectKey: "receipts/original",
-      analysisObjectKey: null,
+      analysisObjectKey: "receipts/analysis-current",
+      previousAnalysisObjectKey: "receipts/analysis-previous",
     },
     async () => {
       events.push("database");
@@ -54,5 +55,36 @@ test("receipt objects are removed only after the database record", async () => {
     },
   );
 
-  assert.deepEqual(events, ["database", "object:receipts/original"]);
+  assert.deepEqual(events, [
+    "database",
+    "object:receipts/original",
+    "object:receipts/analysis-current",
+    "object:receipts/analysis-previous",
+  ]);
+});
+
+test("a failed object deletion retains the database tombstone for retry", async () => {
+  const events: string[] = [];
+  await assert.rejects(
+    deleteReceiptIntakeAfterRecord(
+      {
+        originalObjectKey: "receipts/original",
+        analysisObjectKey: null,
+      },
+      async () => {
+        events.push("tombstone");
+      },
+      {
+        async delete() {
+          events.push("object-failed");
+          throw new Error("r2 unavailable");
+        },
+      },
+      async () => {
+        events.push("finalize");
+      },
+    ),
+    /r2 unavailable/,
+  );
+  assert.deepEqual(events, ["tombstone", "object-failed"]);
 });

@@ -209,7 +209,7 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
   );
   assert.match(
     processing,
-    /if \(current && current\.analysis_object_key !== analysisObjectKey\)/,
+    /if \(!current \|\| current\.analysis_object_key !== analysisObjectKey\)/,
   );
   assert.match(claimPackage, /MAX_CLAIM_PART_BYTES/);
   assert.match(claimPackage, /partitionByByteSize/);

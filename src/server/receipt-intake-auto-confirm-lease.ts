@@ -94,7 +94,11 @@ export async function recoverStaleTokenlessAnalysis(
          WHERE owner_id = ? AND id = ? AND status = 'analysing'
            AND expense_id IS NULL AND auto_confirm_token IS NULL
            AND updated_at <=
-             strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes')
+             strftime(
+               '%Y-%m-%dT%H:%M:%fZ',
+               'now',
+               '-15 minutes'
+             )
          RETURNING id`,
       )
       .bind(principal.ownerId, id),

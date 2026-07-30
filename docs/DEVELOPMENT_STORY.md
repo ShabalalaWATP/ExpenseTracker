@@ -354,3 +354,11 @@ This document records meaningful implementation milestones, decisions and verifi
   Regeneration uses a hashed `pypdf` dependency and a byte-for-byte
   reproducibility check. Exact JSP source citation allowlisting and an atomic
   private daily quota protect policy integrity and AI cost.
+- Fixed an interrupted mobile receipt analysis being trapped as “Reading
+  receipt”. Every new AI read now has a server-side operation token, bounded
+  lease and tracked current and previous analysis objects. Removal invalidates
+  an expired operation before tombstoning the intake. Object keys remain in D1
+  until R2 confirms deletion, then the tombstone is finalised. Late model
+  results cannot overwrite or resurrect a removed receipt, and failed object
+  cleanup remains discoverable and retryable. Legacy tokenless jobs retain a
+  conservative recovery window.
