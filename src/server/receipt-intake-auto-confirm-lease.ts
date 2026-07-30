@@ -1,4 +1,5 @@
 import { database } from "./db";
+import { auditStatementAfterChange } from "./audit-repository";
 import type { Principal } from "./principal";
 
 export async function acquireAutoConfirmLease(
@@ -80,23 +81,31 @@ export async function recoverStaleTokenlessAnalysis(
   principal: Principal,
   id: string,
 ): Promise<boolean> {
-  const recovered = await database()
-    .prepare(
-      `UPDATE receipt_intakes
-       SET status = 'needs_review',
-           error_code = 'receipt_processing_interrupted',
-           error_message = 'Receipt processing was interrupted. Review this receipt before continuing.',
-           auto_confirm_token = NULL, auto_confirm_lease_expires_at = NULL,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE owner_id = ? AND id = ? AND status = 'analysing'
-         AND expense_id IS NULL AND auto_confirm_token IS NULL
-         AND updated_at <=
-           strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes')
-       RETURNING id`,
-    )
-    .bind(principal.ownerId, id)
-    .first<{ id: string }>();
-  return recovered?.id === id;
+  const db = database();
+  const results = await db.batch<{ id: string }>([
+    db
+      .prepare(
+        `UPDATE receipt_intakes
+         SET status = 'needs_review',
+             error_code = 'receipt_processing_interrupted',
+             error_message = 'Receipt processing was interrupted. Review this receipt before continuing.',
+             auto_confirm_token = NULL, auto_confirm_lease_expires_at = NULL,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE owner_id = ? AND id = ? AND status = 'analysing'
+           AND expense_id IS NULL AND auto_confirm_token IS NULL
+           AND updated_at <=
+             strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-15 minutes')
+         RETURNING id`,
+      )
+      .bind(principal.ownerId, id),
+    auditStatementAfterChange(principal, {
+      action: "receipt_intake.analysis_recovered",
+      entityType: "receipt_intake",
+      entityId: id,
+      metadata: { reason: "stale_tokenless_analysis" },
+    }),
+  ]);
+  return results[0]?.results?.some((row) => row.id === id) ?? false;
 }
 
 export async function abandonAutoConfirmLease(

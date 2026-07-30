@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { DashboardData } from "../types";
 import { StatusMessage } from "../ui";
 import { IntakeDefaults } from "./IntakeDefaults";
@@ -20,6 +21,7 @@ export function ReceiptInbox({
   initialIntakeId?: string;
   onSaved: () => Promise<void>;
 }) {
+  const [openedAt] = useState(() => Date.now());
   const inbox = useReceiptInbox({
     initialDate,
     initialIntakeId,
@@ -39,6 +41,13 @@ export function ReceiptInbox({
         processing={inbox.processing}
         onRetry={inbox.retryBlockedProcessing}
         onReturn={inbox.dismissProcessing}
+        onCancel={inbox.cancelAllProcessing}
+        canCancel={
+          inbox.localUploads.length > 0 &&
+          ["queued", "uploading", "preparing", "analysing"].includes(
+            inbox.processing.stage,
+          )
+        }
       />
       <section className="intake-compose" aria-labelledby="intake-title">
         <div className="intake-intro">
@@ -120,6 +129,7 @@ export function ReceiptInbox({
                 item={item}
                 onRetry={() => void inbox.processFile(item)}
                 onDismiss={() => void inbox.dismissLocal(item.id)}
+                onCancel={() => void inbox.cancelProcessing(item.id)}
               />
             ))}
             {inbox.intakes.map((intake) => {
@@ -147,8 +157,12 @@ export function ReceiptInbox({
                     )}
                     canReanalyse={Boolean(
                       inbox.ai?.configured &&
-                      intake.hasAnalysisCopy &&
-                      !["analysing", "confirmed"].includes(intake.status) &&
+                      (intake.hasAnalysisCopy ||
+                        (intake.status === "analysing" &&
+                          openedAt -
+                            new Date(intake.updatedAt).valueOf() >=
+                            15 * 60_000)) &&
+                      intake.status !== "confirmed" &&
                       !processing,
                     )}
                     analysisBusy={processing}

@@ -5,6 +5,7 @@ import type { Principal } from "./principal";
 import type { ReceiptField } from "./receipt-extraction";
 import type { IntakePatch } from "./receipt-intake-validation";
 import { receiptSha256 } from "./receipt-intake-storage";
+import { recoverStaleTokenlessAnalysis } from "./receipt-intake-auto-confirm-lease";
 
 export function safeAnalysisError(error: unknown): {
   code: string;
@@ -27,6 +28,7 @@ export async function beginReceiptAnalysis(
   bytes: Uint8Array,
   contentType: "image/jpeg" | "image/png",
 ): Promise<void> {
+  await recoverStaleTokenlessAnalysis(principal, id);
   const locked = await database()
     .prepare(
       `UPDATE receipt_intakes

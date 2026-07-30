@@ -5,6 +5,7 @@ export const MAX_ANALYSIS_PIXELS = 12_000_000;
 const JPEG_QUALITY = 0.92;
 const MAX_ANALYSIS_BYTES = 9 * 1_048_576;
 const MAX_RECEIPT_BYTES = 20 * 1_048_576;
+const IMAGE_PREPARATION_TIMEOUT_MS = 25_000;
 
 export const DEFAULT_IMAGE_EDITS: ImageEdits = {
   rotation: 0,
@@ -70,25 +71,54 @@ export function canSelectReceipt(
   return file.size > 0 && file.size <= MAX_RECEIPT_BYTES && supportedType;
 }
 
-async function decodeImage(file: Blob): Promise<ImageBitmap | HTMLImageElement> {
-  if ("createImageBitmap" in window) {
-    try {
-      return await createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch {
-      // Safari can decode some iPhone formats through an image element only.
-    }
-  }
+export function receiptAnalysisImage(file: Blob): Promise<Blob> {
+  return normaliseReceipt(file);
+}
 
+async function decodeImage(file: Blob): Promise<ImageBitmap | HTMLImageElement> {
   const url = URL.createObjectURL(file);
   try {
     const image = new Image();
     image.decoding = "async";
     image.src = url;
-    await image.decode();
+    await withTimeout(
+      new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Image decoding failed."));
+      }),
+      "This photo took too long to prepare.",
+    );
     return image;
   } catch {
     URL.revokeObjectURL(url);
+    if ("createImageBitmap" in window) {
+      try {
+        return await withTimeout(
+          createImageBitmap(file, { imageOrientation: "from-image" }),
+          "This photo took too long to prepare.",
+        );
+      } catch {
+        // The original remains secured even when a browser cannot decode it.
+      }
+    }
     throw new Error("This photo could not be prepared for analysis.");
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(message)),
+          IMAGE_PREPARATION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -136,8 +166,11 @@ export async function normaliseReceipt(
     let quality = JPEG_QUALITY;
     let blob: Blob | null = null;
     do {
-      blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", quality),
+      blob = await withTimeout(
+        new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/jpeg", quality),
+        ),
+        "This photo took too long to convert.",
       );
       quality -= 0.1;
     } while (blob && blob.size > MAX_ANALYSIS_BYTES && quality >= 0.62);

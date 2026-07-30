@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { receiptEvidenceUrls } from "../../src/domain/receipt-evidence";
 import { prepareClaim, submitClaim } from "./api";
-import { AuditReportPanel } from "./AuditReportPanel";
 import { ClaimPackageDownloads } from "./ClaimPackageDownloads";
 import {
   claimPeriodExpenses,
@@ -223,8 +222,6 @@ export function ClaimsView({
           </ol>
         </section>
       ) : null}
-
-      <AuditReportPanel />
     </div>
   );
 }

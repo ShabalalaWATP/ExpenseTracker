@@ -20,10 +20,12 @@ export function LocalQueueItem({
   item,
   onRetry,
   onDismiss,
+  onCancel,
 }: {
   item: LocalUpload;
   onRetry: () => void;
   onDismiss: () => void;
+  onCancel: () => void;
 }) {
   const label = {
     queued: "Waiting",
@@ -48,7 +50,16 @@ export function LocalQueueItem({
           <button type="button" onClick={onDismiss} aria-label={`Dismiss ${item.file.name}`}>×</button>
         </span>
       ) : (
-        <span className={`intake-state ${item.stage}`}>{label}</span>
+        <span className="local-row-actions">
+          <span className={`intake-state ${item.stage}`}>{label}</span>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label={`Cancel ${item.file.name}`}
+          >
+            Cancel
+          </button>
+        </span>
       )}
     </li>
   );

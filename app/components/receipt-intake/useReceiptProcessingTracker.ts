@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   beginProcessingBatch,
   dismissBlockedJobs,
+  removeProcessingJobs,
   summariseReceiptProcessing,
   updateProcessingJob,
   type ReceiptProcessingJob,
@@ -38,11 +39,17 @@ export function useReceiptProcessingTracker() {
     () => setJobs((current) => dismissBlockedJobs(current)),
     [],
   );
+  const remove = useCallback(
+    (ids: readonly string[]) =>
+      setJobs((current) => removeProcessingJobs(current, new Set(ids))),
+    [],
+  );
 
   return {
     begin,
     mark,
     dismissBlocked,
+    remove,
     summary: useMemo(() => summariseReceiptProcessing(jobs), [jobs]),
   };
 }

@@ -139,3 +139,35 @@ export function CheckCircleIcon() {
     </Icon>
   );
 }
+
+export function ChartIcon() {
+  return (
+    <Icon>
+      <path d="M4 20V10" />
+      <path d="M10 20V4" />
+      <path d="M16 20v-7" />
+      <path d="M22 20H2" />
+    </Icon>
+  );
+}
+
+export function AuditIcon() {
+  return (
+    <Icon>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <circle cx="10" cy="14" r="3" />
+      <path d="m12.2 16.2 2.3 2.3" />
+    </Icon>
+  );
+}
+
+export function MoreIcon() {
+  return (
+    <Icon>
+      <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}

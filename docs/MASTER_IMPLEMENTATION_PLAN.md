@@ -496,6 +496,11 @@ control and the development record contains verification evidence.
 - [ ] Add receipt text search and saved filters.
 - [x] Add an explicit offline capture queue with clear device-only and
   server-saved states.
+- [x] Add stoppable upload and AI-processing controls, bounded
+  metadata-stripped analysis preparation, and clear exact-duplicate feedback.
+- [x] Add dedicated Audit response and month-scoped Statistics navigation.
+- [x] Add privacy-preserving restaurant, food-style, meal-context, daily-spend
+  and country-level location visualisations without live geocoding.
 
 ### Priority 3: broader use only when justified
 

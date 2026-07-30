@@ -57,10 +57,14 @@ export function ReceiptProcessingOverlay({
   processing,
   onRetry,
   onReturn,
+  onCancel,
+  canCancel,
 }: {
   processing: ReceiptProcessingSummary;
   onRetry: () => void;
   onReturn: () => void;
+  onCancel: () => void;
+  canCancel: boolean;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const mounted = useSyncExternalStore(
@@ -182,10 +186,20 @@ export function ReceiptProcessingOverlay({
               Return to inbox
             </button>
           </div>
+        ) : canCancel ? (
+          <div className="receipt-processing-actions">
+            <p className="receipt-processing-note">
+              You can stop waiting for this batch. Originals already secured
+              will remain in the inbox.
+            </p>
+            <button className="text-button" type="button" onClick={onCancel}>
+              Stop waiting
+            </button>
+          </div>
         ) : (
           <p className="receipt-processing-note">
-            Progress is indeterminate. This screen will close when processing
-            finishes or needs your attention.
+            The secured receipt is being checked. You can return to the inbox
+            if this step reports an exception.
           </p>
         )}
       </div>

@@ -5,6 +5,8 @@ export type ViewName =
   | "expenses"
   | "trips"
   | "claims"
+  | "statistics"
+  | "audit"
   | "settings";
 
 export type NavigationTarget = {

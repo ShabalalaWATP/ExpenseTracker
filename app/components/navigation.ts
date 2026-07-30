@@ -7,6 +7,8 @@ const views = new Set<ViewName>([
   "expenses",
   "trips",
   "claims",
+  "statistics",
+  "audit",
   "settings",
 ]);
 

@@ -42,6 +42,7 @@
   color: #edf0e9;
   background:
     radial-gradient(rgba(120, 156, 226, 0.14) 1px, transparent 1.4px) 0 0 / 17px 17px;
+  overflow-y: auto;
 }
 
 .brand {
@@ -66,7 +67,7 @@
 .desktop-rail nav {
   display: grid;
   gap: 3px;
-  margin-top: 70px;
+  margin-top: clamp(24px, 7vh, 70px);
 }
 
 .desktop-rail nav button,

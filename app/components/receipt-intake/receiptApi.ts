@@ -135,11 +135,13 @@ export type AutoConfirmResult = {
 
 export class ReceiptApiError extends Error {
   readonly retryable: boolean;
+  readonly code?: string;
 
-  constructor(message: string, retryable: boolean) {
+  constructor(message: string, retryable: boolean, code?: string) {
     super(message);
     this.name = "ReceiptApiError";
     this.retryable = retryable;
+    this.code = code;
   }
 }
 
@@ -151,14 +153,23 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       headers: { Accept: "application/json", ...init?.headers },
     });
   } catch {
+    if (init?.signal?.aborted) {
+      throw new ReceiptApiError(
+        "Processing was cancelled. Any secured original remains in your inbox.",
+        false,
+        "request_cancelled",
+      );
+    }
     throw new ReceiptApiError(
-      "The upload was interrupted. It will retry when the app is active.",
+      "The request was interrupted. It will retry when the app is active.",
       true,
+      "request_interrupted",
     );
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
-      error?: string | { message?: string };
+      error?: string | { code?: string; message?: string };
+      code?: string;
       message?: string;
     } | null;
     const message =
@@ -170,6 +181,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       response.status === 408 ||
         response.status === 429 ||
         response.status >= 500,
+      typeof body?.error === "object"
+        ? body.error.code
+        : body?.code,
     );
   }
   if (response.status === 204) return undefined as T;
@@ -193,6 +207,7 @@ export async function uploadIntake(
   batchId: string,
   defaults: BatchDefaults,
   idempotencyKey: string,
+  signal?: AbortSignal,
 ): Promise<ReceiptIntake> {
   const result = await request<Envelope<{ intake: ReceiptIntake }>>(
     "/api/receipt-intakes",
@@ -207,6 +222,7 @@ export async function uploadIntake(
         "X-Default-Trip-Id": defaults.tripId,
       },
       body: file,
+      signal,
     },
   );
   return normaliseReceiptIntake(result.data.intake);
@@ -216,16 +232,19 @@ export async function analyseIntake(
   id: string,
   image: Blob,
   edits?: ImageEdits,
+  signal?: AbortSignal,
 ): Promise<ReceiptIntake> {
   const result = await request<Envelope<{ intake: ReceiptIntake }>>(
     `/api/receipt-intakes/${encodeURIComponent(id)}/analysis`,
     {
       method: "PUT",
       headers: {
-        "Content-Type": "image/jpeg",
+        "Content-Type":
+          image.type === "image/png" ? "image/png" : "image/jpeg",
         ...(edits ? { "X-Image-Edits": JSON.stringify(edits) } : {}),
       },
       body: image,
+      signal,
     },
   );
   return normaliseReceiptIntake(result.data.intake);

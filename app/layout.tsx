@@ -13,6 +13,7 @@ import "./styles/intake.css";
 import "./styles/international.css";
 import "./styles/itinerary.css";
 import "./styles/calendar.css";
+import "./styles/statistics.css";
 import "./styles/responsive.css";
 
 export async function generateMetadata(): Promise<Metadata> {

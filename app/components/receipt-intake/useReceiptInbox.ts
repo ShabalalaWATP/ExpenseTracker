@@ -1,27 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { canSelectReceipt, normaliseReceipt } from "./image";
+import { receiptAnalysisImage } from "./image";
 import {
   analyseIntake,
-  getAiStatus,
-  listIntakes,
   ReceiptApiError,
   uploadIntake,
 } from "./receiptApi";
 import type { AiStatus, BatchDefaults, LocalUpload, ReceiptIntake } from "./types";
-import { listUploadDrafts, removeUploadDraft, saveUploadDraft } from "./upload-drafts";
 import {
   currentBatchDefaults,
   initialBatchDefaultState,
-  MAX_UPLOAD_BATCH,
   upsertReceiptIntake,
-  uploadIdentifier,
 } from "./upload-queue";
 import { useReceiptProcessingTracker } from "./useReceiptProcessingTracker";
 import { createReceiptAnalysisActions, finishReceiptAnalysis } from "./receipt-analysis-actions";
 import { createReceiptQueueActions } from "./receipt-queue-actions";
 import { AutoConfirmationPendingError } from "./auto-confirm-polling";
+import { enqueueReceiptFiles } from "./receipt-file-queue";
+import { useLocalUploadQueue } from "./useLocalUploadQueue";
+import {
+  cancelReceiptRequests,
+  finishReceiptRequest,
+  newReceiptRequestControl,
+} from "./request-control";
+import { useInitialReceiptInbox } from "./useInitialReceiptInbox";
 
 export function useReceiptInbox({
   initialDate,
@@ -33,7 +36,13 @@ export function useReceiptInbox({
   onSaved: () => Promise<void>;
 }) {
   const [intakes, setIntakes] = useState<ReceiptIntake[]>([]);
-  const [localUploads, setLocalUploads] = useState<LocalUpload[]>([]);
+  const {
+    localUploads,
+    removeLocal,
+    setLocalUploads,
+    updateLocal,
+    uploadsRef,
+  } = useLocalUploadQueue();
   const [processingIds, setProcessingIds] = useState<string[]>([]);
   const [retryableAnalysisIds, setRetryableAnalysisIds] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState(initialIntakeId ?? "");
@@ -45,32 +54,19 @@ export function useReceiptInbox({
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const activeLocalIds = useRef(new Set<string>());
+  const requestControl = useRef(newReceiptRequestControl()).current;
   const processRef = useRef<(item: LocalUpload) => Promise<void>>(async () => {});
   const analysisFiles = useRef(new Map<string, File>());
-  const uploadsRef = useRef<LocalUpload[]>([]);
   const processing = useReceiptProcessingTracker();
   const beginProcessing = processing.begin;
-  async function updateLocal(
-    local: LocalUpload,
-    changes: Partial<LocalUpload>,
-  ): Promise<LocalUpload> {
-    const changed = { ...local, ...changes };
-    setLocalUploads((items) =>
-      items.map((item) => (item.id === local.id ? changed : item)),
-    );
-    await saveUploadDraft(changed).catch(() => {});
-    return changed;
-  }
   function updateIntake(next: ReceiptIntake) {
     setIntakes((items) => upsertReceiptIntake(items, next));
   }
-  async function removeLocal(id: string) {
-    setLocalUploads((items) => items.filter((item) => item.id !== id));
-    await removeUploadDraft(id).catch(() => {});
-  }
   async function processFile(local: LocalUpload) {
-    if (activeLocalIds.current.has(local.id)) return;
+    if (
+      requestControl.active.has(local.id) ||
+      requestControl.cancelled.has(local.id)
+    ) return;
     if (!navigator.onLine) {
       processing.mark(local.id, "waiting", {
         error: "Waiting for a connection.",
@@ -82,7 +78,9 @@ export function useReceiptInbox({
       });
       return;
     }
-    activeLocalIds.current.add(local.id);
+    requestControl.active.add(local.id);
+    const controller = new AbortController();
+    requestControl.controllers.set(local.id, controller);
     processing.mark(local.id, "uploading");
     let current = await updateLocal(local, {
       stage: "uploading",
@@ -96,10 +94,33 @@ export function useReceiptInbox({
         local.batchId,
         local.defaults,
         local.idempotencyKey,
+        controller.signal,
       );
       updateIntake(intake);
       setSelectedId((selected) => selected || intake.id);
     } catch (caught) {
+      if (
+        requestControl.cancelled.has(local.id) ||
+        (caught instanceof ReceiptApiError &&
+          caught.code === "request_cancelled")
+      ) {
+        await removeLocal(local.id);
+        processing.remove([local.id]);
+        finishReceiptRequest(requestControl, local.id);
+        return;
+      }
+      if (
+        caught instanceof ReceiptApiError &&
+        caught.code === "receipt_duplicate"
+      ) {
+        await removeLocal(local.id);
+        processing.remove([local.id]);
+        setError(
+          `${local.file.name} was stopped because this exact receipt is already stored.`,
+        );
+        finishReceiptRequest(requestControl, local.id);
+        return;
+      }
       const retryable =
         !navigator.onLine ||
         (caught instanceof ReceiptApiError && caught.retryable);
@@ -110,13 +131,19 @@ export function useReceiptInbox({
       processing.mark(local.id, retryable ? "waiting" : "failed", {
         error: current.error,
       });
-      activeLocalIds.current.delete(local.id);
+      finishReceiptRequest(requestControl, local.id);
+      return;
+    }
+    if (requestControl.cancelled.has(local.id)) {
+      await removeLocal(local.id);
+      processing.remove([local.id]);
+      finishReceiptRequest(requestControl, local.id);
       return;
     }
     if (ai?.configured === false) {
       processing.mark(local.id, "completed", { secured: true });
       await removeLocal(local.id);
-      activeLocalIds.current.delete(local.id);
+      finishReceiptRequest(requestControl, local.id);
       return;
     }
     analysisFiles.current.set(intake.id, local.file);
@@ -128,14 +155,27 @@ export function useReceiptInbox({
     setProcessingIds((ids) => [...new Set([...ids, intake.id])]);
     let analysedIntake: ReceiptIntake | null = null;
     try {
-      const analysisImage = await normaliseReceipt(local.file);
+      const analysisImage = await receiptAnalysisImage(local.file);
+      if (controller.signal.aborted) {
+        throw new ReceiptApiError(
+          "Processing was cancelled. The secured original remains in your inbox.",
+          false,
+          "request_cancelled",
+        );
+      }
       processing.mark(local.id, "analysing", { secured: true });
-      analysedIntake = await analyseIntake(intake.id, analysisImage);
+      analysedIntake = await analyseIntake(
+        intake.id,
+        analysisImage,
+        undefined,
+        controller.signal,
+      );
       const analysed = await finishReceiptAnalysis(
         analysedIntake,
         local.id,
         processing,
         updateIntake,
+        () => controller.signal.aborted,
       );
       updateIntake(analysed);
       if (analysed.status === "confirmed") {
@@ -148,6 +188,19 @@ export function useReceiptInbox({
       processing.mark(local.id, "completed", { secured: true });
       await removeLocal(local.id);
     } catch (caught) {
+      if (
+        requestControl.cancelled.has(local.id) ||
+        (caught instanceof ReceiptApiError &&
+          caught.code === "request_cancelled")
+      ) {
+        await removeLocal(local.id);
+        processing.remove([local.id]);
+        setError(
+          "Stopped waiting for AI. The original is safe; the server may finish the current check, or you can retry after it reports an exception.",
+        );
+        setRetryableAnalysisIds((ids) => [...new Set([...ids, intake.id])]);
+        return;
+      }
       if (!analysedIntake) {
         updateIntake({
           ...intake,
@@ -176,53 +229,23 @@ export function useReceiptInbox({
       setRetryableAnalysisIds((ids) => [...new Set([...ids, intake.id])]);
     } finally {
       setProcessingIds((ids) => ids.filter((id) => id !== intake.id));
-      activeLocalIds.current.delete(local.id);
+      finishReceiptRequest(requestControl, local.id);
     }
   }
   useEffect(() => {
-    uploadsRef.current = localUploads;
     processRef.current = processFile;
   });
-  useEffect(() => {
-    let current = true;
-    void Promise.allSettled([
-      listIntakes(),
-      getAiStatus(),
-      listUploadDrafts(),
-    ]).then(([intakeResult, aiResult, draftResult]) => {
-      if (!current) return;
-      if (intakeResult.status === "fulfilled") {
-        setIntakes(intakeResult.value);
-        setSelectedId((selected) =>
-          selected && intakeResult.value.some((item) => item.id === selected)
-            ? selected
-            : initialIntakeId ?? intakeResult.value[0]?.id ?? "",
-        );
-      } else {
-        setError("The receipt inbox could not be loaded.");
-      }
-      if (aiResult.status === "fulfilled") setAi(aiResult.value);
-      if (draftResult.status === "fulfilled") {
-        setLocalUploads(draftResult.value);
-        beginProcessing(
-          draftResult.value.map((item) => ({
-            id: item.id,
-            name: item.file.name,
-            waiting: item.stage === "waiting-online",
-          })),
-        );
-        draftResult.value.forEach((item) => void processRef.current(item));
-      } else {
-        setError(
-          "Safari could not open the local recovery queue. New photos can still upload while this page remains open.",
-        );
-      }
-      setLoading(false);
-    });
-    return () => {
-      current = false;
-    };
-  }, [beginProcessing, initialIntakeId]);
+  useInitialReceiptInbox({
+    initialIntakeId,
+    beginProcessing,
+    processRef,
+    setAi,
+    setError,
+    setIntakes,
+    setSelectedId,
+    setLocalUploads,
+    setLoading,
+  });
 
   useEffect(() => {
     function resume() {
@@ -242,58 +265,33 @@ export function useReceiptInbox({
       window.removeEventListener("pageshow", resume);
       document.removeEventListener("visibilitychange", visible);
     };
-  }, []);
+  }, [uploadsRef]);
 
   async function addFiles(selected: File[]) {
-    setError("");
-    const supported = selected.filter(canSelectReceipt);
-    const candidates = supported.slice(0, MAX_UPLOAD_BATCH);
-    if (supported.length !== selected.length) {
-      setError("Some files were skipped. Choose receipt images up to 20 MB.");
-    }
-    if (selected.length > MAX_UPLOAD_BATCH) {
-      setError(`Only the first ${MAX_UPLOAD_BATCH} photos were added.`);
-    }
-    const batchId = uploadIdentifier();
-    const shared = { ...defaults };
-    const queued = candidates.map<LocalUpload>((file) => ({
-      id: uploadIdentifier(),
-      idempotencyKey: uploadIdentifier(),
-      batchId,
-      defaults: shared,
-      file,
-      stage: navigator.onLine ? "queued" : "waiting-online",
-      attempts: 0,
-    }));
-    processing.begin(
-      queued.map((item) => ({
-        id: item.id,
-        name: item.file.name,
-        waiting: item.stage === "waiting-online",
-      })),
-    );
-    const stored: LocalUpload[] = [];
-    for (const item of queued) {
-      try {
-        await saveUploadDraft(item);
-        stored.push(item);
-      } catch {
-        stored.push(item);
-        setError(
-          "Safari could not preserve one photo for recovery. Its upload is starting now, but keep this page open until it is secured.",
-        );
-      }
-    }
-    setLocalUploads((items) => [...stored, ...items]);
-    const work = [...stored];
-    await Promise.all(
-      Array.from({ length: Math.min(2, work.length) }, async () => {
-        let item = work.shift();
-        while (item) {
-          await processFile(item);
-          item = work.shift();
-        }
-      }),
+    await enqueueReceiptFiles({
+      selected,
+      defaults,
+      processing,
+      setError,
+      setLocalUploads,
+      processFile,
+      isCancelled: (id) => requestControl.cancelled.has(id),
+    });
+  }
+
+  async function cancelProcessing(id: string) {
+    cancelReceiptRequests(requestControl, [id]);
+    processing.remove([id]);
+    await removeLocal(id);
+  }
+
+  async function cancelAllProcessing() {
+    const ids = uploadsRef.current.map((item) => item.id);
+    cancelReceiptRequests(requestControl, ids);
+    processing.remove(ids);
+    await Promise.all(ids.map((id) => removeLocal(id)));
+    setError(
+      "Stopped waiting. Any original already secured remains available in the inbox; a server check already under way may still finish.",
     );
   }
 
@@ -335,6 +333,8 @@ export function useReceiptInbox({
     addFiles,
     analyseWithEdits: analysisActions.analyseWithEdits,
     clearQueue: queueActions.clearQueue,
+    cancelAllProcessing,
+    cancelProcessing,
     confirmed,
     dismissLocal: removeLocal,
     processFile,

@@ -201,6 +201,20 @@ export async function createReceiptIntake(
     ]);
   } catch (error) {
     await bucket.delete(objectKey);
+    const concurrentDuplicate = await db
+      .prepare(
+        "SELECT id FROM receipt_intakes WHERE owner_id = ? AND sha256 = ? AND id <> ?",
+      )
+      .bind(principal.ownerId, hash, id)
+      .first<{ id: string }>();
+    if (concurrentDuplicate) {
+      throw new ApiError(
+        409,
+        "receipt_duplicate",
+        "This receipt image has already been uploaded.",
+        { existingId: concurrentDuplicate.id, existingKind: "intake" },
+      );
+    }
     throw error;
   }
   return {

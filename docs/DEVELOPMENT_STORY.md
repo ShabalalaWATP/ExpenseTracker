@@ -263,3 +263,17 @@ This document records meaningful implementation milestones, decisions and verifi
   browser preview and download, reduced-motion and assistive-technology
   behaviour, Realtime microphone permissions, spoken-confirmation accuracy and
   complete receipt-to-trip end-to-end flows still require verification.
+- Diagnosed a production iPhone upload that reached R2 in roughly three
+  seconds but then stalled during browser-side JPEG decoding. Safari now tries
+  its native image-element path before `createImageBitmap`, preparation has a
+  25-second bound, and the metadata-stripping, dimension-bounded derivative is
+  retained before any image reaches AI. The owner can stop waiting at batch or
+  item level, and exact duplicates produce an explicit stopped message.
+- Promoted Audit response to its own primary view and added month-scoped
+  Statistics with spend rhythm, restaurant, food-style, meal-context and
+  location analysis. The location visual uses bundled CC0 map artwork and
+  country-level positions, so it does not transmit private place names to a
+  geocoder or imply precise receipt coordinates.
+- Verified this milestone with the production build and all 158 tests,
+  `npm run lint`, `npx tsc --noEmit`, `git diff --check`, and a 390 by 844
+  mobile navigation check in the local browser.

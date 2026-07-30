@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { resolveStoredTheme, THEME_STORAGE_KEY, type Theme } from "../theme";
 import { AppShell } from "./AppShell";
+import { AuditView } from "./AuditView";
 import { CalendarView } from "./CalendarView";
 import { CaptureView } from "./CaptureView";
 import { ClaimsView } from "./ClaimsView";
 import { ExpenseEditor } from "./ExpenseEditor";
 import { ExpensesView } from "./ExpensesView";
 import { SettingsView } from "./SettingsView";
+import { StatisticsView } from "./StatisticsView";
 import { TodayView } from "./TodayView";
 import { TripsView } from "./TripsView";
 import type { Expense, NavigationTarget, ViewName } from "./types";
@@ -27,6 +29,8 @@ const titles: Record<ViewName, string> = {
   expenses: "Expenses",
   trips: "Trips",
   claims: "Claims",
+  statistics: "Statistics",
+  audit: "Audit response",
   settings: "Settings",
 };
 
@@ -237,6 +241,14 @@ export function ExpenseApp() {
           onClaimPeriodChange={setClaimPeriod}
         />
       ),
+      statistics: (
+        <StatisticsView
+          data={data}
+          claimPeriod={claimPeriod}
+          onClaimPeriodChange={setClaimPeriod}
+        />
+      ),
+      audit: <AuditView />,
       settings: <SettingsView onClose={closeSettings} />,
     };
     content = (

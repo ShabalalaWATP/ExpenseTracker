@@ -94,21 +94,77 @@
     border-color: rgba(255, 255, 255, 0.3);
   }
 
-  .mobile-settings {
+  .mobile-more {
+    position: relative;
+  }
+
+  .mobile-more summary {
+    display: flex;
     min-height: 38px;
+    align-items: center;
+    gap: 5px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 99px;
     background: transparent;
     padding: 0 13px;
     color: #aebbd0;
+    cursor: pointer;
     font-size: 0.72rem;
     font-weight: 760;
+    list-style: none;
   }
 
-  .mobile-settings.active {
+  .mobile-more summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-more summary svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .mobile-more.active summary,
+  .mobile-more[open] summary {
     border-color: #4d86ff;
     background: rgba(63, 124, 255, 0.2);
     color: white;
+  }
+
+  .mobile-more nav {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 9px);
+    right: 0;
+    display: grid;
+    width: min(230px, calc(100vw - 32px));
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    background: #07101f;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .mobile-more nav button {
+    display: flex;
+    min-height: 52px;
+    align-items: center;
+    gap: 11px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    background: transparent;
+    padding: 0 15px;
+    color: #c0cbe0;
+    text-align: left;
+  }
+
+  .mobile-more nav button.active {
+    background: rgba(63, 124, 255, 0.16);
+    color: white;
+  }
+
+  .mobile-more .nav-mark {
+    display: grid;
+    width: 21px;
+    place-items: center;
   }
 
   .mobile-nav {

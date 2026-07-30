@@ -29,11 +29,12 @@ export async function finishReceiptAnalysis(
   jobId: string,
   processing: ProcessingTracker,
   onAnalysed?: (intake: ReceiptIntake) => void,
+  isCancelled?: () => boolean,
 ): Promise<ReceiptIntake> {
   onAnalysed?.(intake);
   processing.mark(jobId, "validating", { secured: true });
   await nextPaint();
-  if (intake.status !== "ready") return intake;
+  if (intake.status !== "ready" || isCancelled?.()) return intake;
   processing.mark(jobId, "confirming", { secured: true });
   return (
     await pollAutoConfirmation(() => autoConfirmIntake(intake.id))
@@ -140,8 +141,21 @@ export function createReceiptAnalysisActions({
     reanalyse: (intake: ReceiptIntake, fields: ReceiptRecheckField[]) =>
       run(
         intake,
-        "analysing",
-        () => reanalyseIntake(intake.id, fields),
+        intake.hasAnalysisCopy ? "analysing" : "preparing",
+        async (jobId) => {
+          if (intake.hasAnalysisCopy) {
+            return reanalyseIntake(intake.id, fields);
+          }
+          const response = await fetch(intake.previewUrl, {
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            throw new Error("The secured original could not be opened.");
+          }
+          const image = await normaliseReceipt(await response.blob());
+          processing.mark(jobId, "analysing", { secured: true });
+          return analyseIntake(intake.id, image);
+        },
         "The receipt could not be read again.",
       ),
     analyseWithEdits: (intake: ReceiptIntake, edits: ImageEdits) =>

@@ -1,0 +1,222 @@
+.statistics-period {
+  margin-bottom: 10px;
+}
+
+.stats-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 30px 0 12px;
+  border-block: 1px solid var(--line);
+}
+
+.stats-kpis div {
+  padding: 20px clamp(12px, 2vw, 24px);
+  border-left: 1px solid var(--line);
+}
+
+.stats-kpis div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.stats-kpis dt {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stats-kpis dd {
+  margin: 7px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 3vw, 2.6rem);
+}
+
+.stats-section {
+  margin-top: 38px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line);
+}
+
+.stats-section .section-heading > strong,
+.stats-section .section-heading > small {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.stats-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(32px, 5vw, 72px);
+}
+
+.daily-chart {
+  display: grid;
+  height: 220px;
+  grid-template-columns: repeat(31, minmax(3px, 1fr));
+  align-items: end;
+  gap: clamp(2px, 0.5vw, 7px);
+  margin-top: 25px;
+  padding-top: 16px;
+  border-bottom: 1px solid var(--line-strong);
+  background:
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px) 0 25% / 100% 25%;
+}
+
+.daily-chart > span {
+  display: grid;
+  height: 100%;
+  grid-template-rows: 1fr 18px;
+  align-items: end;
+}
+
+.daily-chart i {
+  display: block;
+  min-height: 1px;
+  border-radius: 3px 3px 0 0;
+  background: var(--line-strong);
+  transition: height 420ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.daily-chart .has-spend i {
+  min-height: 6px;
+  background: linear-gradient(to top, var(--action-hover), var(--action));
+}
+
+.daily-chart small {
+  overflow: visible;
+  color: var(--muted);
+  font-size: 0.58rem;
+  text-align: center;
+}
+
+.stats-ranked {
+  display: grid;
+  gap: 13px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats-ranked li {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.75fr) minmax(100px, 1.25fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.stats-ranked li > div {
+  display: grid;
+  min-width: 0;
+}
+
+.stats-ranked strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-ranked li > div span,
+.stats-ranked small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.stats-bar {
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.stats-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--teal);
+}
+
+.location-map {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: #07101f;
+  aspect-ratio: 16 / 9;
+}
+
+.location-map > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.6;
+  filter: invert(1) sepia(0.1) saturate(0.35) hue-rotate(175deg) brightness(0.7);
+}
+
+.location-dot {
+  position: absolute;
+  z-index: 2;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: #ff4f5e;
+  box-shadow: 0 0 0 6px rgba(255, 79, 94, 0.13);
+  transform: translate(-50%, -50%);
+}
+
+.location-dot:hover,
+.location-dot:focus-visible {
+  z-index: 3;
+  outline: 3px solid #fff;
+  box-shadow: 0 0 0 9px rgba(255, 79, 94, 0.25);
+}
+
+.location-map > p {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  margin: 0;
+  color: #c0cbe0;
+  transform: translate(-50%, -50%);
+}
+
+.map-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 760px) {
+  .stats-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-kpis div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .stats-kpis div:nth-child(4) {
+    border-top: 1px solid var(--line);
+  }
+
+  .stats-split {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .daily-chart {
+    height: 170px;
+    gap: 2px;
+  }
+
+  .stats-ranked li {
+    grid-template-columns: minmax(100px, 1fr) minmax(70px, 1fr);
+  }
+
+  .stats-ranked small {
+    grid-column: 1;
+  }
+}

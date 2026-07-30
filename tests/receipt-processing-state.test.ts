@@ -6,6 +6,7 @@ import * as processing from "../app/components/receipt-intake/processing-state.t
 const {
   beginProcessingBatch,
   dismissBlockedJobs,
+  removeProcessingJobs,
   summariseReceiptProcessing,
   updateProcessingJob,
 } = processing;
@@ -74,5 +75,16 @@ describe("receipt batch processing state", () => {
     });
     assert.equal(summariseReceiptProcessing(jobs).stage, "pending");
     assert.deepEqual(dismissBlockedJobs(jobs), []);
+  });
+
+  it("removes cancelled jobs without affecting the rest of the batch", () => {
+    const jobs = beginProcessingBatch([], [
+      { id: "a", name: "cancel.jpg" },
+      { id: "b", name: "keep.jpg" },
+    ]);
+    assert.deepEqual(
+      removeProcessingJobs(jobs, new Set(["a"])).map((job) => job.id),
+      ["b"],
+    );
   });
 });

@@ -5,13 +5,16 @@ import type { ReactNode } from "react";
 import type { ViewName } from "./types";
 import {
   CalendarIcon,
+  ChartIcon,
   CameraIcon,
+  AuditIcon,
   FileCheckIcon,
   HomeIcon,
   PlusIcon,
   ReceiptIcon,
   RouteIcon,
   SlidersIcon,
+  MoreIcon,
 } from "./icons";
 
 type NavItem = { id: ViewName; label: string; icon: ReactNode };
@@ -23,6 +26,8 @@ const desktopNav: NavItem[] = [
   { id: "expenses", label: "Expenses", icon: <ReceiptIcon /> },
   { id: "trips", label: "Trips", icon: <RouteIcon /> },
   { id: "claims", label: "Claims", icon: <FileCheckIcon /> },
+  { id: "statistics", label: "Statistics", icon: <ChartIcon /> },
+  { id: "audit", label: "Audit response", icon: <AuditIcon /> },
 ];
 
 const mobileNav: NavItem[] = [
@@ -98,15 +103,38 @@ export function AppShell({
           <Image src="/expensetracker-logo.png" width={42} height={42} alt="" priority unoptimized />
           <span>ExpenseTracker</span>
         </button>
-        <button
-          type="button"
-          className={`mobile-settings ${active === "settings" ? "active" : ""}`}
-          onClick={() => onNavigate("settings")}
-          aria-label="Open settings"
-          aria-current={active === "settings" ? "page" : undefined}
+        <details
+          key={active}
+          className={`mobile-more ${
+            ["statistics", "audit", "settings"].includes(active) ? "active" : ""
+          }`}
         >
-          Settings
-        </button>
+          <summary aria-label="Open more navigation">
+            <MoreIcon />
+            <span>More</span>
+          </summary>
+          <nav aria-label="More navigation">
+            {[
+              { id: "statistics" as const, label: "Statistics", icon: <ChartIcon /> },
+              { id: "audit" as const, label: "Audit response", icon: <AuditIcon /> },
+              { id: "settings" as const, label: "Settings", icon: <SlidersIcon /> },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={active === item.id ? "active" : ""}
+                aria-current={active === item.id ? "page" : undefined}
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  onNavigate(item.id);
+                }}
+              >
+                <span className="nav-mark" aria-hidden="true">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </details>
       </div>
 
       <main id="main-content" className="paper-workspace" tabIndex={-1}>

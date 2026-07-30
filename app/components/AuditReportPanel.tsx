@@ -4,6 +4,8 @@ import { useState } from "react";
 import { apiRequest } from "./api";
 import { formatMoney } from "./format";
 import { StatusMessage } from "./ui";
+import { auditMonthRange } from "./audit-range";
+import { ukCalendarMonth } from "../../src/domain/calendar";
 
 type AuditQuestion = {
   id: string;
@@ -42,8 +44,9 @@ function unwrapPlan(payload: unknown): AuditPlan {
 }
 
 export function AuditReportPanel() {
-  const [startDate, setStartDate] = useState("2026-08-01");
-  const [endDate, setEndDate] = useState("2026-08-31");
+  const initialRange = auditMonthRange(ukCalendarMonth());
+  const [startDate, setStartDate] = useState(initialRange.startDate);
+  const [endDate, setEndDate] = useState(initialRange.endDate);
   const [plan, setPlan] = useState<AuditPlan | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<"plan" | "report" | "">("");

@@ -71,6 +71,13 @@ export function dismissBlockedJobs(
   );
 }
 
+export function removeProcessingJobs(
+  jobs: readonly ReceiptProcessingJob[],
+  ids: ReadonlySet<string>,
+): ReceiptProcessingJob[] {
+  return jobs.filter((job) => !ids.has(job.id));
+}
+
 const STAGE_PRIORITY: ReceiptProcessingStage[] = [
   "uploading",
   "queued",

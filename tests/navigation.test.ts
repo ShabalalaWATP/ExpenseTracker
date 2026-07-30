@@ -37,3 +37,10 @@ test("closing a deep-linked detail replaces its history entry", () => {
     [{ target: { view: "expenses" } }, "", "#expenses"],
   ]);
 });
+
+test("dedicated audit and statistics tabs have safe hash routes", () => {
+  assert.equal(parseNavigationHash("#audit").view, "audit");
+  assert.equal(parseNavigationHash("#statistics").view, "statistics");
+  assert.equal(navigationHash({ view: "audit" }), "#audit");
+  assert.equal(navigationHash({ view: "statistics" }), "#statistics");
+});
