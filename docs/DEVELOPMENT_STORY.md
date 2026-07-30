@@ -377,3 +377,10 @@ This document records meaningful implementation milestones, decisions and verifi
   calendar dates. The server enforces the same rule for every client, and an
   additive migration normalises existing unlocked trips while preserving
   frozen claim-period history.
+- Reduced receipt extraction reasoning from high to low after live scans
+  exceeded the request deadline. The frontier receipt model remains unchanged.
+  The disposable analysis derivative is now capped at 2,560 pixels and 5 MP
+  while the immutable original stays untouched for evidence. Extraction retains
+  original-detail vision, the independent safety verifier uses standard
+  high-detail vision, and stable prompt-cache keys let repeated scans reuse
+  matching shared prefixes while Responses storage remains disabled.

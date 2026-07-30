@@ -1,8 +1,8 @@
 import type { ImageEdits } from "./types";
 
-export const MAX_ANALYSIS_DIMENSION = 4096;
-export const MAX_ANALYSIS_PIXELS = 12_000_000;
-const JPEG_QUALITY = 0.92;
+export const MAX_ANALYSIS_DIMENSION = 2560;
+export const MAX_ANALYSIS_PIXELS = 5_000_000;
+const JPEG_QUALITY = 0.9;
 const MAX_ANALYSIS_BYTES = 9 * 1_048_576;
 const MAX_RECEIPT_BYTES = 20 * 1_048_576;
 const IMAGE_PREPARATION_TIMEOUT_MS = 25_000;

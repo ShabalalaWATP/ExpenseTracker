@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { RECEIPT_IMAGE_DETAIL, RECEIPT_REASONING_EFFORT, receiptRequestBody } from "../src/server/receipt-request.ts";
+import {
+  RECEIPT_EXTRACTION_PROMPT_CACHE_KEY,
+  RECEIPT_IMAGE_DETAIL,
+  RECEIPT_REASONING_EFFORT,
+  RECEIPT_VERIFICATION_IMAGE_DETAIL,
+  receiptRequestBody,
+} from "../src/server/receipt-request.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { RECEIPT_EXTRACTION_SCHEMA } from "../src/server/receipt-extraction-schema.ts";
 
@@ -14,7 +20,7 @@ function collectSchemaKeys(value: unknown, keys = new Set<string>()): Set<string
   return keys;
 }
 
-test("receipt requests prioritise frontier reading quality", () => {
+test("receipt requests use low reasoning for faster extraction", () => {
   const body = receiptRequestBody(
     "gpt-5.6-sol",
     "data:image/jpeg;base64,abc",
@@ -23,10 +29,15 @@ test("receipt requests prioritise frontier reading quality", () => {
   );
 
   assert.equal(body.model, "gpt-5.6-sol");
-  assert.equal(body.reasoning.effort, "high");
-  assert.equal(RECEIPT_REASONING_EFFORT, "high");
+  assert.equal(body.reasoning.effort, "low");
+  assert.equal(RECEIPT_REASONING_EFFORT, "low");
   assert.equal(RECEIPT_IMAGE_DETAIL, "original");
+  assert.equal(RECEIPT_VERIFICATION_IMAGE_DETAIL, "high");
   assert.equal(body.input[0].content[1].detail, "original");
+  assert.equal(
+    body.prompt_cache_key,
+    RECEIPT_EXTRACTION_PROMPT_CACHE_KEY,
+  );
   assert.equal(body.max_output_tokens, 8_000);
   assert.match(body.instructions, /Never apply the £30 allowance/);
   assert.match(body.instructions, /Include any eligible gratuity/);

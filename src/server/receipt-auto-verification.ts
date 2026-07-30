@@ -8,7 +8,11 @@ import {
 import { ApiError } from "./http";
 import { openAiRequest, outputText } from "./openai-client";
 import type { Principal } from "./principal";
-import { RECEIPT_IMAGE_DETAIL, RECEIPT_REASONING_EFFORT } from "./receipt-request";
+import {
+  RECEIPT_REASONING_EFFORT,
+  RECEIPT_VERIFICATION_IMAGE_DETAIL,
+  RECEIPT_VERIFICATION_PROMPT_CACHE_KEY,
+} from "./receipt-request";
 import { runtimeConfig } from "./runtime-config";
 
 function imageDataUrl(
@@ -34,6 +38,7 @@ export async function verifyReceiptForAutoConfirmation(
       model: config.models.receipt,
       reasoning: { effort: RECEIPT_REASONING_EFFORT },
       store: false,
+      prompt_cache_key: RECEIPT_VERIFICATION_PROMPT_CACHE_KEY,
       max_output_tokens: 2_000,
       instructions: [
         "Independently verify only facts visibly grounded in this image.",
@@ -58,7 +63,7 @@ export async function verifyReceiptForAutoConfirmation(
             {
               type: "input_image",
               image_url: imageDataUrl(bytes, contentType),
-              detail: RECEIPT_IMAGE_DETAIL,
+              detail: RECEIPT_VERIFICATION_IMAGE_DETAIL,
             },
           ],
         },

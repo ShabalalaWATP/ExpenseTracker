@@ -558,6 +558,9 @@ decisions remain out of scope.
 
 Verify the automated date, location, duty-reason and meal-context suggestions
 against a non-sensitive receipt set, including weak or missing receipt fields.
+Measure low-reasoning, 5 MP receipt latency and accuracy against the same set
+before deciding whether difficult receipts need an automatic higher-reasoning
+or larger-image retry.
 Complete the iPhone 16 HEIC, Safari backgrounding, receipt view/download,
 receipt-bearing audit report, immersive processing and Realtime microphone
 acceptance checks before treating AI-assisted capture as proven. Exercise voice

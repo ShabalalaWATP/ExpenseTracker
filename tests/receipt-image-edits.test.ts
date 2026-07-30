@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { cropGeometry, normaliseImageEdits } from "../app/components/receipt-intake/image.ts";
+import {
+  MAX_ANALYSIS_DIMENSION,
+  MAX_ANALYSIS_PIXELS,
+  cropGeometry,
+  normaliseImageEdits,
+} from "../app/components/receipt-intake/image.ts";
+
+test("receipt analysis derivatives stay within the low-latency vision budget", () => {
+  assert.equal(MAX_ANALYSIS_DIMENSION, 2560);
+  assert.equal(MAX_ANALYSIS_PIXELS, 5_000_000);
+});
 
 test("receipt image adjustments stay within safe crop and contrast bounds", () => {
   const edits = normaliseImageEdits({
