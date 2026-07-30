@@ -76,7 +76,7 @@
 .ai-state { display: flex; gap: 10px; margin-top: 16px; padding: 13px 0; border-top: 1px solid var(--line); }
 .ai-state > span {
   display: grid; width: 24px; height: 24px; flex: 0 0 24px; place-items: center;
-  border: 1px solid var(--amber); border-radius: 50%; color: var(--amber); font-family: Georgia, serif;
+  border: 1px solid var(--amber); border-radius: 50%; color: var(--amber); font-family: var(--font-display);
 }
 .ai-state p, .ai-model-note { margin: 0; color: var(--muted); font-size: .75rem; }
 .ai-state strong { display: block; color: var(--text); }
@@ -90,7 +90,7 @@
 .queue-header dl { display: flex; gap: 22px; margin: 0; }
 .queue-header dl div { display: grid; text-align: right; }
 .queue-header dt { color: var(--muted); font-size: .68rem; }
-.queue-header dd { font-family: Georgia, serif; font-size: 1.6rem; }
+.queue-header dd { font-family: var(--font-display); font-size: 1.6rem; }
 .intake-queue { margin: 0; padding: 0; list-style: none; }
 .intake-row-shell, .intake-row.local {
   border-bottom: 1px solid var(--line); animation: intake-arrive 240ms ease both;
@@ -140,7 +140,7 @@
 .intake-empty, .queue-loading {
   display: grid; min-height: 260px; align-content: center; justify-items: start;
 }
-.intake-empty > span { color: var(--teal); font-family: Georgia, serif; font-size: 3rem; }
+.intake-empty > span { color: var(--teal); font-family: var(--font-display); font-size: 3rem; }
 .intake-empty p, .queue-loading { color: var(--muted); }
 .queue-loading { grid-template-columns: 18px auto; align-items: center; gap: 10px; }
 .queue-loading span {
@@ -186,7 +186,7 @@
 .review-receipt p { margin: 8px 0 0; color: var(--muted); font-size: .67rem; }
 .intake-review-form header { display: flex; justify-content: space-between; gap: 12px; }
 .intake-review-form h3 {
-  margin: 0; font-family: Georgia, serif; font-size: 1.55rem; font-weight: 500;
+  margin: 0; font-family: var(--font-display); font-size: 1.55rem; font-weight: 500;
 }
 .intake-review-form header > span {
   align-self: start; color: var(--amber); font-size: .68rem; font-weight: 750;

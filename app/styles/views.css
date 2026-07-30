@@ -1,78 +1,11 @@
-.allowance-strip {
-  padding: 38px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.allowance-copy {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.allowance-copy strong {
-  font-family: Georgia, serif;
-  font-size: clamp(1.7rem, 3vw, 2.6rem);
-  font-weight: 500;
-}
-
-.allowance-copy strong span {
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 1rem;
-}
-
-.progress-track {
-  height: 7px;
-  margin: 16px 0 22px;
-  overflow: hidden;
-  background: var(--line);
-}
-
-.progress-track span {
-  display: block;
-  height: 100%;
-  background: var(--teal);
-  transition: width 500ms ease;
-}
-
-.inline-stats,
 .claim-totals dl {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin-bottom: 0;
 }
 
-.inline-stats div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding-right: 26px;
-  border-right: 1px solid var(--line);
-}
-
-.inline-stats div + div {
-  padding-left: 26px;
-}
-
-.inline-stats div:last-child {
-  border: 0;
-}
-
-.inline-stats dt,
 .claim-totals dt {
   color: var(--muted);
-}
-
-.inline-stats dd {
-  margin: 0;
-  font-weight: 750;
-}
-
-.policy-note {
-  margin: 20px 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
 }
 
 .ledger-columns,
@@ -107,7 +40,6 @@
   font-weight: 800;
 }
 
-.attention-list,
 .expense-list,
 .trip-list,
 .readiness-list,
@@ -117,7 +49,6 @@
   list-style: none;
 }
 
-.attention-list li,
 .calm-state {
   display: flex;
   min-height: 74px;
@@ -127,14 +58,12 @@
   border-top: 1px solid var(--line);
 }
 
-.attention-list p,
 .calm-state p {
   margin: 3px 0 0;
   color: var(--muted);
   font-size: 0.88rem;
 }
 
-.attention-mark,
 .calm-state > span {
   display: grid;
   width: 30px;
@@ -160,17 +89,13 @@
   border-top: 1px solid var(--line);
 }
 
-.expense-list.compact li {
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-}
-
 .date-stamp {
   display: grid;
   width: 42px;
   height: 48px;
   place-content: center;
   border: 1px solid var(--line);
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.15rem;
   line-height: 1;
   text-align: center;
@@ -246,7 +171,7 @@
 .camera-prompt > span {
   margin-bottom: 4px;
   color: var(--teal);
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 4rem;
   font-weight: 300;
 }

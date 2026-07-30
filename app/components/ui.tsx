@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { formatMoney } from "./format";
 
 export function ViewHeader({
   eyebrow,
@@ -81,6 +82,36 @@ export function EmptyState({
       {action}
     </div>
   );
+}
+
+export function CountUpMoney({ pence }: { pence: number }) {
+  const [display, setDisplay] = useState(0);
+  const settled = useRef(false);
+
+  useEffect(() => {
+    if (
+      settled.current ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      settled.current = true;
+      setDisplay(pence);
+      return;
+    }
+    settled.current = true;
+    const duration = 900;
+    const start = performance.now();
+    let frame = 0;
+    function step(now: number) {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(pence * eased));
+      if (t < 1) frame = requestAnimationFrame(step);
+    }
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [pence]);
+
+  return <>{formatMoney(display)}</>;
 }
 
 export function LoadingLedger() {

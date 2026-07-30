@@ -139,3 +139,17 @@ This document records meaningful implementation milestones, decisions and verifi
   production build, migration rehearsal and all 45 TypeScript tests plus five
   rendered/migration checks passed. The production dependency audit reported
   zero known vulnerabilities.
+- Refreshed the UI while keeping the ink-and-paper ledger identity. Replaced
+  the glyph-character navigation with a shared stroke-icon set (new
+  `app/components/icons.tsx`, no runtime dependency), self-hosted the Fraunces
+  variable font for display type with a Georgia fallback, and introduced
+  radius tokens, button press states and a dot-grid rail texture. Rebuilt the
+  Today view around a raised spotlight summary card: an animated count-up of
+  the claimable total, a rounded cap meter with an over-cap state, and a
+  hand-rolled seven-day eligible-spend bar chart with theme-specific,
+  colour-vision-checked bar colours and a table fallback. Attention items now
+  map category and severity to icon chips and deep-link to their targets, and
+  recent entries open the expense editor directly. Added Overview to the
+  desktop navigation, pointed the brand button at it, and removed the
+  redundant sticky context bar. All animation respects reduced-motion. No new
+  packages were added.

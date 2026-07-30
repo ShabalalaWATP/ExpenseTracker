@@ -3,34 +3,35 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import type { ViewName } from "./types";
+import {
+  CalendarIcon,
+  CameraIcon,
+  FileCheckIcon,
+  HomeIcon,
+  PlusIcon,
+  ReceiptIcon,
+  RouteIcon,
+  SlidersIcon,
+} from "./icons";
 
-type NavItem = { id: ViewName; label: string; short: string };
+type NavItem = { id: ViewName; label: string; icon: ReactNode };
 
 const desktopNav: NavItem[] = [
-  { id: "capture", label: "Add receipts", short: "+" },
-  { id: "calendar", label: "Calendar", short: "▦" },
-  { id: "expenses", label: "Expenses", short: "£" },
-  { id: "trips", label: "Trips", short: "↗" },
-  { id: "claims", label: "Claims", short: "✓" },
+  { id: "today", label: "Overview", icon: <HomeIcon /> },
+  { id: "capture", label: "Add receipts", icon: <CameraIcon /> },
+  { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
+  { id: "expenses", label: "Expenses", icon: <ReceiptIcon /> },
+  { id: "trips", label: "Trips", icon: <RouteIcon /> },
+  { id: "claims", label: "Claims", icon: <FileCheckIcon /> },
 ];
 
 const mobileNav: NavItem[] = [
-  { id: "calendar", label: "Calendar", short: "▦" },
-  { id: "expenses", label: "Expenses", short: "£" },
-  { id: "capture", label: "Add", short: "+" },
-  { id: "trips", label: "Trips", short: "↗" },
-  { id: "claims", label: "Claims", short: "✓" },
+  { id: "calendar", label: "Calendar", icon: <CalendarIcon /> },
+  { id: "expenses", label: "Expenses", icon: <ReceiptIcon /> },
+  { id: "capture", label: "Add", icon: <PlusIcon /> },
+  { id: "trips", label: "Trips", icon: <RouteIcon /> },
+  { id: "claims", label: "Claims", icon: <FileCheckIcon /> },
 ];
-
-const viewContext: Record<ViewName, { label: string; detail: string }> = {
-  today: { label: "Overview", detail: "Today’s receipts and actions" },
-  capture: { label: "Add receipts", detail: "Photograph, upload or enter an expense" },
-  calendar: { label: "Calendar", detail: "Browse receipts and claims by date" },
-  expenses: { label: "Expenses", detail: "Search and edit confirmed records" },
-  trips: { label: "Trips", detail: "Group duty dates and locations" },
-  claims: { label: "Claims", detail: "Review totals and prepare a submission" },
-  settings: { label: "Settings", detail: "Appearance, AI, privacy and exports" },
-};
 
 interface AppShellProps {
   active: ViewName;
@@ -51,8 +52,8 @@ export function AppShell({
         <button
           className="brand"
           type="button"
-          onClick={() => onNavigate("capture")}
-          aria-label="Open receipt capture"
+          onClick={() => onNavigate("today")}
+          aria-label="Open overview"
         >
           <Image
             src="/expensetracker-logo.png"
@@ -80,7 +81,9 @@ export function AppShell({
           onClick={() => onNavigate("settings")}
           aria-current={active === "settings" ? "page" : undefined}
         >
-          <span aria-hidden="true">⚙</span>
+          <span className="nav-mark" aria-hidden="true">
+            <SlidersIcon />
+          </span>
           Settings
         </button>
       </aside>
@@ -89,8 +92,8 @@ export function AppShell({
         <button
           className="brand"
           type="button"
-          onClick={() => onNavigate("capture")}
-          aria-label="Open receipt capture"
+          onClick={() => onNavigate("today")}
+          aria-label="Open overview"
         >
           <Image src="/expensetracker-logo.png" width={42} height={42} alt="" priority unoptimized />
           <span>ExpenseTracker</span>
@@ -107,11 +110,6 @@ export function AppShell({
       </div>
 
       <main id="main-content" className="paper-workspace" tabIndex={-1}>
-        <div className="workspace-context" aria-live="polite">
-          <span aria-hidden="true" />
-          <strong>{viewContext[active].label}</strong>
-          <small>{viewContext[active].detail}</small>
-        </div>
         {children}
       </main>
 
@@ -151,7 +149,7 @@ function NavButton({
       aria-current={active ? "page" : undefined}
     >
       <span className="nav-mark" aria-hidden="true">
-        {item.short}
+        {item.icon}
       </span>
       <span>{item.label}</span>
     </button>

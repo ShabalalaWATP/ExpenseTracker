@@ -6,6 +6,7 @@ import "./styles/base.css";
 import "./styles/shell.css";
 import "./styles/forms.css";
 import "./styles/views.css";
+import "./styles/today.css";
 import "./styles/ledgers.css";
 import "./styles/claims-settings.css";
 import "./styles/intake.css";

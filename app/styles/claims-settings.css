@@ -15,7 +15,7 @@
 
 .claim-totals dd {
   margin: 4px 0 0;
-  font: 500 clamp(1.8rem, 3vw, 2.8rem) Georgia, serif;
+  font: 500 clamp(1.8rem, 3vw, 2.8rem) var(--font-display);
 }
 
 .claim-totals .claimable dd {
@@ -41,7 +41,7 @@
 
 .readiness-list > li > span {
   color: var(--amber);
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
 }
 
 .readiness-list p {
@@ -73,7 +73,7 @@
 
 .claim-stamp strong {
   margin: 12px 0 5px;
-  font: 500 3rem Georgia, serif;
+  font: 500 3rem var(--font-display);
 }
 
 .claim-stamp small,
@@ -117,7 +117,7 @@
 
 .setting-number {
   color: var(--teal);
-  font-family: Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.5rem;
 }
 

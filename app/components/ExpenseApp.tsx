@@ -185,7 +185,14 @@ export function ExpenseApp() {
       />
     );
     const views: Record<ViewName, React.ReactNode> = {
-      today: <TodayView data={data} navigate={navigate} />,
+      today: (
+        <TodayView
+          data={data}
+          navigate={navigate}
+          navigateTarget={navigateTarget}
+          onOpenExpense={setSelectedExpense}
+        />
+      ),
       capture: null,
       calendar: (
         <CalendarView
