@@ -95,14 +95,24 @@
   justify-content: flex-end;
 }
 
-.trips-layout.with-form {
+.trips-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
-  gap: clamp(36px, 6vw, 70px);
+  gap: clamp(44px, 7vw, 76px);
+  padding-top: 38px;
 }
 
-.trips-layout {
-  padding-top: 38px;
+.trip-create-area {
+  display: grid;
+  gap: 22px;
+}
+
+.trip-create-title {
+  margin: 0;
+}
+
+.trip-records {
+  padding-top: clamp(30px, 5vw, 48px);
+  border-top: 1px solid var(--line);
 }
 
 .trip-list li {
@@ -145,8 +155,8 @@
 }
 
 .trip-form-panel {
-  border-left: 1px solid var(--line);
-  padding-left: clamp(24px, 4vw, 48px);
+  max-width: 860px;
+  padding-top: 8px;
 }
 
 .trip-voice {

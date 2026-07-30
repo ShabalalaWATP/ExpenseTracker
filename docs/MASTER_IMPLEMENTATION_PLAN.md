@@ -218,6 +218,8 @@ private provisional beta rather than a formal system of record.
 - [x] Voice-first trip creation with an ephemeral Realtime credential, strict
   multi-leg structured draft, audible readback and explicit spoken save
   confirmation, with the complete manual form retained as fallback.
+- [x] One-action Realtime trip creation with spoken questions, a typed fallback
+  that preserves partial progress, and a separate recorded-trip ledger.
 - [x] Multilingual receipt extraction with ISO currency, country and language
   detection, structured English translation and original minor-unit values.
 - [x] Deterministic foreign-currency conversion using a bounded official ECB

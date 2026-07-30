@@ -1,13 +1,37 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { createTrip, updateTrip } from "./tripApi";
-import { TripVoiceCreator } from "./TripVoiceCreator";
-import { countryName, daysBetween, formatDate } from "./format";
+import {
+  TripVoiceCreator,
+  type TripVoiceCreatorHandle,
+} from "./TripVoiceCreator";
+import { TripRecords } from "./TripRecords";
+import { daysBetween, formatDate } from "./format";
 import { TripLegEditor } from "./TripLegEditor";
 import { cleanTripDraft, validateTripDraft } from "./tripDraft";
 import type { DashboardData, TripDraft, TripLeg } from "./types";
-import { EmptyState, Field, StatusMessage, ViewHeader } from "./ui";
+import { Field, StatusMessage, ViewHeader } from "./ui";
+
+function newTripDraft(): TripDraft {
+  return {
+    title: "",
+    location: "",
+    country: "GB",
+    startDate: "",
+    endDate: "",
+    legs: [{
+      sequence: 0,
+      countryCode: "GB",
+      location: "",
+      startDate: "",
+      endDate: "",
+    }],
+    eligibleDates: [],
+    attested: false,
+    calculationMethod: "daily",
+  };
+}
 
 export function TripsView({
   data,
@@ -23,8 +47,9 @@ export function TripsView({
   onChanged: () => Promise<void>;
 }) {
   const initialTrip = data.trips.find((trip) => trip.id === initialTripId);
+  const voiceRef = useRef<TripVoiceCreatorHandle>(null);
   const [creating, setCreating] = useState(
-    data.trips.length === 0 || Boolean(initialStartDate) || Boolean(initialTrip),
+    Boolean(initialStartDate) || Boolean(initialTrip),
   );
   const [editingId, setEditingId] = useState(initialTrip?.id ?? "");
   const [title, setTitle] = useState(initialTrip?.title ?? "");
@@ -99,6 +124,7 @@ export function TripsView({
   function editTrip(id: string) {
     const trip = data.trips.find((item) => item.id === id);
     if (!trip) return;
+    voiceRef.current?.stop();
     setEditingId(trip.id);
     setTitle(trip.title);
     setLegs(trip.legs);
@@ -111,31 +137,36 @@ export function TripsView({
     setCreating(true);
   }
 
-  function openNewTrip() {
+  function resetNewTrip(draft = newTripDraft()) {
     setEditingId("");
-    setTitle("");
-    setLegs([
-      {
-        sequence: 0,
-        countryCode: "GB",
-        location: "",
-        startDate: "",
-        endDate: "",
-      },
-    ]);
-    setStartDate("");
-    setEndDate("");
-    setEligibleDates([]);
-    setAttested(false);
-    setMethod("daily");
+    setTitle(draft.title);
+    setLegs(draft.legs);
+    setStartDate(draft.startDate);
+    setEndDate(draft.endDate);
+    setEligibleDates(draft.eligibleDates);
+    setAttested(draft.attested);
+    setMethod(draft.calculationMethod);
     setManualOpen(false);
     setError("");
+    setCreating(false);
+    return draft;
+  }
+
+  function startVoiceTrip() {
+    const draft = resetNewTrip();
+    void voiceRef.current?.start(draft);
+  }
+
+  function openManualTrip() {
+    voiceRef.current?.stop();
+    setManualOpen(true);
     setCreating(true);
   }
 
   function closeForm() {
     setCreating(false);
     setEditingId("");
+    setManualOpen(false);
     setError("");
   }
 
@@ -196,87 +227,70 @@ export function TripsView({
       <ViewHeader
         eyebrow={`${data.trips.length} ${data.trips.length === 1 ? "trip" : "trips"}`}
         title="Trips"
-        detail="Record one or many countries in travel order, then confirm how the allowance is calculated."
-        action={!creating ? <button className="primary-button" type="button" onClick={openNewTrip}>New trip</button> : undefined}
+        detail="Start a live voice conversation, or type the itinerary yourself."
+        action={
+          <button
+            className="primary-button"
+            type="button"
+            onClick={startVoiceTrip}
+          >
+            Create a trip
+          </button>
+        }
       />
 
-      <div className={`trips-layout ${creating ? "with-form" : ""}`}>
-        <section aria-labelledby="trip-list-heading">
-          <div className="section-heading">
-            <div><p className="eyebrow">Duty periods</p><h2 id="trip-list-heading">Recorded trips</h2></div>
+      <div className="trips-layout">
+        <section className="trip-create-area" aria-labelledby="trip-create-heading">
+          <div className="section-heading trip-create-title">
+            <div>
+              <p className="eyebrow">New trip</p>
+              <h2 id="trip-create-heading">
+                {creating ? "Type the trip details" : "Talk it through"}
+              </h2>
+            </div>
+            <small>
+              {creating
+                ? "Every field remains editable before saving."
+                : "The assistant asks for each detail and speaks its questions aloud."}
+            </small>
           </div>
-          {data.trips.length ? (
-            <ul className="trip-list">
-              {data.trips.map((trip) => (
-                <li key={trip.id}>
-                  <div className="trip-dates" aria-hidden="true">
-                    <strong>{trip.startDate.slice(8, 10)}</strong>
-                    <span>to</span>
-                    <strong>{trip.endDate.slice(8, 10)}</strong>
-                  </div>
-                  <div className="trip-main">
-                    <strong>{trip.title}</strong>
-                    <span>
-                      {trip.legs
-                        .map(
-                          (leg) =>
-                            `${leg.location}, ${countryName(leg.countryCode)}`,
-                        )
-                        .join(" → ")}
-                    </span>
-                    <small>{formatDate(trip.startDate)} to {formatDate(trip.endDate)}</small>
-                  </div>
-                  <div className="trip-state">
-                    <span className={`state-label ${trip.attested ? "success" : "warning"}`}>{trip.attested ? "Dates confirmed" : "Needs confirmation"}</span>
-                    <small>{trip.calculationMethod === "aggregate" ? "Aggregate method" : "Daily method"}</small>
-                    <button className="text-button" type="button" onClick={() => editTrip(trip.id)}>Edit trip</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState title="No duty periods recorded" action={<button className="primary-button" type="button" onClick={openNewTrip}>Create a trip</button>}>
-              Trips make repeated locations, countries, purposes and eligible dates easier to confirm.
-            </EmptyState>
-          )}
-        </section>
-
-        {creating ? (
+          <div hidden={creating}>
+            <TripVoiceCreator
+              ref={voiceRef}
+              draft={{
+                title,
+                location: legs.map((leg) => leg.location).join(", "),
+                country: legs[0]?.countryCode ?? "",
+                startDate,
+                endDate,
+                legs,
+                eligibleDates,
+                attested,
+                calculationMethod: method,
+              }}
+              onDraftChange={applyDraft}
+              onConfirmedSave={async (draft) => {
+                setError("");
+                try {
+                  await persistDraft(draft);
+                } catch (caught) {
+                  const message =
+                    caught instanceof Error
+                      ? caught.message
+                      : "The trip could not be saved.";
+                  setError(message);
+                  throw new Error(message);
+                }
+              }}
+              onManual={openManualTrip}
+            />
+          </div>
+          {creating ? (
           <section className="trip-form-panel" aria-labelledby="trip-form-heading">
             <div className="editor-top">
               <div><p className="eyebrow">{editingId ? "Update duty period" : "New duty period"}</p><h2 id="trip-form-heading">{editingId || manualOpen ? "Trip details" : "Tell us about the trip"}</h2></div>
-              {data.trips.length ? <button className="round-button" type="button" onClick={closeForm} aria-label="Close trip form">×</button> : null}
+              <button className="round-button" type="button" onClick={closeForm} aria-label="Close trip form">×</button>
             </div>
-            {!editingId && !manualOpen ? (
-              <TripVoiceCreator
-                draft={{
-                  title,
-                  location: legs.map((leg) => leg.location).join(", "),
-                  country: legs[0]?.countryCode ?? "",
-                  startDate,
-                  endDate,
-                  legs,
-                  eligibleDates,
-                  attested,
-                  calculationMethod: method,
-                }}
-                onDraftChange={applyDraft}
-                onConfirmedSave={async (draft) => {
-                  setError("");
-                  try {
-                    await persistDraft(draft);
-                  } catch (caught) {
-                    const message =
-                      caught instanceof Error
-                        ? caught.message
-                        : "The trip could not be saved.";
-                    setError(message);
-                    throw new Error(message);
-                  }
-                }}
-                onManual={() => setManualOpen(true)}
-              />
-            ) : (
             <form onSubmit={save}>
               {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
               <Field label="Trip title" required><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="For example, European training visit" /></Field>
@@ -299,9 +313,11 @@ export function TripsView({
               </label>
               <div className="form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? "Saving trip…" : editingId ? "Update trip" : "Save trip"}</button></div>
             </form>
-            )}
           </section>
-        ) : null}
+          ) : null}
+        </section>
+
+        <TripRecords trips={data.trips} onEdit={editTrip} />
       </div>
     </div>
   );

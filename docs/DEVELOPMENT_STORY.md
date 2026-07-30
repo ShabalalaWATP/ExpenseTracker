@@ -304,3 +304,9 @@ This document records meaningful implementation milestones, decisions and verifi
   classify recognised historic merchants immediately. This specifically
   corrects Butchies from Other food to Fried chicken without requiring a new
   upload.
+- Simplified trip creation around one primary action. Create a trip now starts
+  the OpenAI Realtime WebRTC speech-to-speech session immediately, the assistant
+  asks aloud for each required detail, and Type instead reveals the same
+  editable manual fields without losing a partial voice draft. The duplicate
+  inner Start control was removed, and Recorded trips now forms a distinct
+  ledger below the creation workspace.

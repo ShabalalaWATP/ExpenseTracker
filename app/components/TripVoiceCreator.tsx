@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import {
   EMPTY_TRIP_VOICE_DRAFT,
   isExplicitTripSaveConfirmation,
@@ -10,7 +16,7 @@ import {
 } from "@/src/domain/trip-voice";
 import type { TripDraft } from "./types";
 import { createTripRealtimeSession } from "./tripVoiceApi";
-import { TripVoiceDraftSummary } from "./TripVoiceDraftSummary";
+import { TripVoicePanel } from "./TripVoicePanel";
 import { parseTripVoiceRealtimeEvent } from "./tripVoiceEvents";
 import {
   beginTripSavePrompt,
@@ -18,23 +24,27 @@ import {
   emptyTripSaveGate,
   reduceTripSaveGate,
   tripDraftFromVoice,
-  tripVoiceStatus,
   voiceDraftFromTrip,
   type TripSaveGateEvent,
   type VoiceState,
 } from "./tripVoiceState";
 
-export function TripVoiceCreator({
-  draft,
-  onDraftChange,
-  onConfirmedSave,
-  onManual,
-}: {
+export type TripVoiceCreatorHandle = {
+  start: (initialDraft?: TripDraft) => Promise<void>;
+  stop: () => void;
+};
+
+export const TripVoiceCreator = forwardRef<TripVoiceCreatorHandle, {
   draft: TripDraft;
   onDraftChange: (draft: TripDraft) => void;
   onConfirmedSave: (draft: TripDraft) => Promise<void>;
   onManual: () => void;
-}) {
+}>(function TripVoiceCreator({
+  draft,
+  onDraftChange,
+  onConfirmedSave,
+  onManual,
+}, ref) {
   const [state, setState] = useState<VoiceState>("idle");
   const [error, setError] = useState("");
   const [heard, setHeard] = useState("");
@@ -64,6 +74,7 @@ export function TripVoiceCreator({
     saveGateRef.current = emptyTripSaveGate(saveGateRef.current.order);
     setState("idle");
   }
+  useImperativeHandle(ref, () => ({ start, stop }));
   useEffect(() => releaseMedia, []);
   function recordSaveGateEvent(event: TripSaveGateEvent) {
     saveGateRef.current = reduceTripSaveGate(saveGateRef.current, event);
@@ -225,17 +236,22 @@ export function TripVoiceCreator({
     }
   }
 
-  async function start() {
+  async function start(initialDraft?: TripDraft) {
+    releaseMedia();
     savingRef.current = false;
     setState("connecting");
     setError("");
     setHeard("");
     setAssistant("");
     saveGateRef.current = emptyTripSaveGate(saveGateRef.current.order);
+    const startingDraft = initialDraft ?? draft;
     draftRef.current =
-      draft.title || draft.legs.some((leg) => leg.location) || draft.startDate
-        ? voiceDraftFromTrip(draft)
+      startingDraft.title ||
+      startingDraft.legs.some((leg) => leg.location) ||
+      startingDraft.startDate
+        ? voiceDraftFromTrip(startingDraft)
         : EMPTY_TRIP_VOICE_DRAFT;
+    if (initialDraft) onDraftChange(initialDraft);
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
         throw new Error(
@@ -251,7 +267,13 @@ export function TripVoiceCreator({
       peer.ontrack = (trackEvent) => {
         if (!audioRef.current) return;
         audioRef.current.srcObject = trackEvent.streams[0];
-        void audioRef.current.play().catch(() => undefined);
+        audioRef.current.muted = false;
+        audioRef.current.volume = 1;
+        void audioRef.current.play().catch(() => {
+          setError(
+            "The voice assistant connected, but Safari blocked its audio. Tap Create a trip again to allow sound.",
+          );
+        });
       };
       const channel = peer.createDataChannel("oai-events");
       channelRef.current = channel;
@@ -298,53 +320,19 @@ export function TripVoiceCreator({
     }
   }
   const voiceDraft = voiceDraftFromTrip(draft);
-  const active = !["idle", "error", "saved"].includes(state);
 
   return (
-    <section className={`trip-voice ${active ? "active" : ""}`}>
+    <>
       <audio ref={audioRef} autoPlay playsInline className="sr-only" />
-      <div className="trip-voice-heading">
-        <div>
-          <p className="eyebrow">Voice first</p>
-          <h3>Create this trip by speaking</h3>
-          <p>
-            I’ll collect the details, read them back, and save only after you
-            clearly confirm.
-          </p>
-        </div>
-        <button
-          className={`trip-mic ${active ? "active" : ""}`}
-          type="button"
-          aria-pressed={active}
-          aria-label={active ? "Stop microphone" : "Start voice trip creation"}
-          onClick={active ? stop : () => void start()}
-        >
-          <span aria-hidden="true">{active ? "■" : "●"}</span>
-          {active ? "Stop" : "Start"}
-        </button>
-      </div>
-      <div className="trip-voice-status" role="status" aria-live="polite">
-        <span className="trip-voice-signal" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-        <strong>{tripVoiceStatus(state)}</strong>
-        {heard ? <span>Heard: “{heard}”</span> : null}
-        {assistant ? <span>Assistant: “{assistant}”</span> : null}
-      </div>
-      {error ? <p className="trip-voice-error" role="alert">{error}</p> : null}
-      <TripVoiceDraftSummary draft={voiceDraft} />
-      <div className="trip-voice-footer">
-        <p>
-          Your microphone is active only during this session. Audio streams to
-          OpenAI using a short-lived credential and is not stored by
-          ExpenseTracker.
-        </p>
-        <button className="text-button" type="button" onClick={onManual}>
-          Use the manual form
-        </button>
-      </div>
-    </section>
+      <TripVoicePanel
+        state={state}
+        error={error}
+        heard={heard}
+        assistant={assistant}
+        draft={voiceDraft}
+        onStop={stop}
+        onManual={onManual}
+      />
+    </>
   );
-}
+});

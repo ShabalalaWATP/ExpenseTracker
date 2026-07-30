@@ -319,8 +319,16 @@ test("trip voice uses a server-minted ephemeral credential and explicit save too
     new URL("../app/components/TripVoiceCreator.tsx", import.meta.url),
     "utf8",
   );
+  const panel = await readFile(
+    new URL("../app/components/TripVoicePanel.tsx", import.meta.url),
+    "utf8",
+  );
   const route = await readFile(
     new URL("../app/api/ai/realtime-session/route.ts", import.meta.url),
+    "utf8",
+  );
+  const tripsView = await readFile(
+    new URL("../app/components/TripsView.tsx", import.meta.url),
     "utf8",
   );
 
@@ -334,6 +342,20 @@ test("trip voice uses a server-minted ephemeral credential and explicit save too
   assert.match(server, /explicitly says yes/);
   assert.doesNotMatch(server, /language: "en"/);
   assert.match(client, /Authorization: `Bearer \$\{session\.value\}`/);
+  assert.match(client, /peer\.ontrack/);
+  assert.match(client, /audioRef\.current\.play\(\)/);
+  const clientUi = `${client}\n${panel}`;
+  assert.match(clientUi, /OpenAI Realtime voice/);
+  assert.match(clientUi, />\s*Type instead\s*</);
+  assert.doesNotMatch(clientUi, /Create this trip by speaking/);
+  assert.doesNotMatch(clientUi, /\{active \? "Stop" : "Start"\}/);
   assert.doesNotMatch(client, /OPENAI_API_KEY/);
   assert.match(route, /createTripRealtimeClientSecret/);
+  assert.match(tripsView, /onClick=\{startVoiceTrip\}/);
+  assert.match(tripsView, /voiceRef\.current\?\.start\(draft\)/);
+  assert.ok(
+    tripsView.lastIndexOf("<TripVoiceCreator") <
+      tripsView.lastIndexOf("<TripRecords"),
+    "The voice creator should appear before the recorded-trip ledger.",
+  );
 });

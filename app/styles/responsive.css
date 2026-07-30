@@ -1,11 +1,9 @@
 @media (max-width: 980px) {
   .ledger-columns,
-  .claims-columns,
-  .trips-layout.with-form {
+  .claims-columns {
     grid-template-columns: 1fr;
   }
 
-  .trip-form-panel,
   .claim-handoff {
     padding: 30px 0 0;
     border-top: 1px solid var(--line);
