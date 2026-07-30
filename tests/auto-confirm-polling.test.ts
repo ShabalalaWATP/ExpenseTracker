@@ -59,4 +59,71 @@ describe("automatic confirmation polling", () => {
     assert.equal(calls, 3);
     assert.equal(waits, 2);
   });
+
+  it("retries one transient response failure without repeating extraction", async () => {
+    let calls = 0;
+    let waits = 0;
+    const transient = Object.assign(
+      new Error("The confirmation response was interrupted."),
+      { retryable: true },
+    );
+    const resolved = await polling.pollAutoConfirmation(
+      async () => {
+        calls += 1;
+        if (calls === 1) throw transient;
+        return result("confirmed");
+      },
+      {
+        delayMs: 0,
+        wait: async () => {
+          waits += 1;
+        },
+      },
+    );
+    assert.equal(resolved.outcome, "confirmed");
+    assert.equal(calls, 2);
+    assert.equal(waits, 1);
+  });
+
+  it("keeps transient confirmation retries bounded", async () => {
+    let calls = 0;
+    let waits = 0;
+    const transient = Object.assign(
+      new Error("The confirmation response was interrupted."),
+      { retryable: true },
+    );
+    await assert.rejects(
+      polling.pollAutoConfirmation(
+        async () => {
+          calls += 1;
+          throw transient;
+        },
+        {
+          delayMs: 0,
+          wait: async () => {
+            waits += 1;
+          },
+        },
+      ),
+      transient,
+    );
+    assert.equal(calls, 2);
+    assert.equal(waits, 1);
+  });
+
+  it("does not retry a non-retryable confirmation failure", async () => {
+    let calls = 0;
+    const permanent = Object.assign(
+      new Error("This receipt needs owner review."),
+      { retryable: false },
+    );
+    await assert.rejects(
+      polling.pollAutoConfirmation(async () => {
+        calls += 1;
+        throw permanent;
+      }),
+      permanent,
+    );
+    assert.equal(calls, 1);
+  });
 });

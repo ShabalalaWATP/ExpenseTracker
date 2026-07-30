@@ -384,3 +384,8 @@ This document records meaningful implementation milestones, decisions and verifi
   original-detail vision, the independent safety verifier uses standard
   high-detail vision, and stable prompt-cache keys let repeated scans reuse
   matching shared prefixes while Responses storage remains disabled.
+- Fixed a false mobile scan failure observed after the receipt had already been
+  extracted and saved. The final automatic-confirmation status check now retries
+  one transient server or network response failure, without uploading the
+  receipt or running extraction again. The retry is deliberately bounded and
+  permanent review decisions remain authoritative.
