@@ -40,6 +40,6 @@ export function publicAiStatus() {
     models: config.models,
     voice: config.realtimeVoice,
     privacy:
-      "Receipt images are sent to the OpenAI API only when analysis is requested. Suggestions must be reviewed before an expense is created.",
+      "Receipt images are sent to the OpenAI API only for analysis. Clean, independently verified receipts are added automatically; exceptions stay in review.",
   };
 }

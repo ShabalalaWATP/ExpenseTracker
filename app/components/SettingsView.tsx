@@ -219,7 +219,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
             <ul className="plain-list">
               <li><strong>Private evidence</strong><span>Receipt originals and expense records are kept in owner-only storage. They are never public links.</span></li>
               <li><strong>No browser ledger</strong><span>Financial records are stored by the server, not duplicated in Safari.</span></li>
-              <li><strong>You confirm every receipt</strong><span>AI suggests fields, but it cannot submit or make allowance decisions.</span></li>
+              <li><strong>Strict automatic confirmation</strong><span>Clean receipts are added only after an independent image check agrees on the critical facts. Exceptions wait for your review, and allowance decisions remain deterministic.</span></li>
               <li><strong>Voice is optional</strong><span>The microphone starts only when you choose it. The permanent API key never reaches Safari.</span></li>
             </ul>
           </div>
