@@ -16,6 +16,7 @@ export function initialBatchDefaultState(seed: string): BatchDefaultState {
       businessReason: "",
       tripId: "",
       mealContext: "",
+      category: "",
     },
   };
 }

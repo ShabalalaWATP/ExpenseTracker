@@ -18,6 +18,7 @@ export type ExpenseRow = ReceiptRow & {
   country: string;
   trip_id: string | null;
   meal_context: string | null;
+  category: string | null;
   notes: string | null;
   deleted_at: string | null;
   created_at: string;
@@ -88,6 +89,7 @@ export function mapExpense(row: ExpenseRow) {
     country: row.country,
     tripId: row.trip_id,
     mealContext: row.meal_context,
+    category: row.category ?? "food",
     notes: row.notes,
     deletedAt: row.deleted_at,
     createdAt: row.created_at,

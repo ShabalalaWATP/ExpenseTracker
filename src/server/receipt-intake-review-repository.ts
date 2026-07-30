@@ -61,6 +61,7 @@ const patchColumns: Partial<Record<keyof IntakePatch, string>> = {
   location: "location",
   businessReason: "business_reason",
   mealContext: "meal_context",
+  category: "category",
   tripId: "trip_id",
   alcoholReviewed: "alcohol_reviewed",
   reconciliationReviewed: "reconciliation_reviewed",
@@ -75,6 +76,7 @@ const fieldForPatch: Partial<Record<keyof IntakePatch, string>> = {
   location: "location",
   businessReason: "business_reason",
   mealContext: "meal_context",
+  category: "category",
   tripId: "trip_id",
   alcoholReviewed: "alcohol",
 };
@@ -89,6 +91,7 @@ function rowValues(row: Awaited<ReturnType<typeof requireIntake>>) {
     location: row.location,
     businessReason: row.business_reason,
     mealContext: row.meal_context,
+    category: row.category,
     tripId: row.trip_id,
     alcoholReviewed: Boolean(row.alcohol_reviewed),
     duplicateReviewed: Boolean(row.duplicate_reviewed),
@@ -233,6 +236,9 @@ export async function updateReceiptIntake(
     meal_context: appliedPatch.mealContext === undefined
       ? existing.meal_context
       : appliedPatch.mealContext,
+    category: appliedPatch.category === undefined
+      ? existing.category
+      : appliedPatch.category,
     trip_id: appliedPatch.tripId === undefined
       ? existing.trip_id
       : appliedPatch.tripId,

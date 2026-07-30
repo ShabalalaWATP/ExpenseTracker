@@ -34,6 +34,7 @@ const expense = (
   country: "GB",
   tripId: "trip-1",
   hasReceipt: true,
+  category: "food",
   ...overrides,
 });
 
@@ -83,6 +84,51 @@ describe("JSP 752 v66.1 calculation", () => {
       ],
     );
     assert.equal(result.claimablePence, 4_000);
+  });
+
+  it("claims travel and parking at actuals without touching the daily cap", () => {
+    const result = calculateJsp752(
+      [trip()],
+      [
+        expense("meal", "2026-08-04", 2_900),
+        expense("cab", "2026-08-04", 4_200, { category: "taxi" }),
+        expense("park", "2026-08-05", 1_150, { category: "parking" }),
+      ],
+    );
+    assert.equal(result.allowancePence, 9_000);
+    assert.equal(result.claimablePence, 2_900 + 4_200 + 1_150);
+    const byId = new Map(result.lines.map((line) => [line.expenseId, line]));
+    assert.equal(byId.get("cab")?.claimablePence, 4_200);
+    assert.equal(byId.get("cab")?.reason, null);
+    assert.equal(byId.get("meal")?.claimablePence, 2_900);
+  });
+
+  it("keeps the food cap intact on a day that mixes food and travel", () => {
+    const result = calculateJsp752(
+      [],
+      [
+        expense("meal", "2026-08-04", 3_500, { tripId: null }),
+        expense("tube", "2026-08-04", 850, {
+          tripId: null,
+          category: "public_transport",
+        }),
+      ],
+    );
+    assert.equal(result.allowancePence, 3_000);
+    assert.equal(result.claimablePence, 3_000 + 850);
+    const byId = new Map(result.lines.map((line) => [line.expenseId, line]));
+    assert.equal(byId.get("meal")?.claimablePence, 3_000);
+    assert.equal(byId.get("meal")?.reason, "Daily allowance reached");
+    assert.equal(byId.get("tube")?.claimablePence, 850);
+  });
+
+  it("does not create a daily allowance for a travel-only day", () => {
+    const result = calculateJsp752(
+      [],
+      [expense("cab", "2026-08-04", 2_000, { tripId: null, category: "taxi" })],
+    );
+    assert.equal(result.allowancePence, 0);
+    assert.equal(result.claimablePence, 2_000);
   });
 
   it("includes an identified gratuity within the £30 daily limit", () => {

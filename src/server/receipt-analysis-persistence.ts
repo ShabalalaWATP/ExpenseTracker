@@ -75,6 +75,13 @@ export async function persistReceiptExtraction(
     targeted,
     "location",
   );
+  const category = chosen<string | null>(
+    row,
+    extraction,
+    priorProvenance,
+    targeted,
+    "category",
+  );
   const provenance = updateProvenance(
     priorProvenance,
     extraction,
@@ -181,7 +188,7 @@ export async function persistReceiptExtraction(
         `UPDATE receipt_intakes
          SET status = ?, merchant = ?, service_date = ?,
              receipt_total_pence = ?, eligible_pence = ?,
-             gratuity_pence = ?, location = ?,
+             gratuity_pence = ?, location = ?, category = ?,
              line_items_json = ?, confidence_json = ?,
              missing_fields_json = ?, uncertain_fields_json = ?,
              alcohol_suspected = ?, alcohol_reviewed = 0,
@@ -201,6 +208,7 @@ export async function persistReceiptExtraction(
         eligiblePence,
         gratuityPence,
         location,
+        category,
         targeted.size
           ? row.line_items_json
           : JSON.stringify(extraction.lineItems),
@@ -252,6 +260,7 @@ export async function persistReceiptExtraction(
             "location",
             "line_items",
             "alcohol",
+            "category",
           ],
       before: {
         merchant: row.merchant,

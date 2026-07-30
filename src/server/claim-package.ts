@@ -16,6 +16,7 @@ type SnapshotExpense = {
   receiptTotalPence: number;
   eligiblePence: number;
   gratuityPence: number;
+  category?: string | null;
   receipt?: { id: string } | null;
 };
 
@@ -143,7 +144,7 @@ function reportLines(claim: ClaimRecord, expenses: readonly SnapshotExpense[]): 
     `Claimable: ${money(claim.claimable_pence)}`,
     "",
     ...expenses.flatMap((expense, index) => [
-      `${index + 1}. ${expense.serviceDate} | ${expense.merchant} | ${money(expense.eligiblePence)}`,
+      `${index + 1}. ${expense.serviceDate} | ${expense.merchant} | ${money(expense.eligiblePence)} | ${expense.category || "food"}`,
       `   Where: ${expense.location || "Not recorded"}`,
       `   Why: ${expense.businessReason || "Not recorded"}`,
     ]),
@@ -259,13 +260,14 @@ export async function buildClaimPackage(
       data: bytes,
     });
   }
-  const headers = ["date", "merchant", "location", "reason", "receipt_total_gbp", "eligible_gbp", "gratuity_gbp"];
+  const headers = ["date", "merchant", "category", "location", "reason", "receipt_total_gbp", "eligible_gbp", "gratuity_gbp"];
   const csv = [
     headers.map(csvCell).join(","),
     ...expenses.map((expense) =>
       [
         expense.serviceDate,
         expense.merchant,
+        expense.category || "food",
         expense.location,
         expense.businessReason,
         (expense.receiptTotalPence / 100).toFixed(2),

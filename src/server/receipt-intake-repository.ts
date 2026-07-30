@@ -158,8 +158,8 @@ export async function createReceiptIntake(
             id, owner_id, batch_id, status, original_name,
             original_object_key, content_type, byte_size, sha256,
             idempotency_key, service_date, location, business_reason, trip_id, meal_context,
-            missing_fields_json, correction_provenance_json
-          ) VALUES (?, ?, ?, 'uploaded', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            category, missing_fields_json, correction_provenance_json
+          ) VALUES (?, ?, ?, 'uploaded', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           id,
@@ -176,6 +176,7 @@ export async function createReceiptIntake(
           defaults.businessReason,
           defaults.tripId,
           defaults.mealContext,
+          defaults.category,
           JSON.stringify([
             "merchant",
             ...(defaults.serviceDate ? [] : ["service_date"]),
@@ -190,6 +191,7 @@ export async function createReceiptIntake(
             ...(defaults.businessReason ? { business_reason: "owner" } : {}),
             ...(defaults.tripId ? { trip_id: "owner" } : {}),
             ...(defaults.mealContext ? { meal_context: "owner" } : {}),
+            ...(defaults.category ? { category: "owner" } : {}),
           }),
         ),
       auditStatement(principal, {

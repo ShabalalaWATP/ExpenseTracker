@@ -155,8 +155,8 @@ export async function confirmReceiptIntake(
           `INSERT INTO expenses (
             id, owner_id, service_date, merchant, location, business_reason,
             receipt_total_pence, eligible_pence, gratuity_pence,
-            currency, country, trip_id, meal_context, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', 'GB', ?, ?, ?)`,
+            currency, country, trip_id, meal_context, category, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'GBP', 'GB', ?, ?, ?, ?)`,
         )
         .bind(
           expenseId,
@@ -170,6 +170,7 @@ export async function confirmReceiptIntake(
           row.gratuity_pence,
           row.trip_id,
           row.meal_context,
+          row.category ?? "food",
           row.ai_model
             ? `Receipt details suggested by ${row.ai_model} and confirmed by the owner.`
             : "Receipt details entered and confirmed by the owner.",
@@ -222,6 +223,7 @@ export async function confirmReceiptIntake(
         businessReason: row.business_reason,
         tripId: row.trip_id,
         mealContext: row.meal_context,
+        category: row.category ?? "food",
         receipt: {
           id: receiptId,
           url: `/api/receipts/${receiptId}`,

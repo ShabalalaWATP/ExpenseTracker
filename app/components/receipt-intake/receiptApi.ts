@@ -84,6 +84,7 @@ export async function uploadIntake(
         "X-Default-Reason": encodeURIComponent(defaults.businessReason.trim()),
         "X-Default-Trip-Id": defaults.tripId,
         "X-Default-Meal-Context": defaults.mealContext,
+        "X-Default-Category": defaults.category,
       },
       body: file,
     },

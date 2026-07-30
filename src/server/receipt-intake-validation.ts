@@ -1,5 +1,6 @@
 import { ApiError } from "./http";
 import { isIsoCalendarDate } from "../domain/calendar";
+import { isExpenseCategory } from "../domain/expense-categories";
 import { validDate } from "./validation";
 
 export type IntakeDefaults = {
@@ -10,6 +11,7 @@ export type IntakeDefaults = {
   businessReason: string | null;
   tripId: string | null;
   mealContext: string | null;
+  category: string | null;
 };
 
 function decoded(value: string | null, maximum: number): string | null {
@@ -40,6 +42,10 @@ export function parseIntakeHeaders(headers: Headers): IntakeDefaults {
   ) {
     throw new ApiError(400, "meal_context_invalid", "The meal context is invalid.");
   }
+  const category = decoded(headers.get("X-Default-Category"), 30);
+  if (category && !isExpenseCategory(category)) {
+    throw new ApiError(400, "category_invalid", "The expense category is invalid.");
+  }
   const tripId = decoded(headers.get("X-Default-Trip-Id"), 100);
   if (tripId && !/^[a-zA-Z0-9-]{1,100}$/.test(tripId)) {
     throw new ApiError(400, "trip_invalid", "The selected trip is invalid.");
@@ -60,6 +66,7 @@ export function parseIntakeHeaders(headers: Headers): IntakeDefaults {
     businessReason: decoded(headers.get("X-Default-Reason"), 300),
     tripId,
     mealContext,
+    category,
   };
 }
 
@@ -72,6 +79,7 @@ export type IntakePatch = {
   location?: string;
   businessReason?: string;
   mealContext?: string | null;
+  category?: string | null;
   tripId?: string | null;
   alcoholReviewed?: boolean;
   duplicateReviewed?: boolean;
@@ -140,6 +148,17 @@ export function parseIntakePatch(value: unknown): IntakePatch {
         throw new ApiError(400, "validation_failed", "mealContext is invalid.");
       }
       result.mealContext = meal;
+    }
+  }
+  if ("category" in input) {
+    if (input.category === null || input.category === "") {
+      result.category = null;
+    } else {
+      const category = text(input.category, "category", 30);
+      if (!isExpenseCategory(category)) {
+        throw new ApiError(400, "validation_failed", "category is invalid.");
+      }
+      result.category = category;
     }
   }
   if ("tripId" in input) {

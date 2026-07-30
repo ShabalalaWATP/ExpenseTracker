@@ -98,6 +98,7 @@ export function isAllowedClarificationPatch(
     location: "location",
     business_reason: "businessReason",
     alcohol: "alcoholReviewed",
+    category: "category",
   } as const;
   const allowedKey = field ? keyForField[field] : null;
   const suppliedKeys = Object.keys(patch);

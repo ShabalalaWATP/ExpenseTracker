@@ -4,6 +4,7 @@ import {
   type PolicyExpense,
   type PolicyTrip,
 } from "@/src/domain/jsp752";
+import { countsTowardDailyCap } from "@/src/domain/expense-categories";
 import { ukCalendarDate } from "@/src/domain/calendar";
 import { listClaims } from "./claim-repository";
 import {
@@ -53,6 +54,7 @@ export async function dashboard(principal: Principal) {
     country: expense.country,
     tripId: expense.tripId,
     hasReceipt: Boolean(expense.receipt),
+    category: expense.category,
   }));
   const calculation = calculateJsp752(policyTrips, policyExpenses);
   const issues = [...calculation.issues];
@@ -94,8 +96,12 @@ export async function dashboard(principal: Principal) {
     });
   }
   const todayDate = ukCalendarDate();
+  // The today block reports the daily subsistence allowance, so only
+  // food-category spend belongs in it; travel is claimed at actuals.
   const todayExpenses = periodExpenses.filter(
-    (expense) => expense.serviceDate === todayDate,
+    (expense) =>
+      expense.serviceDate === todayDate &&
+      countsTowardDailyCap(expense.category),
   );
   const todayExpenseIds = new Set(todayExpenses.map((expense) => expense.id));
   const todayClaimablePence = calculation.lines

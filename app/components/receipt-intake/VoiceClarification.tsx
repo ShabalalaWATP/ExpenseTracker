@@ -16,6 +16,7 @@ const ALLOWED_FIELDS = new Set([
   "location",
   "businessReason",
   "mealContext",
+  "category",
   "tripId",
   "alcoholReviewed",
 ]);

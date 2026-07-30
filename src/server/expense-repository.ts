@@ -11,7 +11,7 @@ import type { ExpenseWrite } from "./validation";
 const expenseSelect = `SELECT
   e.id, e.service_date, e.merchant, e.location, e.business_reason,
   e.receipt_total_pence, e.eligible_pence, e.gratuity_pence,
-  e.currency, e.country, e.trip_id, e.meal_context, e.notes,
+  e.currency, e.country, e.trip_id, e.meal_context, e.category, e.notes,
   e.deleted_at, e.created_at, e.updated_at,
   r.id AS receipt_id, r.content_type, r.byte_size,
   r.created_at AS receipt_created_at
@@ -91,8 +91,8 @@ export async function createExpense(principal: Principal, input: ExpenseWrite) {
         `INSERT INTO expenses (
           id, owner_id, service_date, merchant, location, business_reason,
           receipt_total_pence, eligible_pence, gratuity_pence,
-          currency, country, trip_id, meal_context, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          currency, country, trip_id, meal_context, category, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -108,6 +108,7 @@ export async function createExpense(principal: Principal, input: ExpenseWrite) {
         input.country,
         input.tripId,
         input.mealContext,
+        input.category ?? "food",
         input.notes,
       ),
     auditStatementAfterChange(principal, {
@@ -131,6 +132,7 @@ const expenseColumns: Record<keyof ExpenseWrite, string> = {
   country: "country",
   tripId: "trip_id",
   mealContext: "meal_context",
+  category: "category",
   notes: "notes",
 };
 

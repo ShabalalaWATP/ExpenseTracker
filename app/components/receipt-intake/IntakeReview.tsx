@@ -3,7 +3,12 @@
 import { useState, type FormEvent } from "react";
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
 import { parsePence } from "../format";
-import type { DashboardData, MealContext } from "../types";
+import {
+  EXPENSE_CATEGORY_OPTIONS,
+  type DashboardData,
+  type ExpenseCategory,
+  type MealContext,
+} from "../types";
 import { CorrectionHistory } from "./CorrectionHistory";
 import { DuplicateReview } from "./DuplicateReview";
 import { ReceiptImageAdjuster } from "./ReceiptImageAdjuster";
@@ -62,6 +67,9 @@ export function IntakeReview({
   const [location, setLocation] = useState(intake.location ?? "");
   const [reason, setReason] = useState(intake.businessReason ?? "");
   const [meal, setMeal] = useState<MealContext>(intake.mealContext ?? "");
+  const [category, setCategory] = useState<ExpenseCategory | "">(
+    intake.category ?? "",
+  );
   const [tripId, setTripId] = useState(intake.tripId ?? "");
   const [alcoholReviewed, setAlcoholReviewed] = useState(intake.alcoholReviewed);
   const [duplicateReviewed, setDuplicateReviewed] = useState(
@@ -87,6 +95,7 @@ export function IntakeReview({
       location: location.trim() || null,
       businessReason: reason.trim() || null,
       mealContext: meal || null,
+      category: category || null,
       tripId: tripId || null,
       alcoholReviewed,
       duplicateReviewed,
@@ -272,8 +281,19 @@ export function IntakeReview({
             </span>
             <div className="intake-money"><b>£</b><input data-intake-review-field="receiptTotalPence" inputMode="decimal" value={total} onChange={(event) => { setTotal(event.target.value); setReconciliationReviewed(false); }} disabled={locked} /></div>
           </label>
+          <label className={flagged("category") ? "flagged" : ""}>
+            <span>Category <small>{confidence("category")}</small>
+              {canReanalyse ? <button type="button" className="field-reread" disabled={analysisBusy || Boolean(busy)} onClick={() => void afterSaving(() => onReanalyse(["category"]))}>Recheck</button> : null}
+            </span>
+            <select value={category} onChange={(event) => setCategory(event.target.value as ExpenseCategory | "")} disabled={locked}>
+              <option value="">Not labelled</option>
+              {EXPENSE_CATEGORY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
           <label className={flagged("eligiblePence") ? "flagged" : ""}>
-            <span>Eligible food and drink <small>{confidence("eligiblePence")}</small>
+            <span>{category && category !== "food" ? "Eligible amount" : "Eligible food and drink"} <small>{confidence("eligiblePence")}</small>
               {canReanalyse ? <button type="button" className="field-reread" disabled={analysisBusy || Boolean(busy)} onClick={() => void afterSaving(() => onReanalyse(["eligible_amount"]))}>Recheck</button> : null}
             </span>
             <div className="intake-money"><b>£</b><input data-intake-review-field="eligiblePence" inputMode="decimal" value={eligible} onChange={(event) => { setEligible(event.target.value); setReconciliationReviewed(false); }} disabled={locked} /></div>
@@ -290,12 +310,14 @@ export function IntakeReview({
             <span>Why was it necessary?</span>
             <textarea data-intake-review-field="businessReason" rows={2} value={reason} onChange={(event) => setReason(event.target.value)} disabled={locked} />
           </label>
-          <label>
-            <span>Meal context</span>
-            <select value={meal} onChange={(event) => setMeal(event.target.value as MealContext)} disabled={locked}>
-              <option value="">Not labelled</option><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Evening meal</option><option value="snack">Snack</option><option value="mixed">Mixed</option>
-            </select>
-          </label>
+          {!category || category === "food" ? (
+            <label>
+              <span>Meal context</span>
+              <select value={meal} onChange={(event) => setMeal(event.target.value as MealContext)} disabled={locked}>
+                <option value="">Not labelled</option><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Evening meal</option><option value="snack">Snack</option><option value="mixed">Mixed</option>
+              </select>
+            </label>
+          ) : null}
           <label>
             <span>Trip</span>
             <select value={tripId} onChange={(event) => setTripId(event.target.value)} disabled={locked}>

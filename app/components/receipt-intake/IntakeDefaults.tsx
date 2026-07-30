@@ -1,6 +1,11 @@
 "use client";
 
-import type { DashboardData, MealContext } from "../types";
+import {
+  EXPENSE_CATEGORY_OPTIONS,
+  type DashboardData,
+  type ExpenseCategory,
+  type MealContext,
+} from "../types";
 import type { BatchDefaults } from "./types";
 
 export function IntakeDefaults({
@@ -64,6 +69,22 @@ export function IntakeDefaults({
             {data.trips.map((trip) => (
               <option key={trip.id} value={trip.id}>
                 {trip.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Category</span>
+          <select
+            value={value.category}
+            onChange={(event) =>
+              update("category", event.target.value as ExpenseCategory | "")
+            }
+          >
+            <option value="">Let AI decide per receipt</option>
+            {EXPENSE_CATEGORY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>

@@ -1,4 +1,4 @@
-import type { MealContext } from "../types";
+import type { ExpenseCategory, MealContext } from "../types";
 
 export type IntakeStatus =
   | "uploaded"
@@ -14,7 +14,8 @@ export type ReceiptRecheckField =
   | "receipt_total"
   | "eligible_amount"
   | "location"
-  | "alcohol";
+  | "alcohol"
+  | "category";
 
 export interface ReceiptLineItem {
   description: string;
@@ -72,6 +73,7 @@ export interface ReceiptIntake {
   location: string | null;
   businessReason: string | null;
   mealContext: MealContext | null;
+  category: ExpenseCategory | null;
   tripId: string | null;
   lineItems: ReceiptLineItem[];
   confidence: Record<string, number>;
@@ -110,6 +112,7 @@ export interface BatchDefaults {
   businessReason: string;
   tripId: string;
   mealContext: MealContext;
+  category: ExpenseCategory | "";
 }
 
 export interface LocalUpload {
@@ -132,6 +135,7 @@ export type IntakePatch = Partial<{
   location: string | null;
   businessReason: string | null;
   mealContext: MealContext | null;
+  category: ExpenseCategory | null;
   tripId: string | null;
   alcoholReviewed: boolean;
   duplicateReviewed: boolean;

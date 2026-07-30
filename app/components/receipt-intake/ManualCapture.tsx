@@ -4,7 +4,12 @@ import Image from "next/image";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createExpense, uploadReceipt } from "../api";
 import { localDate, parsePence } from "../format";
-import type { DashboardData, MealContext } from "../types";
+import {
+  EXPENSE_CATEGORY_OPTIONS,
+  type DashboardData,
+  type ExpenseCategory,
+  type MealContext,
+} from "../types";
 import { Field, StatusMessage } from "../ui";
 
 type SaveStage = "idle" | "creating" | "uploading" | "saved" | "failed";
@@ -37,6 +42,7 @@ export function ManualCapture({
   const [location, setLocation] = useState("");
   const [reason, setReason] = useState("");
   const [mealContext, setMealContext] = useState<MealContext>("");
+  const [category, setCategory] = useState<ExpenseCategory>("food");
   const [tripId, setTripId] = useState("");
   const [stage, setStage] = useState<SaveStage>("idle");
   const [error, setError] = useState("");
@@ -121,7 +127,8 @@ export function ManualCapture({
         country: "GB",
         location: location.trim(),
         reason: reason.trim(),
-        mealContext,
+        mealContext: category === "food" ? mealContext : "",
+        category,
         tripId: tripId || undefined,
       });
       setPendingExpenseId(expense.id);
@@ -142,6 +149,7 @@ export function ManualCapture({
     setLocation("");
     setReason("");
     setMealContext("");
+    setCategory("food");
     setTripId("");
   }
 
@@ -184,11 +192,12 @@ export function ManualCapture({
             <Field label="Date" required><input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></Field>
             <Field label="Merchant" required><input autoComplete="organization" value={merchant} onChange={(event) => setMerchant(event.target.value)} placeholder="For example, Pret A Manger" required /></Field>
             <Field label="Receipt total" required hint="Including any in-bill service charge."><div className="money-input"><span>£</span><input inputMode="decimal" value={receiptTotal} onChange={(event) => setReceiptTotal(event.target.value)} placeholder="0.00" required /></div></Field>
-            <Field label="Eligible amount" required hint="Food and non-alcoholic drink only."><div className="money-input"><span>£</span><input inputMode="decimal" value={eligibleAmount} onChange={(event) => setEligibleAmount(event.target.value)} placeholder="0.00" required /></div></Field>
+            <Field label="Category" required><select value={category} onChange={(event) => setCategory(event.target.value as ExpenseCategory)}>{EXPENSE_CATEGORY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></Field>
+            <Field label="Eligible amount" required hint={category === "food" ? "Food and non-alcoholic drink only." : "The full fare or fee for this duty expense."}><div className="money-input"><span>£</span><input inputMode="decimal" value={eligibleAmount} onChange={(event) => setEligibleAmount(event.target.value)} placeholder="0.00" required /></div></Field>
             <Field label="Country" required><input value="United Kingdom (GB)" readOnly aria-readonly="true" /></Field>
             <Field label="Location" required><input autoComplete="address-level2" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town, venue or duty station" required /></Field>
             <Field label="Why was it necessary?" required><textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Directly related to authorised duty…" rows={3} required /></Field>
-            <Field label="Meal context"><select value={mealContext} onChange={(event) => setMealContext(event.target.value as MealContext)}><option value="">Not labelled</option><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Evening meal</option><option value="snack">Snack</option><option value="mixed">Mixed</option></select></Field>
+            {category === "food" ? <Field label="Meal context"><select value={mealContext} onChange={(event) => setMealContext(event.target.value as MealContext)}><option value="">Not labelled</option><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Evening meal</option><option value="snack">Snack</option><option value="mixed">Mixed</option></select></Field> : null}
             <Field label="Trip"><select value={tripId} onChange={(event) => setTripId(event.target.value)}><option value="">No linked trip</option>{data.trips.map((trip) => <option key={trip.id} value={trip.id}>{trip.title}</option>)}</select></Field>
           </div>
           <div className="form-actions">

@@ -5,7 +5,7 @@ import { restoreExpense } from "./api";
 import { ExpenseEditor } from "./ExpenseEditor";
 import { formatDate, formatMoney } from "./format";
 import { ReceiptAttachment } from "./ReceiptAttachment";
-import type { DashboardData, Expense, ViewName } from "./types";
+import { categoryLabel, type DashboardData, type Expense, type ViewName } from "./types";
 import { EmptyState, StatusMessage, ViewHeader } from "./ui";
 
 type Filter = "all" | "august" | "needs-receipt" | "ready" | "deleted";
@@ -42,6 +42,8 @@ export function ExpensesView({
           expense.location,
           expense.reason,
           expense.mealContext,
+          expense.category,
+          categoryLabel(expense.category),
           expense.date,
           formatMoney(expense.eligibleAmountPence),
         ].some((value) => value?.toLocaleLowerCase("en-GB").includes(needle));
@@ -100,7 +102,7 @@ export function ExpensesView({
                 <span className="date-stamp">{expense.date.slice(8, 10)}<small>{formatDate(expense.date).split(" ")[1]}</small></span>
                 <div className="expense-main">
                   <strong>{expense.merchant}</strong>
-                  <span>{expense.location || "Location needed"} · {expense.mealContext || "Unlabelled"}</span>
+                  <span>{expense.location || "Location needed"} · {expense.category === "food" || !expense.category ? (expense.mealContext || "Unlabelled") : categoryLabel(expense.category)}</span>
                   <small>{expense.reason || "Reason needed"}</small>
                 </div>
                 <span className={`state-label ${expense.receiptStatus === "stored" ? "success" : "warning"}`}>

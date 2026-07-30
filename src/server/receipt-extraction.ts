@@ -1,3 +1,6 @@
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import { EXPENSE_CATEGORIES } from "../domain/expense-categories.ts";
+
 export const RECEIPT_FIELDS = [
   "merchant",
   "service_date",
@@ -6,6 +9,7 @@ export const RECEIPT_FIELDS = [
   "location",
   "business_reason",
   "alcohol",
+  "category",
 ] as const;
 
 export type ReceiptField = (typeof RECEIPT_FIELDS)[number];
@@ -27,6 +31,7 @@ export type ReceiptExtraction = {
   gratuityPence: number;
   currency: "GBP" | "UNKNOWN";
   locationHint: string | null;
+  category: string | null;
   lineItems: ExtractedLineItem[];
   alcoholSuspected: boolean;
   missingFields: ReceiptField[];
@@ -52,6 +57,10 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
     gratuity_pence: { type: "integer", minimum: 0 },
     currency: { type: "string", enum: ["GBP", "UNKNOWN"] },
     location_hint: nullableString,
+    category: {
+      type: ["string", "null"],
+      enum: [...EXPENSE_CATEGORIES, null],
+    },
     line_items: {
       type: "array",
       maxItems: 100,
@@ -96,6 +105,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
         location: { type: "number", minimum: 0, maximum: 1 },
         gratuity: { type: "number", minimum: 0, maximum: 1 },
         line_items: { type: "number", minimum: 0, maximum: 1 },
+        category: { type: "number", minimum: 0, maximum: 1 },
       },
       required: [
         "merchant",
@@ -105,6 +115,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
         "location",
         "gratuity",
         "line_items",
+        "category",
       ],
     },
   },
@@ -116,6 +127,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
     "gratuity_pence",
     "currency",
     "location_hint",
+    "category",
     "line_items",
     "alcohol_suspected",
     "missing_fields",
@@ -182,6 +194,11 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
     gratuityPence: money(value.gratuity_pence) ?? 0,
     currency: value.currency === "GBP" ? "GBP" : "UNKNOWN",
     locationHint: optionalText(value.location_hint),
+    category:
+      typeof value.category === "string" &&
+      (EXPENSE_CATEGORIES as readonly string[]).includes(value.category)
+        ? value.category
+        : null,
     lineItems: rawItems.slice(0, 100).map((raw) => {
       const item =
         raw && typeof raw === "object"
@@ -217,6 +234,7 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
       location: confidence(rawConfidence.location),
       gratuity: confidence(rawConfidence.gratuity),
       lineItems: confidence(rawConfidence.line_items),
+      category: confidence(rawConfidence.category),
     },
   };
 }
@@ -233,6 +251,8 @@ export function clarificationQuestions(fields: readonly string[]): string[] {
     business_reason: "Why was this expense necessary for duty?",
     alcohol:
       "Does this receipt contain alcohol, and what amount must be excluded?",
+    category:
+      "What kind of expense is this: food and drink, taxi, public transport, parking, or something else?",
   };
   return unique
     .filter(isReceiptField)

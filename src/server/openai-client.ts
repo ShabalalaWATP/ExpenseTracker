@@ -244,6 +244,13 @@ function clarificationToolField(field: ReceiptField): {
       schema: { type: "string", minLength: 1 },
     },
     alcohol: { name: "alcoholReviewed", schema: { type: "boolean" } },
+    category: {
+      name: "category",
+      schema: {
+        type: "string",
+        enum: ["food", "taxi", "public_transport", "parking", "other"],
+      },
+    },
   };
   return fields[field];
 }

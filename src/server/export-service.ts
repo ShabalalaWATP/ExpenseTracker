@@ -13,6 +13,7 @@ type ExpenseExportRow = {
   currency: string;
   trip_id: string | null;
   meal_context: string | null;
+  category: string | null;
   notes: string | null;
   deleted_at: string | null;
   created_at: string;
@@ -41,7 +42,7 @@ export async function buildJsonExport(principal: Principal) {
         `SELECT e.id, e.service_date, e.merchant, e.location,
                 e.business_reason, e.receipt_total_pence, e.eligible_pence,
                 e.gratuity_pence, e.currency, e.trip_id, e.meal_context,
-                e.notes, e.deleted_at, e.created_at, e.updated_at,
+                e.category, e.notes, e.deleted_at, e.created_at, e.updated_at,
                 r.id AS receipt_id,
                 r.content_type AS receipt_content_type,
                 r.byte_size AS receipt_byte_size
@@ -75,7 +76,7 @@ export async function buildJsonExport(principal: Principal) {
         `SELECT id, batch_id, status, original_name, content_type, byte_size,
                 merchant, service_date, receipt_total_pence, eligible_pence,
                 gratuity_pence, currency, location, business_reason,
-                meal_context, trip_id, line_items_json, confidence_json,
+                meal_context, category, trip_id, line_items_json, confidence_json,
                 missing_fields_json, uncertain_fields_json,
                 alcohol_suspected, alcohol_reviewed, ai_model, expense_id,
                 analysis_history_json, correction_provenance_json,
@@ -102,7 +103,7 @@ export async function buildJsonExport(principal: Principal) {
       ),
     ]);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: new Date().toISOString(),
     policyScope: "JSP 752 UK Day Subsistence",
     expenses,
@@ -129,7 +130,7 @@ export async function buildCsvExport(
     `SELECT e.id, e.service_date, e.merchant, e.location,
             e.business_reason, e.receipt_total_pence, e.eligible_pence,
             e.gratuity_pence, e.currency, e.trip_id, e.meal_context,
-            e.notes, e.deleted_at, e.created_at, e.updated_at,
+            e.category, e.notes, e.deleted_at, e.created_at, e.updated_at,
             r.id AS receipt_id,
             r.content_type AS receipt_content_type,
             r.byte_size AS receipt_byte_size
@@ -150,6 +151,7 @@ export async function buildCsvExport(
     "eligible_gbp",
     "gratuity_gbp",
     "meal_context",
+    "category",
     "trip_id",
     "receipt_id",
     "deleted_at",
@@ -166,6 +168,7 @@ export async function buildCsvExport(
       (expense.eligible_pence / 100).toFixed(2),
       (expense.gratuity_pence / 100).toFixed(2),
       expense.meal_context,
+      expense.category,
       expense.trip_id,
       expense.receipt_id,
       expense.deleted_at,

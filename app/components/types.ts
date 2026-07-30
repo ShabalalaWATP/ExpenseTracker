@@ -25,6 +25,31 @@ export type MealContext =
   | "mixed"
   | "";
 
+export type ExpenseCategory =
+  | "food"
+  | "taxi"
+  | "public_transport"
+  | "parking"
+  | "other";
+
+export const EXPENSE_CATEGORY_OPTIONS: Array<{
+  value: ExpenseCategory;
+  label: string;
+}> = [
+  { value: "food", label: "Food & drink" },
+  { value: "taxi", label: "Taxi" },
+  { value: "public_transport", label: "Public transport" },
+  { value: "parking", label: "Parking" },
+  { value: "other", label: "Other" },
+];
+
+export function categoryLabel(value: string | null | undefined): string {
+  return (
+    EXPENSE_CATEGORY_OPTIONS.find((option) => option.value === value)?.label ??
+    "Food & drink"
+  );
+}
+
 export interface Expense {
   id: string;
   date: string;
@@ -37,6 +62,7 @@ export interface Expense {
   location: string;
   reason: string;
   mealContext?: MealContext;
+  category?: ExpenseCategory;
   tripId?: string;
   receiptStatus?: string;
   receiptUrl?: string;
@@ -104,6 +130,7 @@ export interface ExpenseDraft {
   location: string;
   reason: string;
   mealContext?: MealContext;
+  category?: ExpenseCategory;
   tripId?: string;
 }
 

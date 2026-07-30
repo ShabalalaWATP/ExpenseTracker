@@ -53,12 +53,16 @@ test("owner migration preserves version 1 data and adds intake tables", async ()
   db.exec("UPDATE expenses SET deleted_at = NULL WHERE id = 'expense-1'");
   apply(db, await migration("0003_neat_runaways.sql"));
   apply(db, await migration("0004_woozy_gravity.sql"));
+  apply(db, await migration("0005_rapid_slapstick.sql"));
 
   const expense = db
-    .prepare("SELECT owner_id, deleted_at FROM expenses WHERE id = 'expense-1'")
+    .prepare(
+      "SELECT owner_id, deleted_at, category FROM expenses WHERE id = 'expense-1'",
+    )
     .get();
   assert.equal(expense.owner_id, "singleton-owner");
   assert.equal(expense.deleted_at, null);
+  assert.equal(expense.category, "food");
   assert.equal(
     db
       .prepare(

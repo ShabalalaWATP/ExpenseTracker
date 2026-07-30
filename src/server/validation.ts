@@ -1,3 +1,8 @@
+import {
+  DEFAULT_EXPENSE_CATEGORY,
+  isExpenseCategory,
+  type ExpenseCategory,
+} from "@/src/domain/expense-categories";
 import { ApiError } from "./http";
 
 export type ExpenseWrite = {
@@ -12,6 +17,7 @@ export type ExpenseWrite = {
   country?: "GB";
   tripId?: string | null;
   mealContext?: string | null;
+  category?: ExpenseCategory;
   notes?: string | null;
 };
 
@@ -143,6 +149,16 @@ export function parseExpense(
   if ("mealContext" in input) {
     result.mealContext = text(input.mealContext, "mealContext", 160, true);
   } else if (!partial) result.mealContext = null;
+  if ("category" in input) {
+    if (!isExpenseCategory(input.category)) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "category must be food, taxi, public_transport, parking or other.",
+      );
+    }
+    result.category = input.category;
+  } else if (!partial) result.category = DEFAULT_EXPENSE_CATEGORY;
   if ("notes" in input) result.notes = text(input.notes, "notes", 1_000, true);
   else if (!partial) result.notes = null;
   if (partial && Object.keys(result).length === 0) {

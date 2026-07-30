@@ -153,3 +153,15 @@ This document records meaningful implementation milestones, decisions and verifi
   desktop navigation, pointed the brand button at it, and removed the
   redundant sticky context bar. All animation respects reduced-motion. No new
   packages were added.
+- Extended the ledger beyond food with expense categories (food, taxi, public
+  transport, parking, other) via additive migration `0005_rapid_slapstick.sql`
+  on both `expenses` and `receipt_intakes`. Only food consumes the £30 JSP 752
+  daily allowance: travel and parking are claimed at actuals through a
+  cap-exempt allocation path, travel-only days no longer create an allowance,
+  and the Today cap meter and seven-day chart are food-scoped. The AI
+  extraction schema, prompt, owner-wins merge, provenance, targeted rechecks,
+  voice clarifications and correction history all carry the new field, and it
+  appears in capture defaults, intake review, manual entry, the expense
+  editor, list subtitles, claim package CSV and PDF summary, and both privacy
+  exports (schema version 3). Three new domain tests pin the cap-exemption
+  behaviour and the migration rehearsal now applies 0005.

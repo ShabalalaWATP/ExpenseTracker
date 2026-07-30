@@ -29,6 +29,7 @@ export type ReceiptIntakeRow = {
   location: string | null;
   business_reason: string | null;
   meal_context: string | null;
+  category: string | null;
   trip_id: string | null;
   line_items_json: string;
   confidence_json: string;
@@ -102,6 +103,7 @@ export function publicIntake(row: ReceiptIntakeRow) {
     location: row.location,
     businessReason: row.business_reason,
     mealContext: row.meal_context,
+    category: row.category,
     tripId: row.trip_id,
     lineItems: json(row.line_items_json, []),
     confidence: json(row.confidence_json, {}),

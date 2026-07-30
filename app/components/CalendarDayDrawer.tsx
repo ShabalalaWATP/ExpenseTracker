@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDate, formatMoney } from "./format";
-import type { Expense } from "./types";
+import { categoryLabel, type Expense } from "./types";
 import { EmptyState } from "./ui";
 
 function amount(expense: Expense): number {
@@ -61,7 +61,7 @@ export function CalendarDayDrawer({
                 ) : <span className="calendar-receipt missing">No receipt</span>}
                 <button className="calendar-claim-main" type="button" onClick={() => onOpen(expense)}>
                   <strong>{expense.merchant || "Unnamed claim"}</strong>
-                  <span>{expense.location || "Location needed"} · {expense.mealContext || "Meal not set"}</span>
+                  <span>{expense.location || "Location needed"} · {expense.category === "food" || !expense.category ? (expense.mealContext || "Meal not set") : categoryLabel(expense.category)}</span>
                   <small>{expense.reason || "Reason needed"}</small>
                 </button>
                 <span className="money-stack">

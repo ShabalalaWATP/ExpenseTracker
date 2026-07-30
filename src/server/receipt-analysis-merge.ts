@@ -27,6 +27,7 @@ function currentValue(
     location: row.location,
     business_reason: row.business_reason,
     alcohol: Boolean(row.alcohol_suspected),
+    category: row.category,
     gratuity: row.gratuity_pence,
   }[field];
 }
@@ -43,6 +44,7 @@ function extractedValue(
     location: extraction.locationHint,
     business_reason: null,
     alcohol: extraction.alcoholSuspected,
+    category: extraction.category,
     gratuity: extraction.gratuityPence,
   }[field];
 }
@@ -76,6 +78,7 @@ export function confidenceIssue(
     location: extraction.confidence.location,
     business_reason: 1,
     alcohol: 1,
+    category: extraction.confidence.category ?? 1,
   }[field];
   const threshold =
     field === "receipt_total" || field === "eligible_amount" ? 0.82 : 0.78;
@@ -95,6 +98,7 @@ export function updateProvenance(
     "eligible_amount",
     "location",
     "alcohol",
+    "category",
     "gratuity",
   ];
   for (const field of fields) {

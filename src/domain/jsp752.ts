@@ -1,3 +1,6 @@
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import { countsTowardDailyCap } from "./expense-categories.ts";
+
 export const JSP_752_POLICY = Object.freeze({
   version: "JSP-752-v66.1",
   dailyCapPence: 3_000,
@@ -30,6 +33,7 @@ export type PolicyExpense = {
   country: string;
   tripId: string | null;
   hasReceipt: boolean;
+  category: string;
 };
 
 export type ReadinessIssue = {
@@ -186,6 +190,24 @@ export function calculateJsp752(
 
   let allowancePence = 0;
   let claimablePence = 0;
+
+  // Travel and other non-food expenses are claimed at actuals and never
+  // consume the daily subsistence allowance.
+  const capQualifying = qualifying.filter((expense) =>
+    countsTowardDailyCap(expense.category),
+  );
+  for (const expense of qualifying) {
+    if (countsTowardDailyCap(expense.category)) continue;
+    const actual = Math.max(0, expense.eligiblePence);
+    claimablePence += actual;
+    lines.set(expense.id, {
+      expenseId: expense.id,
+      actualPence: actual,
+      claimablePence: actual,
+      reason: null,
+    });
+  }
+
   const aggregateTrips = tripsInput.filter(
     (trip) =>
       trip.aggregateElection &&
@@ -206,7 +228,7 @@ export function calculateJsp752(
     aggregateGroups.flatMap((group) => [...group]),
   );
   for (const group of aggregateGroups) {
-    const groupExpenses = qualifying.filter((expense) =>
+    const groupExpenses = capQualifying.filter((expense) =>
       group.has(expense.serviceDate),
     );
     const groupAllowance = group.size * JSP_752_POLICY.dailyCapPence;
@@ -237,7 +259,7 @@ export function calculateJsp752(
       });
     }
   }
-  const dailyExpenses = qualifying.filter(
+  const dailyExpenses = capQualifying.filter(
     (expense) => !aggregateDates.has(expense.serviceDate),
   );
   const dailyDates = new Set(

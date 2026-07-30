@@ -44,6 +44,12 @@ test("builds the ExpenseTracker worker and branded client assets", async () => {
       import.meta.url,
     ),
   );
+  await access(
+    new URL(
+      "../dist/.openai/drizzle/0005_rapid_slapstick.sql",
+      import.meta.url,
+    ),
+  );
 });
 
 test("keeps the site private-ready and free of starter scaffolding", async () => {

@@ -40,6 +40,7 @@ function normaliseExpense(value: unknown): Expense {
     location: text(item.location),
     reason: text(item.reason ?? item.businessReason),
     mealContext: text(item.mealContext) as Expense["mealContext"],
+    category: (text(item.category) || "food") as Expense["category"],
     tripId: text(item.tripId) || undefined,
     receiptStatus:
       text(item.receiptStatus ?? item.evidenceStatus) ||
@@ -244,6 +245,7 @@ export async function createExpense(draft: ExpenseDraft): Promise<Expense> {
       country: "GB",
       tripId: draft.tripId || null,
       mealContext: draft.mealContext || null,
+      category: draft.category || "food",
     }),
   });
   const root = record(result);
@@ -291,6 +293,7 @@ export async function updateExpense(
   if (changes.mealContext !== undefined) {
     patch.mealContext = changes.mealContext || null;
   }
+  if (changes.category !== undefined) patch.category = changes.category;
   await apiRequest(`/api/expenses/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

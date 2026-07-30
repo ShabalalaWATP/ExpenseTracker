@@ -81,6 +81,7 @@ export const expenses = sqliteTable(
       onDelete: "set null",
     }),
     mealContext: text("meal_context"),
+    category: text().notNull().default("food"),
     notes: text(),
     deletedAt: text("deleted_at"),
     createdAt: timestamp("created_at"),
@@ -210,6 +211,7 @@ export const receiptIntakes = sqliteTable(
     location: text(),
     businessReason: text("business_reason"),
     mealContext: text("meal_context"),
+    category: text(),
     tripId: text("trip_id").references(() => trips.id, {
       onDelete: "set null",
     }),

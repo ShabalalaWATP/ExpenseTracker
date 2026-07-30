@@ -1,8 +1,15 @@
 "use client";
 
 import { useRef, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { countsTowardDailyCap } from "@/src/domain/expense-categories";
 import { formatDate, formatMoney, localDate } from "./format";
-import type { DashboardData, Expense, NavigationTarget, ViewName } from "./types";
+import {
+  categoryLabel,
+  type DashboardData,
+  type Expense,
+  type NavigationTarget,
+  type ViewName,
+} from "./types";
 import { CountUpMoney, EmptyState, ViewHeader } from "./ui";
 import {
   CheckCircleIcon,
@@ -64,7 +71,13 @@ export function TodayView({
   const days = lastSevenDays(endDate);
   const spendByDay = new Map(days.map((day) => [day, 0]));
   for (const expense of data.expenses) {
-    if (expense.deletedAt || !spendByDay.has(expense.date)) continue;
+    if (
+      expense.deletedAt ||
+      !spendByDay.has(expense.date) ||
+      !countsTowardDailyCap(expense.category)
+    ) {
+      continue;
+    }
     spendByDay.set(
       expense.date,
       (spendByDay.get(expense.date) ?? 0) + expense.eligibleAmountPence,
@@ -126,7 +139,7 @@ export function TodayView({
         </div>
 
         <div className="week-pulse">
-          <h3 id="week-pulse-title">Eligible spend · last 7 days</h3>
+          <h3 id="week-pulse-title">Food &amp; drink spend · last 7 days</h3>
           <div className="pulse-chart" aria-labelledby="week-pulse-title">
             <span className="cap-line" style={{ bottom: `${capPct}%` }} aria-hidden="true">
               <small>cap {formatMoney(data.dailyCapPence)}</small>
@@ -227,7 +240,7 @@ export function TodayView({
                     <span className="row-body">
                       <strong>{expense.merchant}</strong>
                       <span className={expense.location ? "" : "needs-detail"}>
-                        {expense.location || "Location needed"} · {formatDate(expense.date)}
+                        {expense.location || "Location needed"} · {categoryLabel(expense.category)} · {formatDate(expense.date)}
                       </span>
                     </span>
                     <span className="row-money">{formatMoney(expense.eligibleAmountPence)}</span>
