@@ -165,3 +165,16 @@ This document records meaningful implementation milestones, decisions and verifi
   editor, list subtitles, claim package CSV and PDF summary, and both privacy
   exports (schema version 3). Three new domain tests pin the cap-exemption
   behaviour and the migration rehearsal now applies 0005.
+- Added an owner-triggered audit response workflow. The claimant picks the
+  audited date range on the Claims view; the server combines deterministic
+  JSP 752 checks (missing receipts, missing context, over-cap days, possible
+  duplicates, unclassified categories) with an AI ledger review that raises
+  auditor-style questions, then composes a Microsoft Word report from a new
+  dependency-free OOXML writer built on the existing store-only ZIP builder.
+  The report contains scope and method, financial and category summaries, the
+  expense ledger, every finding with the claimant's typed justification, an
+  evidence register and a declaration. The flow degrades to rule-based checks
+  when AI is unavailable, bounds all input, escapes XML against hostile
+  merchant text, and records an audit event per generated report. Eight new
+  tests cover range validation, the deterministic findings and the generated
+  package.

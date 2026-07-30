@@ -21,11 +21,11 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function openAiRequest(
+export async function openAiRequest(
   path: string,
   body: unknown,
   principal: Principal,
-  purpose: "receipt" | "voice",
+  purpose: "receipt" | "voice" | "audit",
 ): Promise<unknown> {
   const config = runtimeConfig();
   if (!config.openAiApiKey) {
@@ -62,17 +62,19 @@ async function openAiRequest(
       response.status === 429 ? 429 : 502,
       response.status === 429 ? "openai_rate_limited" : "openai_failed",
       response.status === 429
-        ? "AI is busy. Wait briefly, then retry this receipt."
+        ? "AI is busy. Wait briefly, then retry."
         : purpose === "voice"
           ? "Voice could not start. Type the receipt detail instead."
-          : "AI could not analyse this receipt. Review it manually or retry.",
+          : purpose === "audit"
+            ? "The AI ledger review failed. The report continues with rule-based checks."
+            : "AI could not analyse this receipt. Review it manually or retry.",
       requestId ? { requestId } : undefined,
     );
   }
   return response.json();
 }
 
-function outputText(response: unknown): string {
+export function outputText(response: unknown): string {
   if (!response || typeof response !== "object") return "";
   const root = response as Record<string, unknown>;
   if (typeof root.output_text === "string") return root.output_text;

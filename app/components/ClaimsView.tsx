@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { prepareClaim, submitClaim } from "./api";
+import { AuditReportPanel } from "./AuditReportPanel";
 import { ClaimPackageDownloads } from "./ClaimPackageDownloads";
 import {
   augustClaimExpenses,
@@ -170,6 +171,8 @@ export function ClaimsView({
           </ol>
         </section>
       ) : null}
+
+      <AuditReportPanel />
     </div>
   );
 }
