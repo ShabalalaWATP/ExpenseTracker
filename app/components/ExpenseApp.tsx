@@ -227,8 +227,9 @@ export function ExpenseApp() {
       capture: null,
       calendar: (
         <CalendarView
+          key={target.date ?? data.date ?? "calendar"}
           expenses={data.expenses}
-          initialDate={`${claimPeriod}-01`}
+          initialDate={target.date ?? data.date}
           initialMode="month"
           lockedPeriods={data.claims.flatMap((claim) =>
             claim.period ? [claim.period] : [],

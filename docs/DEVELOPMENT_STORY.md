@@ -458,3 +458,6 @@ This document records meaningful implementation milestones, decisions and verifi
   search field and horizontally scrolling filters now stay within the page
   gutters in both light and dark modes, so the outer blue shell cannot appear
   as a strip beside the ledger.
+- Corrected Calendar entry so ordinary navigation starts on the dashboard's
+  current UK date instead of the first day of the claim month. Explicit date
+  links still take precedence for receipt and readiness workflows.

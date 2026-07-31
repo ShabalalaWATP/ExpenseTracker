@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { claimableAmountIndex, isIsoCalendarDate, isIsoCalendarMonth, ukCalendarDate, ukCalendarMonth } from "../src/domain/calendar.ts";
@@ -47,5 +48,18 @@ describe("calendar input helpers", () => {
     ]);
     assert.equal(result.get("expense-1"), 1_200);
     assert.equal(result.has("expense-2"), false);
+  });
+});
+
+describe("calendar entry date", () => {
+  it("opens on the current UK date unless navigation targets another day", async () => {
+    const app = await readFile(
+      new URL("../app/components/ExpenseApp.tsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(app, /key=\{target\.date \?\? data\.date \?\? "calendar"\}/);
+    assert.match(app, /initialDate=\{target\.date \?\? data\.date\}/);
+    assert.doesNotMatch(app, /initialDate=\{`\$\{claimPeriod\}-01`\}/);
   });
 });
