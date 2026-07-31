@@ -26,6 +26,7 @@ export function ManualCapture({
   const dateSeed = initialDate ?? "";
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
+  const [receiptUnavailable, setReceiptUnavailable] = useState(false);
   const [dateState, setDateState] = useState(() => ({
     seed: dateSeed,
     value: initialDate ?? localDate(),
@@ -69,7 +70,9 @@ export function ManualCapture({
   function validate() {
     const total = parsePence(receiptTotal);
     const eligible = parsePence(eligibleAmount);
-    if (!file) return "Choose or photograph a receipt before saving.";
+    if (!receiptUnavailable && !file) {
+      return "Choose a receipt photo, or mark the receipt as unavailable.";
+    }
     if (!date || !merchant.trim() || !location.trim() || !reason.trim()) {
       return "Complete every required field.";
     }
@@ -107,6 +110,19 @@ export function ManualCapture({
     }
   }
 
+  async function finishWithoutReceipt() {
+    setStage("saved");
+    setPendingExpenseId("");
+    uploadKeyRef.current = "";
+    try {
+      await onSaved();
+    } catch {
+      setError(
+        "The expense was saved, but the list could not refresh. Reload the app before trying again.",
+      );
+    }
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const issue = validate();
@@ -117,7 +133,10 @@ export function ManualCapture({
     }
     setError("");
     try {
-      if (pendingExpenseId) return await sendReceipt(pendingExpenseId);
+      if (pendingExpenseId) {
+        if (receiptUnavailable) return await finishWithoutReceipt();
+        return await sendReceipt(pendingExpenseId);
+      }
       setStage("creating");
       const expense = await createExpense({
         date,
@@ -131,6 +150,9 @@ export function ManualCapture({
         category,
         tripId: tripId || undefined,
       });
+      if (receiptUnavailable) {
+        return await finishWithoutReceipt();
+      }
       setPendingExpenseId(expense.id);
       await sendReceipt(expense.id);
     } catch (caught) {
@@ -151,6 +173,7 @@ export function ManualCapture({
     setMealContext("");
     setCategory("food");
     setTripId("");
+    setReceiptUnavailable(false);
   }
 
   const busy = stage === "creating" || stage === "uploading";
@@ -168,21 +191,60 @@ export function ManualCapture({
       ) : null}
       {stage === "saved" ? (
         <StatusMessage tone="success">
-          <strong>Receipt safely stored</strong>
-          <p>The expense and original receipt were acknowledged.</p>
+          <strong>
+            {receiptUnavailable
+              ? "Missing-receipt expense recorded"
+              : "Receipt safely stored"}
+          </strong>
+          <p>
+            {receiptUnavailable
+              ? "It is marked Receipt needed in Expenses, where you can attach the evidence later."
+              : "The expense and original receipt were acknowledged."}
+          </p>
           <button className="text-button" type="button" onClick={reset}>Capture another</button>
         </StatusMessage>
       ) : null}
       <form className="capture-layout" onSubmit={(event) => void handleSubmit(event)} noValidate>
         <section className="photo-well" aria-label="Receipt photo">
-          {preview ? (
+          {receiptUnavailable ? (
+            <div className="camera-prompt receipt-unavailable">
+              <span aria-hidden="true">!</span>
+              <strong>Receipt unavailable</strong>
+              <p>The expense will remain clearly marked until evidence is attached.</p>
+            </div>
+          ) : preview ? (
             <div className="receipt-preview"><Image src={preview} alt="Selected receipt preview" fill unoptimized /></div>
           ) : (
             <div className="camera-prompt"><span aria-hidden="true">＋</span><strong>Add receipt photo</strong><p>Camera or Photo Library</p></div>
           )}
-          <label className="file-button">
-            <span>{preview ? "Retake or reselect" : "Open camera"}</span>
-            <input type="file" accept="image/jpeg,image/png,image/heic,image/heif" capture="environment" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+          {!receiptUnavailable ? (
+            <label className="file-button">
+              <span>{preview ? "Retake or reselect" : "Open camera"}</span>
+              <input type="file" accept="image/jpeg,image/png,image/heic,image/heif" capture="environment" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+            </label>
+          ) : null}
+          <label className="receipt-unavailable-toggle">
+            <input
+              type="checkbox"
+              checked={receiptUnavailable}
+              disabled={busy || stage === "saved"}
+              onChange={(event) => {
+                const unavailable = event.target.checked;
+                if (unavailable) {
+                  if (preview) URL.revokeObjectURL(preview);
+                  setFile(null);
+                  setPreview("");
+                  uploadKeyRef.current = "";
+                  setStage("idle");
+                  setError("");
+                }
+                setReceiptUnavailable(unavailable);
+              }}
+            />
+            <span>
+              <strong>I do not have the receipt</strong>
+              <small>Save the expense now and keep it marked as missing evidence.</small>
+            </span>
           </label>
           {file ? <p className="file-detail">{file.name} · {(file.size / 1_048_576).toFixed(1)} MB</p> : null}
         </section>
@@ -202,7 +264,7 @@ export function ManualCapture({
           </div>
           <div className="form-actions">
             {stage === "failed" && pendingExpenseId ? <button className="secondary-button" type="button" onClick={() => void sendReceipt()} disabled={!file}>Retry receipt upload</button> : null}
-            <button className="primary-button" type="submit" disabled={busy || stage === "saved"}>{stage === "creating" ? "Creating expense…" : stage === "uploading" ? "Uploading receipt…" : "Save expense"}</button>
+            <button className="primary-button" type="submit" disabled={busy || stage === "saved"}>{stage === "creating" ? "Creating expense…" : stage === "uploading" ? "Uploading receipt…" : receiptUnavailable ? "Save as receipt needed" : "Save expense"}</button>
           </div>
           {busy ? <p className="upload-note" role="status">{stage === "creating" ? "Creating the financial record. The receipt is not stored yet." : "Uploading the original receipt. Keep this page open until confirmed."}</p> : null}
         </section>

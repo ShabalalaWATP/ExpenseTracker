@@ -67,6 +67,29 @@ describe("JSP 752 v66.1 calculation", () => {
     assert.equal(result.claimablePence, 6_000);
   });
 
+  it("pools £35, £25 and £30 across an elected three-day trip", () => {
+    const pooled = calculateJsp752(
+      [trip({ aggregateElection: true })],
+      [
+        expense("a", "2026-08-04", 3_500),
+        expense("b", "2026-08-05", 2_500),
+        expense("c", "2026-08-06", 3_000),
+      ],
+    );
+    const daily = calculateJsp752(
+      [trip({ aggregateElection: false })],
+      [
+        expense("a", "2026-08-04", 3_500),
+        expense("b", "2026-08-05", 2_500),
+        expense("c", "2026-08-06", 3_000),
+      ],
+    );
+
+    assert.equal(pooled.allowancePence, 9_000);
+    assert.equal(pooled.claimablePence, 9_000);
+    assert.equal(daily.claimablePence, 8_500);
+  });
+
   it("does not aggregate a trip shorter than two nights", () => {
     const shortTrip = trip({
       endDate: "2026-08-05",

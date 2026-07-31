@@ -1,8 +1,42 @@
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { automaticTripCalculationMethod } from "../../src/domain/trip-calculation.ts";
+import { canAggregateTrip } from "../../src/domain/trip-calculation.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { daysBetween } from "./format.ts";
-import type { TripDraft } from "./types";
+import type { Trip, TripDraft } from "./types";
+
+export function emptyTripDraft(): TripDraft {
+  return {
+    title: "",
+    location: "",
+    justification: "",
+    country: "GB",
+    startDate: "",
+    endDate: "",
+    legs: [{
+      sequence: 0,
+      countryCode: "GB",
+      location: "",
+      startDate: "",
+      endDate: "",
+    }],
+    eligibleDates: [],
+    attested: false,
+    calculationMethod: "daily",
+  };
+}
+
+export function editableCalculationMethod(
+  trip: Trip | undefined,
+): TripDraft["calculationMethod"] {
+  return trip?.calculationMethod === "aggregate" &&
+    canAggregateTrip(
+      trip.startDate,
+      trip.endDate,
+      trip.legs.map((leg) => leg.countryCode),
+    )
+    ? "aggregate"
+    : "daily";
+}
 
 export function validateTripDraft(
   draft: TripDraft,
@@ -74,9 +108,14 @@ export function cleanTripDraft(draft: TripDraft): TripDraft {
     location: legs.map((leg) => leg.location).join(", "),
     country: legs[0].countryCode,
     legs,
-    calculationMethod: automaticTripCalculationMethod(
-      draft.startDate,
-      draft.endDate,
-    ),
+    calculationMethod:
+      draft.calculationMethod === "aggregate" &&
+      canAggregateTrip(
+        draft.startDate,
+        draft.endDate,
+        legs.map((leg) => leg.countryCode),
+      )
+        ? "aggregate"
+        : "daily",
   };
 }

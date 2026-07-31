@@ -298,6 +298,9 @@ private provisional beta rather than a formal system of record.
 - [x] Actual-spend ceiling, daily capping and deterministic expense allocation.
 - [x] Two-night minimum for aggregation and cap calculation from confirmed
   eligible days.
+- [x] Present daily versus pooled limits as an explicit trip setting. Realtime
+  voice does not ask another question and defaults qualifying UK trips to
+  aggregation; the owner can change it in Trip details.
 - [x] Claim blocking when a receipt or linked-trip eligible day is unconfirmed,
   or when currency, country or cross-period aggregation is unsupported.
 - [x] Standalone receipted expenses share the £30 cap for their service date.
@@ -543,9 +546,10 @@ control and the development record contains verification evidence.
   coordinates, clustered repeat visits and honest city/country fallbacks.
 - [x] Capture the trip name, location, dates and short justification from one
   natural voice description, keep recognised facts monotonic, avoid repeated
-  date questions, and choose daily or aggregate calculation automatically from
-  the trip duration. Preserve a final spoken readback and explicit save
-  approval.
+  date questions, and default a qualifying UK trip to aggregate calculation
+  without adding a voice question. Preserve a final spoken readback and
+  explicit save approval, while keeping the calculation choice editable in
+  Trip details.
 - [x] Keep automatic and owner-confirmed receipt ledger inserts aligned with
   the expense schema, with regression coverage for SQL value counts.
 - [x] Support selections of at least ten receipts through one global bounded

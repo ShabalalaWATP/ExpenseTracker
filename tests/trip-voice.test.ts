@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { automaticTripCalculationMethod } from "../src/domain/trip-calculation.ts";
+import { automaticTripCalculationMethod, canAggregateTrip } from "../src/domain/trip-calculation.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { EMPTY_TRIP_VOICE_DRAFT, TRIP_VOICE_DRAFT_SCHEMA, isTripVoiceDraftComplete, mergeTripVoiceDraft, tripVoiceDraftIssues } from "../src/domain/trip-voice.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
@@ -99,7 +99,7 @@ test("active voice memory survives lossy parent form updates", () => {
   );
 });
 
-test("trip calculation is automatic from inclusive calendar duration", () => {
+test("a same-country trip of at least two nights supports aggregation", () => {
   assert.equal(
     automaticTripCalculationMethod("2026-08-10", "2026-08-10"),
     "daily",
@@ -111,6 +111,18 @@ test("trip calculation is automatic from inclusive calendar duration", () => {
   assert.equal(
     automaticTripCalculationMethod("2026-08-10", "2026-08-12"),
     "aggregate",
+  );
+  assert.equal(
+    canAggregateTrip("2026-08-10", "2026-08-12", ["GB", "GB"]),
+    true,
+  );
+  assert.equal(
+    canAggregateTrip("2026-08-10", "2026-08-12", ["GB", "FR"]),
+    false,
+  );
+  assert.equal(
+    canAggregateTrip("2026-08-10", "2026-08-12", ["FR"]),
+    false,
   );
 });
 
@@ -139,7 +151,7 @@ test("a complete one-utterance-shaped payload needs no follow-up", () => {
   assert.equal(isTripVoiceDraftComplete(complete), true);
   assert.deepEqual(tripVoiceDraftIssues(complete), []);
 
-  assert.equal(tripDraftFromVoice(complete).calculationMethod, "aggregate");
+  assert.equal(tripDraftFromVoice(complete).calculationMethod, "daily");
   assert.equal(
     tripDraftFromVoice({ ...complete, endDate: "2026-08-11" })
       .calculationMethod,
@@ -179,6 +191,7 @@ test("a single location inherits the overall dates without another question", ()
     },
   ]);
   assert.deepEqual(tripVoiceDraftIssues(result.draft), []);
+  assert.equal(tripDraftFromVoice(result.draft).calculationMethod, "aggregate");
 
   const corrected = mergeTripVoiceDraft(result.draft, {
     startDate: "2026-08-11",

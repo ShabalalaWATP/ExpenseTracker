@@ -441,3 +441,16 @@ This document records meaningful implementation milestones, decisions and verifi
   checks current GOV.UK material and returns allowlisted citations before the
   answer is displayed and read aloud. The Realtime layer is explicitly barred
   from supplying policy claims from its own memory.
+- Replaced the meal-context chart's near-identical blue tones with stable,
+  high-contrast colours for breakfast, lunch, dinner, snacks, mixed meals and
+  unidentified entries. Food-style analysis now recognises steak, steakhouse
+  and grill evidence, and deterministic line-item inference repairs historic
+  `other_food` results without changing the underlying expense category.
+- Added a deliberate missing-receipt path to manual capture. It creates one
+  expense without fabricating evidence, labels it Receipt needed throughout
+  the ledger, permits a later attachment and continues to block claim
+  preparation until evidence exists.
+- Restored an explicit daily-versus-pooled calculation setting for trips. JSP
+  752 aggregation is offered only for a UK absence of at least two nights.
+  Voice creation does not ask another question: it defaults a qualifying UK
+  trip to pooled limits, while Trip details lets the owner switch either way.

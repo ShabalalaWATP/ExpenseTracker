@@ -167,6 +167,21 @@ describe("statistics model", () => {
     );
   });
 
+  it("repairs a generic AI tag when the receipt identifies steak", () => {
+    const model = buildStatistics([
+      expense({
+        merchant: "The Dining Room",
+        foodStyleTags: ["other_food"],
+        lineItems: [{ description: "10oz ribeye steak", totalPence: 2_850 }],
+      }),
+    ], "2026-08");
+
+    assert.deepEqual(
+      model.foodTypes.map((item) => item.label),
+      ["Steak & grills"],
+    );
+  });
+
   it("returns stable zero values for an empty month", () => {
     const model = buildStatistics([], "2026-08");
     assert.equal(model.totalPence, 0);

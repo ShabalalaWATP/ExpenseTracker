@@ -1,4 +1,3 @@
-import { automaticTripCalculationMethod } from "@/src/domain/trip-calculation";
 import { ApiError } from "./http";
 import { assertRangeUnlocked } from "./claim-locks";
 import { database, ensureSchema } from "./db";
@@ -20,6 +19,7 @@ import {
   stableTripLegs,
   tripLegRows,
 } from "./trip-leg-repository";
+import { resolveAggregateElection } from "./trip-aggregation";
 
 function dateRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
@@ -63,10 +63,6 @@ function normaliseDays(
         note: null,
       },
   );
-}
-
-function aggregateElection(startDate: string, endDate: string): boolean {
-  return automaticTripCalculationMethod(startDate, endDate) === "aggregate";
 }
 
 async function rowsFor(principal: Principal, id?: string) {
@@ -147,7 +143,14 @@ export async function createTrip(principal: Principal, input: TripWrite) {
         "GB",
         input.startDate,
         input.endDate,
-        aggregateElection(input.startDate!, input.endDate!) ? 1 : 0,
+        resolveAggregateElection(
+          input.aggregateElection,
+          input.startDate!,
+          input.endDate!,
+          input.legs!.map((leg) => leg.countryCode),
+        )
+          ? 1
+          : 0,
       ),
     ...days.map((day) =>
       db
@@ -226,7 +229,6 @@ export async function updateTrip(
   if (endDate < startDate) {
     throw new ApiError(400, "validation_failed", "endDate cannot precede startDate.");
   }
-  const nextAggregateElection = aggregateElection(startDate, endDate);
   const currentLegs: TripLegWrite[] = existing.legs.map((leg) => ({
     id: leg.id,
     sequence: leg.sequence,
@@ -239,6 +241,12 @@ export async function updateTrip(
     ? stableTripLegs(input.legs, currentLegs)
     : currentLegs;
   validateTripLegCoverage(legs, startDate, endDate);
+  const nextAggregateElection = resolveAggregateElection(
+    input.aggregateElection ?? existing.aggregateElection,
+    startDate,
+    endDate,
+    legs.map((leg) => leg.countryCode),
+  );
   const days = normaliseDays(startDate, endDate, input.days, existing.days);
   const entries = Object.entries(input).filter(
     ([key]) =>

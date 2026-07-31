@@ -6,34 +6,19 @@ import {
   TripVoiceCreator,
   type TripVoiceCreatorHandle,
 } from "./TripVoiceCreator";
+import { TripCalculationChoice } from "./TripCalculationChoice";
 import { TripRecords } from "./TripRecords";
 import { daysBetween, formatDate } from "./format";
 import { TripLegEditor } from "./TripLegEditor";
-import { automaticTripCalculationMethod } from "@/src/domain/trip-calculation";
-import { cleanTripDraft, validateTripDraft } from "./tripDraft";
+import { canAggregateTrip } from "@/src/domain/trip-calculation";
+import {
+  cleanTripDraft,
+  editableCalculationMethod,
+  emptyTripDraft,
+  validateTripDraft,
+} from "./tripDraft";
 import type { DashboardData, TripDraft, TripLeg } from "./types";
 import { Field, StatusMessage, ViewHeader } from "./ui";
-
-function newTripDraft(): TripDraft {
-  return {
-    title: "",
-    location: "",
-    justification: "",
-    country: "GB",
-    startDate: "",
-    endDate: "",
-    legs: [{
-      sequence: 0,
-      countryCode: "GB",
-      location: "",
-      startDate: "",
-      endDate: "",
-    }],
-    eligibleDates: [],
-    attested: false,
-    calculationMethod: "daily",
-  };
-}
 
 export function TripsView({
   data,
@@ -84,6 +69,9 @@ export function TripsView({
       : []),
   );
   const [attested, setAttested] = useState(Boolean(initialTrip?.attested));
+  const [calculationMethod, setCalculationMethod] = useState<
+    TripDraft["calculationMethod"]
+  >(editableCalculationMethod(initialTrip));
   const [manualOpen, setManualOpen] = useState(
     Boolean(initialTrip || initialStartDate),
   );
@@ -112,6 +100,15 @@ export function TripsView({
       setEndDate(nextEnd);
       syncDates(nextStart, nextEnd);
     }
+    if (
+      !canAggregateTrip(
+        nextStart,
+        nextEnd,
+        ordered.map((leg) => leg.countryCode),
+      )
+    ) {
+      setCalculationMethod("daily");
+    }
   }
 
   function toggleDate(date: string) {
@@ -135,11 +132,12 @@ export function TripsView({
     setEndDate(trip.endDate);
     setEligibleDates(trip.eligibleDates ?? []);
     setAttested(Boolean(trip.attested));
+    setCalculationMethod(editableCalculationMethod(trip));
     setManualOpen(true);
     setCreating(true);
   }
 
-  function resetNewTrip(draft = newTripDraft()) {
+  function resetNewTrip(draft = emptyTripDraft()) {
     setEditingId("");
     setTitle(draft.title);
     setJustification(draft.justification);
@@ -148,6 +146,7 @@ export function TripsView({
     setEndDate(draft.endDate);
     setEligibleDates(draft.eligibleDates);
     setAttested(draft.attested);
+    setCalculationMethod(draft.calculationMethod);
     setManualOpen(false);
     setError("");
     setCreating(false);
@@ -180,6 +179,7 @@ export function TripsView({
     setEndDate(draft.endDate);
     setEligibleDates(draft.eligibleDates);
     setAttested(draft.attested);
+    setCalculationMethod(draft.calculationMethod);
   }
 
   async function persistDraft(
@@ -201,6 +201,7 @@ export function TripsView({
       setStartDate("");
       setEndDate("");
       setEditingId("");
+      setCalculationMethod("daily");
     } finally {
       setSaving(false);
     }
@@ -220,7 +221,7 @@ export function TripsView({
         legs,
         eligibleDates,
         attested,
-        calculationMethod: automaticTripCalculationMethod(startDate, endDate),
+        calculationMethod,
       });
     } catch (caught) {
       setError(
@@ -274,10 +275,7 @@ export function TripsView({
                 legs,
                 eligibleDates,
                 attested,
-                calculationMethod: automaticTripCalculationMethod(
-                  startDate,
-                  endDate,
-                ),
+                calculationMethod,
               }}
               onDraftChange={applyDraft}
               onConfirmedSave={async (draft) => {
@@ -322,6 +320,16 @@ export function TripsView({
                   <p>Untick dates that are not eligible.</p>
                   <div>{dates.map((date) => <label key={date}><input type="checkbox" checked={eligibleDates.includes(date)} onChange={() => toggleDate(date)} /><span>{formatDate(date)}</span></label>)}</div>
                 </fieldset>
+              ) : null}
+              {dates.length ? (
+                <TripCalculationChoice
+                  startDate={startDate}
+                  endDate={endDate}
+                  legs={legs}
+                  eligibleDates={eligibleDates}
+                  value={calculationMethod}
+                  onChange={setCalculationMethod}
+                />
               ) : null}
               <label className="attestation">
                 <input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />

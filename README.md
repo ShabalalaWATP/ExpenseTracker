@@ -17,7 +17,9 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Records the merchant, date, location, business reason and eligible amount.
 - Stores expense and trip records in D1 and receipt images in private R2.
 - Applies a £30 allowance for each confirmed eligible day.
-- Supports JSP 752 aggregation for trips of at least two nights.
+- Lets the owner choose daily limits or JSP 752 aggregation for a qualifying
+  UK trip of at least two nights. Voice does not ask another policy
+  question and uses the qualifying pooled option as its default.
 - Supports multi-country trips as ordered itinerary legs, including
   country-aware automatic receipt linking and multi-stop OpenAI Realtime
   speech-to-speech entry. The main Create a trip action opens with a natural
@@ -36,7 +38,8 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
   calendar-led trip creation.
 - Breaks food statistics into controlled, AI-derived styles using the merchant,
   venue type and receipt items together, with deterministic classification for
-  recognised merchants in older receipt records.
+  recognised merchants and foods, including steak and grills, in older receipt
+  records.
 - Filters every statistic, chart and map by week, calendar month, a
   three-calendar-month window or calendar year, with like-for-like comparison
   against the immediately preceding period.
@@ -46,6 +49,9 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Keeps Expenses focused on three plain-English jobs: review receipt details,
   find missing evidence and prepare the monthly claim package. Search, each
   filter, the ledger and the package explain what they do and why they matter.
+- Allows a manual expense to be recorded without a receipt photo. It remains
+  visibly marked Receipt needed and cannot enter a completed claim until the
+  evidence is attached.
 - Adds a Policy assistant under More on mobile with a choice of text chat or a
   live Realtime voice conversation. Both modes answer JSP 752 questions with
   the frontier `gpt-5.6-sol` policy model. The complete 663-page JSP 752 v66.1

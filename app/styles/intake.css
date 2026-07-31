@@ -323,6 +323,44 @@
 .voice-clarification.active .voice-pulse i:nth-child(3) { animation-delay: 240ms; }
 .manual-capture { padding-top: 40px; }
 .manual-intro { max-width: 620px; }
+.receipt-unavailable {
+  padding: 30px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--amber) 56%, var(--line));
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--amber) 13%, var(--paper-raised)),
+      var(--paper-raised)
+    );
+}
+.receipt-unavailable > span {
+  color: var(--amber);
+}
+.receipt-unavailable-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+}
+.receipt-unavailable-toggle input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin-top: 2px;
+  accent-color: var(--amber);
+}
+.receipt-unavailable-toggle span {
+  display: grid;
+  gap: 3px;
+}
+.receipt-unavailable-toggle small {
+  color: var(--muted);
+}
 
 .receipt-processing-backdrop {
   position: fixed; z-index: 1000; inset: 0; display: grid; min-height: 100svh;

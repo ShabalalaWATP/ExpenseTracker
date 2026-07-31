@@ -18,6 +18,7 @@ export const FOOD_STYLE_TAGS = [
   "groceries",
   "pub_food",
   "seafood",
+  "steak_grill",
   "other_food",
 ] as const;
 
@@ -43,6 +44,7 @@ export const FOOD_STYLE_LABELS: Record<FoodStyleTag, string> = {
   groceries: "Groceries",
   pub_food: "Pub food",
   seafood: "Seafood",
+  steak_grill: "Steak & grills",
   other_food: "Other food",
 };
 
@@ -122,6 +124,10 @@ const FOOD_STYLE_PATTERNS: ReadonlyArray<
   [
     /\b(seafood|fishmonger|oyster|lobster|prawn|shrimp|mussels|crab)\b/,
     "seafood",
+  ],
+  [
+    /\b(steak|steakhouse|chophouse|grill(?:ed)?|ribeye|sirloin|t[- ]?bone|rump steak|fillet steak|beef fillet)\b/,
+    "steak_grill",
   ],
 ];
 

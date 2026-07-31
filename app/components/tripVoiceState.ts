@@ -67,6 +67,7 @@ export function tripDraftFromVoice(draft: TripVoiceDraft): TripDraft {
     calculationMethod: automaticTripCalculationMethod(
       draft.startDate ?? "",
       draft.endDate ?? "",
+      legs.map((leg) => leg.countryCode),
     ),
     eligibleDates: [],
     attested: false,

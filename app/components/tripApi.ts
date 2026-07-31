@@ -1,4 +1,3 @@
-import { automaticTripCalculationMethod } from "@/src/domain/trip-calculation";
 import { apiRequest } from "./api";
 import { daysBetween } from "./format";
 import type { TripDraft } from "./types";
@@ -19,9 +18,7 @@ function tripBody(draft: TripDraft) {
     startDate: draft.startDate,
     endDate: draft.endDate,
     legs,
-    aggregateElection:
-      automaticTripCalculationMethod(draft.startDate, draft.endDate) ===
-      "aggregate",
+    aggregateElection: draft.calculationMethod === "aggregate",
     days: daysBetween(draft.startDate, draft.endDate).map((date) => ({
       date,
       eligible: draft.eligibleDates.includes(date),

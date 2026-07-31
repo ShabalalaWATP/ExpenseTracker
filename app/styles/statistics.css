@@ -264,6 +264,9 @@
   width: min(180px, 100%);
   border-radius: 50%;
   background: var(--meal-gradient);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent),
+    0 18px 44px color-mix(in srgb, #020617 34%, transparent);
   aspect-ratio: 1;
   place-items: center;
 }
@@ -319,9 +322,11 @@
 
 .meal-legend button > i {
   flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
+  width: 12px;
+  height: 12px;
+  border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent);
   border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--paper);
 }
 
 .meal-legend button > span {

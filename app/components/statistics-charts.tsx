@@ -4,7 +4,22 @@ import type { CSSProperties } from "react";
 import { formatMoney } from "./format";
 import type { DailyStat, RankedStat } from "./statistics-model";
 
-const MEAL_COLOURS = ["#2d7ff9", "#41a5ff", "#52c7c0", "#86d7ff", "#97a7c3", "#ff6675"];
+const MEAL_COLOURS: Record<string, string> = {
+  breakfast: "#fbbf24",
+  lunch: "#22d3ee",
+  dinner: "#a78bfa",
+  snack: "#fb7185",
+  "mixed meal": "#a3e635",
+  "not identified": "#94a3b8",
+};
+const MEAL_FALLBACK_COLOURS = [
+  "#38bdf8",
+  "#f97316",
+  "#34d399",
+  "#e879f9",
+  "#fde047",
+  "#60a5fa",
+];
 const WEEKDAY_FORMAT = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" });
 const MONTH_FORMAT = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" });
 
@@ -127,12 +142,15 @@ export function MealDonut({
     return <p className="stats-empty-note">No food receipts in this selection.</p>;
   }
   const total = Math.max(1, items.reduce((sum, item) => sum + item.count, 0));
+  const colourFor = (item: RankedStat, index: number) =>
+    MEAL_COLOURS[item.key] ??
+    MEAL_FALLBACK_COLOURS[index % MEAL_FALLBACK_COLOURS.length];
   const stops = items.map((item, index) => {
     const start = items
       .slice(0, index)
       .reduce((sum, candidate) => sum + candidate.count / total * 360, 0);
     const end = start + item.count / total * 360;
-    return `${MEAL_COLOURS[index % MEAL_COLOURS.length]} ${start}deg ${end}deg`;
+    return `${colourFor(item, index)} ${start}deg ${end}deg`;
   });
   const style = { "--meal-gradient": `conic-gradient(${stops.join(", ")})` } as CSSProperties;
   return (
@@ -144,7 +162,7 @@ export function MealDonut({
         {items.map((item, index) => (
           <li key={item.key}>
             <button type="button" onClick={() => onSelect(item)}>
-              <i style={{ background: MEAL_COLOURS[index % MEAL_COLOURS.length] }} />
+              <i style={{ background: colourFor(item, index) }} />
               <span><strong>{item.label}</strong><small>{Math.round(item.count / total * 100)}% · {formatMoney(item.totalPence)}</small></span>
             </button>
           </li>

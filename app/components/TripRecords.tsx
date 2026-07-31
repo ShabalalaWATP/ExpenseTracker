@@ -1,3 +1,4 @@
+import { canAggregateTrip } from "@/src/domain/trip-calculation";
 import { countryName, formatDate } from "./format";
 import type { Trip } from "./types";
 import { EmptyState } from "./ui";
@@ -44,6 +45,16 @@ export function TripRecords({
                   {formatDate(trip.startDate)} to {formatDate(trip.endDate)}
                 </small>
                 {trip.justification ? <small>{trip.justification}</small> : null}
+                <small>
+                  {trip.calculationMethod === "aggregate" &&
+                  canAggregateTrip(
+                    trip.startDate,
+                    trip.endDate,
+                    trip.legs.map((leg) => leg.countryCode),
+                  )
+                    ? "£30 limits pooled across eligible trip days"
+                    : "£30 limit applied to each eligible day"}
+                </small>
               </div>
               <div className="trip-state">
                 <span
