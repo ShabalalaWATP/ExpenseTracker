@@ -454,3 +454,7 @@ This document records meaningful implementation milestones, decisions and verifi
   752 aggregation is offered only for a UK absence of at least two nights.
   Voice creation does not ask another question: it defaults a qualifying UK
   trip to pooled limits, while Trip details lets the owner switch either way.
+- Fixed the Expenses filter toolbar overflowing narrow iPhone viewports. The
+  search field and horizontally scrolling filters now stay within the page
+  gutters in both light and dark modes, so the outer blue shell cannot appear
+  as a strip beside the ledger.
