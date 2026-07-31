@@ -434,3 +434,10 @@ This document records meaningful implementation milestones, decisions and verifi
   itinerary. It asks at most one concise question about genuinely unresolved
   information, never re-asks a valid date, and retains the final spoken
   readback and explicit save approval.
+- Added a text-or-voice choice to the JSP 752 Policy assistant. Realtime voice
+  handles the live audio conversation through a short-lived browser
+  credential, but every substantive question still passes through the
+  owner-authenticated policy service. That service retrieves the stored JSP,
+  checks current GOV.UK material and returns allowlisted citations before the
+  answer is displayed and read aloud. The Realtime layer is explicitly barred
+  from supplying policy claims from its own memory.

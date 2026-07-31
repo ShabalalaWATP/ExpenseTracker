@@ -8,6 +8,7 @@ import {
 import { consumeAiQuota } from "@/src/server/ai-quota";
 import { createRealtimeClientSecret } from "@/src/server/openai-client";
 import { requirePrincipal } from "@/src/server/principal";
+import { createPolicyRealtimeClientSecret } from "@/src/server/policy-realtime";
 import { createTripRealtimeClientSecret } from "@/src/server/trip-realtime";
 import {
   publicIntake,
@@ -36,6 +37,15 @@ function isTripCreation(value: unknown): boolean {
   );
 }
 
+function isPolicyAssistant(value: unknown): boolean {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as Record<string, unknown>).mode === "policy_assistant",
+  );
+}
+
 export async function POST(request: Request): Promise<Response> {
   try {
     requireSameOrigin(request);
@@ -44,6 +54,10 @@ export async function POST(request: Request): Promise<Response> {
     if (isTripCreation(input)) {
       await consumeAiQuota(principal, "realtimeSession", "trip-creation");
       return json(await createTripRealtimeClientSecret(principal), 201);
+    }
+    if (isPolicyAssistant(input)) {
+      await consumeAiQuota(principal, "realtimeSession", "policy-assistant");
+      return json(await createPolicyRealtimeClientSecret(principal), 201);
     }
     const id = intakeId(input);
     const row = await requireIntake(principal, id);

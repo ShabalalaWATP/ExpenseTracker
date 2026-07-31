@@ -523,6 +523,9 @@ control and the development record contains verification evidence.
   re-read without first saving invalid blank fields.
 - [x] Add dedicated Audit response and month-scoped Statistics navigation.
 - [x] Add an owner-only, sourced JSP 752 Policy assistant under More on mobile.
+- [x] Let the owner choose text chat or Realtime voice for JSP 752 questions,
+  while routing both modes through the same stored-policy retrieval, current
+  GOV.UK check and citation boundary.
 - [x] Store the complete official JSP 752 v66.1 PDF and searchable 663-page
   corpus in the app, verify the source hash, and retrieve local passages before
   each live GOV.UK-checked answer.

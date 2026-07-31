@@ -46,12 +46,14 @@ designed for Safari on iPhone 16 and deployed through OpenAI Sites.
 - Keeps Expenses focused on three plain-English jobs: review receipt details,
   find missing evidence and prepare the monthly claim package. Search, each
   filter, the ledger and the package explain what they do and why they matter.
-- Adds a Policy assistant under More on mobile. It answers JSP 752 questions
-  with the frontier `gpt-5.6-sol` model. The complete 663-page JSP 752 v66.1
+- Adds a Policy assistant under More on mobile with a choice of text chat or a
+  live Realtime voice conversation. Both modes answer JSP 752 questions with
+  the frontier `gpt-5.6-sol` policy model. The complete 663-page JSP 752 v66.1
   PDF and a searchable per-page corpus are stored in the app. Each answer
   retrieves the most relevant stored pages, checks the current GOV.UK source
-  and displays both the page numbers used and official citations. It cannot
-  see or change the ledger.
+  and displays both the page numbers used and official citations. The voice
+  layer reads that same sourced answer aloud and cannot answer from ungrounded
+  model memory. Neither mode can see or change the ledger.
 - Prepares an immutable August claim snapshot and records submission status.
 - Downloads complete, size-bounded claim ZIP parts with PDF, CSV, manifest and
   original receipts.
@@ -163,6 +165,12 @@ Returned citations are allowlisted again on the server before the UI renders
 them as clickable links. The conversation remains in component memory and
 disappears on reload. Answers are explanatory, not an entitlement decision,
 and a newer official JSP 752 overrides the stored copy.
+
+Voice mode uses a separate short-lived Realtime session over WebRTC. It sends
+the spoken question to the same `/api/ai/policy` path, then reads the returned
+grounded answer aloud while the normal stored-page and GOV.UK citations remain
+visible on screen. The Realtime model is instructed never to supply its own
+policy answer. Ending the voice session stops the microphone tracks.
 
 ### Stored JSP 752 knowledge
 

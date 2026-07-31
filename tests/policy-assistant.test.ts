@@ -225,3 +225,60 @@ test("policy route is owner-only, bounded and GOV.UK grounded", async () => {
   assert.match(expenses, /Fix missing evidence/);
   assert.match(expenses, /Prepare a claim/);
 });
+
+test("policy voice uses Realtime only as a sourced-answer interface", async () => {
+  const [route, service, voice, voiceApi, view] = await Promise.all([
+    readFile(
+      new URL("../app/api/ai/realtime-session/route.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/server/policy-realtime.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../app/components/PolicyVoiceAssistant.tsx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/components/policyVoiceApi.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../app/components/PolicyAssistantView.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(route, /isPolicyAssistant/);
+  assert.match(route, /mode === "policy_assistant"/);
+  assert.match(route, /consumeAiQuota\(principal, "realtimeSession", "policy-assistant"\)/);
+  assert.match(route, /createPolicyRealtimeClientSecret/);
+  assert.match(service, /\/realtime\/client_secrets/);
+  assert.match(service, /create_response: false/);
+  assert.match(service, /interrupt_response: false/);
+  assert.match(service, /Only speak when a response-level instruction supplies a verified answer/);
+  assert.doesNotMatch(service, /tool_choice/);
+  assert.match(service, /tracing: null/);
+  assert.doesNotMatch(service, /OPENAI_API_KEY/);
+  assert.match(voiceApi, /body: JSON\.stringify\(\{ mode: "policy_assistant" \}\)/);
+  assert.match(voice, /RTCPeerConnection/);
+  assert.match(voice, /Authorization: `Bearer \$\{session\.value\}`/);
+  assert.match(voice, /onQuestionRef\.current\(question\)/);
+  assert.match(voice, /conversation\.item\.input_audio_transcription\.completed/);
+  assert.match(voice, /<verified_policy_answer>/);
+  assert.match(voice, /answer\.answer/);
+  assert.match(voice, /supporting sources are shown on screen/);
+  assert.match(voice, /useEffect\(\(\) => releaseMedia, \[\]\)/);
+  assert.match(voice, /sessionId !== sessionIdRef\.current/);
+  assert.match(voice, /acquiredStream\.getTracks\(\)\.forEach\(\(track\) => track\.stop\(\)\)/);
+  assert.doesNotMatch(voice, /OPENAI_API_KEY/);
+  assert.match(view, /role="group"/);
+  assert.match(view, /aria-pressed=\{mode === "text"\}/);
+  assert.match(view, /aria-pressed=\{mode === "voice"\}/);
+  assert.match(view, /<PolicyVoiceAssistant onQuestion=\{answerQuestion\}/);
+  assert.match(view, /askPolicyAssistant/);
+});

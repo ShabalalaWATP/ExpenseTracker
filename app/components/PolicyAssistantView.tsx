@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import policyManifest from "@/src/policy/jsp752-v66.1-manifest.json";
 import {
   askPolicyAssistant,
   type PolicyAssistantAnswer,
   type PolicyAssistantCitation,
 } from "./api";
+import { PolicyVoiceAssistant } from "./PolicyVoiceAssistant";
 import { StatusMessage, ViewHeader } from "./ui";
 
 const POLICY_URL =
@@ -66,23 +67,33 @@ function citedText(text: string, citations: PolicyAssistantCitation[]): ReactNod
 
 export function PolicyAssistantView() {
   const [messages, setMessages] = useState<ChatMessage[]>([welcome]);
+  const messagesRef = useRef<ChatMessage[]>([welcome]);
+  const busyRef = useRef(false);
+  const [mode, setMode] = useState<"text" | "voice">("text");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function send(question: string) {
+  async function answerQuestion(
+    question: string,
+  ): Promise<PolicyAssistantAnswer> {
     const clean = question.trim();
-    if (!clean || busy) return;
+    if (!clean) throw new Error("Ask a JSP 752 question first.");
+    if (busyRef.current) {
+      throw new Error("Wait for the current policy answer to finish.");
+    }
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: clean,
     };
-    const nextMessages = [...messages, userMessage];
+    const nextMessages = [...messagesRef.current, userMessage];
+    messagesRef.current = nextMessages;
     setMessages(nextMessages);
     setDraft("");
     setError("");
     setBusy(true);
+    busyRef.current = true;
     try {
       const answer = await askPolicyAssistant(
         nextMessages
@@ -90,8 +101,8 @@ export function PolicyAssistantView() {
           .slice(-9)
           .map(({ role, content }) => ({ role, content })),
       );
-      setMessages((current) => [
-        ...current,
+      const next = [
+        ...messagesRef.current,
         {
           id: crypto.randomUUID(),
           role: "assistant",
@@ -101,21 +112,30 @@ export function PolicyAssistantView() {
           storedSource: answer.storedSource,
           model: answer.model,
         },
-      ]);
+      ] satisfies ChatMessage[];
+      messagesRef.current = next;
+      setMessages(next);
+      return answer;
     } catch (caught) {
-      setError(
+      const message =
         caught instanceof Error
           ? caught.message
-          : "The policy assistant could not answer just now.",
-      );
+          : "The policy assistant could not answer just now.";
+      setError(message);
+      throw new Error(message);
     } finally {
       setBusy(false);
+      busyRef.current = false;
     }
+  }
+
+  function sendText(question: string) {
+    void answerQuestion(question).catch(() => undefined);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void send(draft);
+    sendText(draft);
   }
 
   return (
@@ -142,14 +162,35 @@ export function PolicyAssistantView() {
       </div>
 
       <div className="policy-chat" aria-label="Policy conversation">
-        <div className="policy-starters" aria-label="Suggested questions">
-          <span>Try asking</span>
-          {starters.map((starter) => (
-            <button type="button" key={starter} onClick={() => void send(starter)} disabled={busy}>
-              {starter}
-            </button>
-          ))}
+        <div className="policy-mode-tabs" role="group" aria-label="Policy assistant input">
+          <button
+            type="button"
+            aria-pressed={mode === "text"}
+            onClick={() => setMode("text")}
+          >
+            Text chat
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === "voice"}
+            onClick={() => setMode("voice")}
+          >
+            Voice chat
+          </button>
         </div>
+
+        {mode === "text" ? (
+          <div className="policy-starters" aria-label="Suggested questions">
+            <span>Try asking</span>
+            {starters.map((starter) => (
+              <button type="button" key={starter} onClick={() => sendText(starter)} disabled={busy}>
+                {starter}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <PolicyVoiceAssistant onQuestion={answerQuestion} />
+        )}
 
         <ol className="policy-messages" aria-live="polite">
           {messages.map((message) => (
@@ -200,27 +241,33 @@ export function PolicyAssistantView() {
 
         {error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 
-        <form className="policy-composer" onSubmit={submit}>
-          <label htmlFor="policy-question">Your JSP 752 question</label>
-          <textarea
-            id="policy-question"
-            value={draft}
-            maxLength={2_000}
-            rows={3}
-            placeholder="For example, can I include a service charge?"
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <div>
-            <small>Questions are sent to OpenAI for a sourced answer. Conversation history is not saved by ExpenseTracker.</small>
-            <button className="primary-button" type="submit" disabled={busy || !draft.trim()}>
-              {busy ? "Checking…" : "Ask question"}
-            </button>
-          </div>
-        </form>
+        {mode === "text" ? (
+          <form className="policy-composer" onSubmit={submit}>
+            <label htmlFor="policy-question">Your JSP 752 question</label>
+            <textarea
+              id="policy-question"
+              value={draft}
+              maxLength={2_000}
+              rows={3}
+              placeholder="For example, can I include a service charge?"
+              onChange={(event) => setDraft(event.target.value)}
+            />
+            <div>
+              <small>Questions are sent to OpenAI for a sourced answer. Conversation history is not saved by ExpenseTracker.</small>
+              <button className="primary-button" type="submit" disabled={busy || !draft.trim()}>
+                {busy ? "Checking…" : "Ask question"}
+              </button>
+            </div>
+          </form>
+        ) : null}
       </div>
 
       {messages.length > 1 ? (
-        <button className="text-button policy-clear" type="button" onClick={() => { setMessages([welcome]); setError(""); }}>
+        <button className="text-button policy-clear" type="button" onClick={() => {
+          messagesRef.current = [welcome];
+          setMessages([welcome]);
+          setError("");
+        }}>
           Clear conversation
         </button>
       ) : null}
