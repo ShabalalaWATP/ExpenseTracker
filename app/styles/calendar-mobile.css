@@ -1,0 +1,83 @@
+@media (max-width: 700px) {
+  .calendar-toolbar {
+    grid-template-areas:
+      "modes"
+      "filters"
+      "trip"
+      "period";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 13px;
+    padding: 20px 0 17px;
+  }
+
+  .calendar-modes { width: 100%; }
+  .calendar-modes button { flex: 1; }
+
+  .calendar-period {
+    gap: 8px;
+    padding-top: 14px;
+  }
+
+  .calendar-period-heading {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .calendar-period h2 { font-size: clamp(1.2rem, 6vw, 1.55rem); }
+
+  .calendar-filters {
+    width: 100%;
+    overflow-x: auto;
+    justify-self: stretch;
+  }
+
+  .calendar-filters button { white-space: nowrap; }
+
+  .calendar-range {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calendar-day,
+  .calendar-grid:not(.month) .calendar-day {
+    min-height: 74px;
+    padding: 6px;
+  }
+
+  .calendar-weekday {
+    min-height: 30px;
+    font-size: 0.56rem;
+  }
+
+  .calendar-day > time {
+    width: 25px;
+    height: 25px;
+    font-size: 0.82rem;
+  }
+
+  .calendar-day-summary b,
+  .calendar-empty-day { display: none; }
+
+  .calendar-day-summary small {
+    overflow: hidden;
+    font-size: 0.57rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .calendar-inspector { padding-top: 34px; }
+
+  .calendar-claim-list li {
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 0;
+  }
+
+  .calendar-receipt {
+    width: 46px;
+    height: 54px;
+  }
+
+  .calendar-claim-list .money-stack { align-self: start; }
+  .calendar-claim-list li > .round-button { display: none; }
+}

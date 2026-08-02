@@ -483,3 +483,7 @@ This document records meaningful implementation milestones, decisions and verifi
   together deterministically from their subtotals. Customer, merchant and card
   terminal copies remain visible but are counted once. Unrelated or ambiguous
   receipt combinations cannot be confirmed automatically.
+- Reordered Calendar controls around the task being performed. View and entry
+  filters stay first, trip-date selection sits below them, and one unified
+  previous/range/today/next strip now sits directly above the calendar grid on
+  desktop and mobile.

@@ -5,14 +5,13 @@
 .calendar-toolbar {
   display: grid;
   grid-template-areas:
-    "modes navigation"
-    "range range"
-    "filters filters"
-    "trip trip";
+    "modes filters"
+    "trip trip"
+    "period period";
   grid-template-columns: 1fr auto;
   gap: 18px 24px;
   align-items: center;
-  padding: 28px 0 22px;
+  padding: 28px 0 10px;
 }
 
 .calendar-modes {
@@ -20,22 +19,33 @@
   justify-self: start;
 }
 
-.calendar-navigation {
-  display: flex;
-  grid-area: navigation;
+.calendar-period {
+  display: grid;
+  grid-area: period;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 13px;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
 }
 
-.calendar-toolbar h2 {
-  grid-area: range;
+.calendar-period-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.calendar-period h2 {
   margin: 0;
   font-size: clamp(1.45rem, 2.5vw, 2.2rem);
 }
 
 .calendar-filters {
   grid-area: filters;
-  justify-self: start;
+  justify-self: end;
 }
 
 .calendar-range {
@@ -250,95 +260,4 @@
   font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-@media (max-width: 700px) {
-  .calendar-toolbar {
-    grid-template-areas:
-      "modes"
-      "range"
-      "navigation"
-      "filters"
-      "trip";
-    grid-template-columns: minmax(0, 1fr);
-    gap: 13px;
-    padding: 20px 0 17px;
-  }
-
-  .calendar-modes {
-    width: 100%;
-  }
-
-  .calendar-modes button {
-    flex: 1;
-  }
-
-  .calendar-navigation {
-    justify-content: space-between;
-  }
-
-  .calendar-filters {
-    overflow-x: auto;
-  }
-
-  .calendar-filters button {
-    white-space: nowrap;
-  }
-
-  .calendar-range {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .calendar-day,
-  .calendar-grid:not(.month) .calendar-day {
-    min-height: 74px;
-    padding: 6px;
-  }
-
-  .calendar-weekday {
-    min-height: 30px;
-    font-size: 0.56rem;
-  }
-
-  .calendar-day > time {
-    width: 25px;
-    height: 25px;
-    font-size: 0.82rem;
-  }
-
-  .calendar-day-summary b,
-  .calendar-empty-day {
-    display: none;
-  }
-
-  .calendar-day-summary small {
-    overflow: hidden;
-    font-size: 0.57rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .calendar-inspector {
-    padding-top: 34px;
-  }
-
-  .calendar-claim-list li {
-    grid-template-columns: 48px minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 10px 0;
-  }
-
-  .calendar-receipt {
-    width: 46px;
-    height: 54px;
-  }
-
-  .calendar-claim-list .money-stack {
-    align-self: start;
-  }
-
-  .calendar-claim-list li > .round-button {
-    display: none;
-  }
 }

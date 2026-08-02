@@ -13,6 +13,7 @@ import "./styles/intake.css";
 import "./styles/international.css";
 import "./styles/itinerary.css";
 import "./styles/calendar.css";
+import "./styles/calendar-mobile.css";
 import "./styles/statistics.css";
 import "./styles/statistics-allowance.css";
 import "./styles/statistics-map-responsive.css";

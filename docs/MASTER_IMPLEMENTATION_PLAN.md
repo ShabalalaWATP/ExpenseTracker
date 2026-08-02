@@ -575,6 +575,8 @@ control and the development record contains verification evidence.
 - [x] Detect multiple physical receipts in one photo, preserve per-document
   facts and the complete original evidence, aggregate independently verified
   same-meal transactions, and exclude duplicate copies from the total.
+- [x] Keep Calendar trip-date selection above a unified period-navigation strip
+  placed immediately above the calendar grid on desktop and mobile.
 
 ### Priority 3: broader use only when justified
 

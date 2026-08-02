@@ -187,12 +187,6 @@ export function CalendarView({
             </button>
           ))}
         </div>
-        <div className="calendar-navigation">
-          <button className="round-button" type="button" onClick={() => move(-1)} aria-label={`Previous ${mode.replace("-", " ")}`}>←</button>
-          <button className="text-button" type="button" onClick={returnToToday}>Today</button>
-          <button className="round-button" type="button" onClick={() => move(1)} aria-label={`Next ${mode.replace("-", " ")}`}>→</button>
-        </div>
-        <h2 aria-live="polite">{calendarRangeLabel(cursor, mode)}</h2>
         <div className="filter-group calendar-filters" role="group" aria-label="Calendar entries">
           {([
             ["all", "All"],
@@ -246,6 +240,30 @@ export function CalendarView({
             </button>
           </div>
         ) : null}
+        <div className="calendar-period" aria-label="Displayed calendar period">
+          <button
+            className="round-button"
+            type="button"
+            onClick={() => move(-1)}
+            aria-label={`Previous ${mode.replace("-", " ")}`}
+          >
+            ←
+          </button>
+          <div className="calendar-period-heading">
+            <h2 aria-live="polite">{calendarRangeLabel(cursor, mode)}</h2>
+            <button className="text-button" type="button" onClick={returnToToday}>
+              Today
+            </button>
+          </div>
+          <button
+            className="round-button"
+            type="button"
+            onClick={() => move(1)}
+            aria-label={`Next ${mode.replace("-", " ")}`}
+          >
+            →
+          </button>
+        </div>
       </section>
 
       <div className={`calendar-grid ${mode}`} role="grid" aria-label={calendarRangeLabel(cursor, mode)}>
