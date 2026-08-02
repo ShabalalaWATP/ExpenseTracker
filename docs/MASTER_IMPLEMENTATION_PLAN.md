@@ -577,6 +577,8 @@ control and the development record contains verification evidence.
   same-meal transactions, and exclude duplicate copies from the total.
 - [x] Keep Calendar trip-date selection above a unified period-navigation strip
   placed immediately above the calendar grid on desktop and mobile.
+- [x] Surface shared-receipt review near the top of receipt review and support
+  per-line quantity allocation without changing the original receipt evidence.
 
 ### Priority 3: broader use only when justified
 

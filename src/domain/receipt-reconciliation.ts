@@ -1,6 +1,7 @@
 export type ReconciliationLine = {
   totalPence: number | null;
   eligible: boolean | null;
+  claimedTotalPence?: number | null;
 };
 
 export type ReceiptReconciliation = {
@@ -30,7 +31,14 @@ export function reconcileReceipt(
   );
   const knownEligibleLineTotalPence = known
     .filter((line) => line.eligible === true)
-    .reduce((sum, line) => sum + line.totalPence, 0);
+    .reduce(
+      (sum, line) =>
+        sum +
+        (Number.isSafeInteger(line.claimedTotalPence)
+          ? Number(line.claimedTotalPence)
+          : line.totalPence),
+      0,
+    );
   const unknownAmountCount = lines.length - known.length;
   const unknownEligibilityCount = known.filter(
     (line) => line.eligible === null,

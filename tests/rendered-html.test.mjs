@@ -216,6 +216,13 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
   assert.match(manualConfirmation, /settledConfirmation/);
   assert.match(groupReceiptReview, /Which items were yours\?/);
   assert.match(groupReceiptReview, /Everything was mine/);
+  assert.match(groupReceiptReview, /Your quantity of/);
+  assert.match(groupReceiptReview, /quantity} of {available}/);
+  assert.ok(
+    intakeReview.indexOf("<GroupReceiptReview") <
+      intakeReview.indexOf("<ReceiptFactSummary"),
+    "shared receipt review should appear before the receipt facts",
+  );
   assert.match(
     processing,
     /if \(!current \|\| current\.analysis_object_key !== analysisObjectKey\)/,

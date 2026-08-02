@@ -55,4 +55,22 @@ describe("receipt arithmetic reconciliation", () => {
     assert.equal(result.eligibleDifferencePence, 500);
     assert.match(result.issues.join(" "), /eligible line items/i);
   });
+
+  it("reconciles a selected quantity without changing the full receipt total", () => {
+    const result = reconcileReceipt(
+      [
+        {
+          totalPence: 800,
+          eligible: true,
+          claimedTotalPence: 200,
+        },
+      ],
+      800,
+      200,
+      0,
+    );
+    assert.equal(result.status, "balanced");
+    assert.equal(result.knownLineTotalPence, 800);
+    assert.equal(result.knownEligibleLineTotalPence, 200);
+  });
 });

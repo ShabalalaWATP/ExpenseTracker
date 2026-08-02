@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { assessGroupReceipt, groupReceiptState } from "../src/domain/group-receipt.ts";
+import {
+  allocatedReceiptLineTotal,
+  assessGroupReceipt,
+  groupReceiptState,
+  receiptLineQuantity,
+} from "../src/domain/group-receipt.ts";
 
 test("flags repeated meal sets as a likely shared receipt", () => {
   const result = assessGroupReceipt([
@@ -33,6 +38,14 @@ test("flags an unusually large order and understands printed quantities", () => 
   assert.ok(result.foodUnits >= 10);
 });
 
+test("allocates one item from a repeated receipt line", () => {
+  const line = { description: "4 x Coke", quantity: null };
+  assert.equal(receiptLineQuantity(line), 4);
+  assert.equal(allocatedReceiptLineTotal(800, 4, 1), 200);
+  assert.equal(allocatedReceiptLineTotal(800, 4, 3), 600);
+  assert.equal(allocatedReceiptLineTotal(-200, 1, 1), -200);
+});
+
 test("a review applies only to the exact extracted line items", () => {
   const lines = [
     { description: "Burger", quantity: 2, totalPence: 1_800 },
@@ -46,6 +59,7 @@ test("a review applies only to the exact extracted line items", () => {
   });
   assert.equal(reviewed.pending, false);
   assert.equal(reviewed.reviewed, true);
+  assert.deepEqual(reviewed.selectedQuantities, [0, 0]);
   assert.equal(
     groupReceiptState([...lines, { description: "Coke", quantity: 2 }], {
       status: "single",
@@ -53,4 +67,25 @@ test("a review applies only to the exact extracted line items", () => {
     }).pending,
     true,
   );
+});
+
+test("restores saved quantities and upgrades whole-line legacy selections", () => {
+  const lines = [
+    { description: "Burger", quantity: 3, totalPence: 2_100 },
+    { description: "Coke", quantity: 4, totalPence: 800 },
+  ];
+  const pending = groupReceiptState(lines, null);
+  const selected = groupReceiptState(lines, {
+    status: "shared",
+    fingerprint: pending.fingerprint,
+    selectedItems: [0, 1],
+    selectedQuantities: [1, 1],
+  });
+  assert.deepEqual(selected.selectedQuantities, [1, 1]);
+  const legacy = groupReceiptState(lines, {
+    status: "shared",
+    fingerprint: pending.fingerprint,
+    selectedItems: [0],
+  });
+  assert.deepEqual(legacy.selectedQuantities, [3, 0]);
 });

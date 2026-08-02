@@ -25,10 +25,24 @@ function units(quantity: number | null): number {
   return Math.min(20, Math.max(1, Math.round(quantity)));
 }
 
-function lineUnits(line: GroupReceiptLine): number {
+export function receiptLineQuantity(line: GroupReceiptLine): number {
   if (line.quantity && Number.isFinite(line.quantity)) return units(line.quantity);
   const printed = line.description.match(/^\s*(\d{1,2})\s*[x×]\s*/i)?.[1];
   return printed ? units(Number(printed)) : 1;
+}
+
+export function allocatedReceiptLineTotal(
+  totalPence: number | null | undefined,
+  lineQuantity: number,
+  selectedQuantity: number,
+): number {
+  if (!Number.isSafeInteger(totalPence)) return 0;
+  const available = units(lineQuantity);
+  const selected = Math.min(
+    available,
+    Math.max(0, Math.trunc(selectedQuantity)),
+  );
+  return Math.round((Number(totalPence) * selected) / available);
 }
 
 function kind(description: string): "ignore" | "drink" | "side" | "main" | "food" {
@@ -50,7 +64,7 @@ export function assessGroupReceipt(
 
   for (const line of lines) {
     if (!line.description.trim() || line.alcoholSuspected) continue;
-    const count = lineUnits(line);
+    const count = receiptLineQuantity(line);
     const category = kind(line.description);
     if (category === "ignore") continue;
     foodUnits += count;
@@ -95,7 +109,7 @@ export function assessGroupReceipt(
 function fingerprint(lines: readonly GroupReceiptLine[]): string {
   const canonical = lines.map((line) => [
     line.description.trim().toLocaleLowerCase("en-GB"),
-    lineUnits(line),
+    receiptLineQuantity(line),
     line.totalPence ?? null,
   ]);
   let hash = 2166136261;
@@ -110,6 +124,7 @@ export type StoredGroupReceiptReview = {
   status: "single" | "shared";
   fingerprint: string;
   selectedItems?: number[];
+  selectedQuantities?: number[];
 };
 
 export function groupReceiptState(
@@ -120,12 +135,21 @@ export function groupReceiptState(
   const currentFingerprint = fingerprint(lines);
   const reviewed =
     Boolean(stored) && stored?.fingerprint === currentFingerprint;
+  const selectedItems =
+    reviewed && stored?.selectedItems ? stored.selectedItems : [];
+  const selectedQuantities = reviewed
+    ? stored?.selectedQuantities ??
+      lines.map((line, index) =>
+        selectedItems.includes(index) ? receiptLineQuantity(line) : 0,
+      )
+    : [];
   return {
     ...assessment,
     fingerprint: currentFingerprint,
     reviewed,
     decision: reviewed ? stored!.status : null,
-    selectedItems: reviewed && stored?.selectedItems ? stored.selectedItems : [],
+    selectedItems,
+    selectedQuantities,
     pending: assessment.likelyShared && !reviewed,
   };
 }

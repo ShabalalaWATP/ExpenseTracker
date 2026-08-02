@@ -29,6 +29,7 @@ export function buildIntakePatch(input: {
   tripLegId: string;
   groupReceiptDecision: "single" | "shared" | null;
   groupReceiptSelectedItems: number[];
+  groupReceiptSelectedQuantities: number[];
 }): IntakePatch {
   const review: IntakePatch = {
     merchant: input.merchant.trim() || null,
@@ -48,7 +49,11 @@ export function buildIntakePatch(input: {
       ? { groupReceiptDecision: input.groupReceiptDecision }
       : {}),
     ...(input.groupReceiptDecision === "shared"
-      ? { groupReceiptSelectedItems: input.groupReceiptSelectedItems }
+      ? {
+          groupReceiptSelectedItems: input.groupReceiptSelectedItems,
+          groupReceiptSelectedQuantities:
+            input.groupReceiptSelectedQuantities,
+        }
       : {}),
   };
   if (input.originalCurrency !== input.initialCurrency) {

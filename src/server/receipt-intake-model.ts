@@ -216,6 +216,7 @@ export function publicIntake(row: ReceiptIntakeRow) {
       reviewed: groupReceipt.reviewed,
       decision: groupReceipt.decision,
       selectedItems: groupReceipt.selectedItems,
+      selectedQuantities: groupReceipt.selectedQuantities,
       estimatedPeople: groupReceipt.estimatedPeople,
       reason: groupReceipt.reason,
     },

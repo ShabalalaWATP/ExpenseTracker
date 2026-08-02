@@ -86,6 +86,7 @@ export type IntakePatch = {
   conversionReviewed?: boolean;
   groupReceiptDecision?: "single" | "shared";
   groupReceiptSelectedItems?: number[];
+  groupReceiptSelectedQuantities?: number[];
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -301,8 +302,30 @@ export function parseIntakePatch(value: unknown): IntakePatch {
       ...new Set(input.groupReceiptSelectedItems as number[]),
     ];
   }
+  if ("groupReceiptSelectedQuantities" in input) {
+    if (
+      !Array.isArray(input.groupReceiptSelectedQuantities) ||
+      input.groupReceiptSelectedQuantities.length > 100 ||
+      input.groupReceiptSelectedQuantities.some(
+        (quantity) =>
+          !Number.isSafeInteger(quantity) ||
+          Number(quantity) < 0 ||
+          Number(quantity) > 20,
+      )
+    ) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "groupReceiptSelectedQuantities must contain valid item quantities.",
+      );
+    }
+    result.groupReceiptSelectedQuantities = [
+      ...(input.groupReceiptSelectedQuantities as number[]),
+    ];
+  }
   if (
-    result.groupReceiptSelectedItems &&
+    (result.groupReceiptSelectedItems ||
+      result.groupReceiptSelectedQuantities) &&
     result.groupReceiptDecision !== "shared"
   ) {
     throw new ApiError(

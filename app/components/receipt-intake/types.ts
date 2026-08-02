@@ -35,6 +35,9 @@ export interface ReceiptLineItem {
   originalTotalMinor?: number | null;
   documentIndex: number;
   eligible: boolean | null;
+  groupOriginalEligible?: boolean | null;
+  claimedQuantity?: number;
+  claimedTotalPence?: number;
   alcoholSuspected: boolean;
   confidence?: number;
 }
@@ -138,6 +141,7 @@ export interface ReceiptIntake extends OriginalReceiptFacts {
     reviewed: boolean;
     decision: "single" | "shared" | null;
     selectedItems: number[];
+    selectedQuantities: number[];
     estimatedPeople: number;
     reason: string | null;
   };
@@ -202,4 +206,5 @@ export type IntakePatch = Partial<{
   conversionReviewed: boolean;
   groupReceiptDecision: "single" | "shared";
   groupReceiptSelectedItems: number[];
+  groupReceiptSelectedQuantities: number[];
 }>;

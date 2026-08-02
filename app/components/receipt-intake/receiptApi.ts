@@ -151,6 +151,12 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
             (index): index is number => Number.isSafeInteger(index),
           )
         : [],
+      selectedQuantities: Array.isArray(groupReceiptValue.selectedQuantities)
+        ? groupReceiptValue.selectedQuantities.filter(
+            (quantity): quantity is number =>
+              Number.isSafeInteger(quantity) && Number(quantity) >= 0,
+          )
+        : [],
       estimatedPeople:
         optionalInteger(groupReceiptValue.estimatedPeople) ?? 1,
       reason: text(groupReceiptValue.reason) ?? null,

@@ -1,4 +1,8 @@
 import { decideTripReview } from "@/src/domain/receipt-trip-review";
+import {
+  allocatedReceiptLineTotal,
+  receiptLineQuantity,
+} from "@/src/domain/group-receipt";
 import { auditStatementAfterChange } from "./audit-repository";
 import { database } from "./db";
 import { ApiError } from "./http";
@@ -163,25 +167,58 @@ export async function updateReceiptIntake(
     existing.original_currency === "GBP"
   ) {
     const lines = reviewJson<Array<{
+      description?: unknown;
+      quantity?: unknown;
       totalPence?: unknown;
       eligible?: unknown;
+      groupOriginalEligible?: unknown;
       alcoholSuspected?: unknown;
     }>>(
       existing.line_items_json,
       [],
     );
     const selected = patch.groupReceiptSelectedItems ?? [];
-    const selectedTotal = selected.reduce((sum, index) => {
-      const amount = lines[index]?.totalPence;
-      return Number.isSafeInteger(amount) &&
-        lines[index]?.eligible !== false &&
-        lines[index]?.alcoholSuspected !== true
-        ? sum + Number(amount)
+    const quantities = patch.groupReceiptSelectedQuantities ?? [];
+    const selectedTotal = lines.reduce((sum, line, index) => {
+      const available = receiptLineQuantity({
+        description:
+          typeof line.description === "string" ? line.description : "",
+        quantity: typeof line.quantity === "number" ? line.quantity : null,
+      });
+      const quantity =
+        quantities[index] ?? (selected.includes(index) ? available : 0);
+      const originallyEligible =
+        line.groupOriginalEligible ?? line.eligible;
+      return originallyEligible !== false &&
+        line.alcoholSuspected !== true &&
+        quantity <= available
+        ? sum +
+            allocatedReceiptLineTotal(
+              typeof line.totalPence === "number" ? line.totalPence : null,
+              available,
+              quantity,
+            )
         : sum;
     }, 0);
+    const selectedIndexes = quantities.flatMap((quantity, index) =>
+      quantity > 0 ? [index] : [],
+    );
     if (
-      selected.length === 0 ||
-      selected.some((index) => !lines[index]) ||
+      (selected.length === 0 && selectedIndexes.length === 0) ||
+      [...selected, ...selectedIndexes].some((index) => !lines[index]) ||
+      quantities.some((quantity, index) =>
+        quantity >
+        receiptLineQuantity({
+          description:
+            typeof lines[index]?.description === "string"
+              ? String(lines[index]?.description)
+              : "",
+          quantity:
+            typeof lines[index]?.quantity === "number"
+              ? Number(lines[index]?.quantity)
+              : null,
+        }),
+      ) ||
       selectedTotal < 1 ||
       selectedTotal !== patch.eligiblePence
     ) {

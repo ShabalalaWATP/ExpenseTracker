@@ -10,6 +10,7 @@ import { IntakeOriginFallback } from "./IntakeOriginFallback";
 import { IntakeReviewEvidence } from "./IntakeReviewEvidence";
 import { IntakeReviewFooter } from "./IntakeReviewFooter";
 import { IntakeReviewHeader } from "./IntakeReviewHeader";
+import { GroupReceiptReview } from "./GroupReceiptReview";
 import { ReceiptFactSummary } from "./ReceiptFactSummary";
 import { MultiReceiptSummary } from "./MultiReceiptSummary";
 import { ReceiptImageAdjuster } from "./ReceiptImageAdjuster";
@@ -69,6 +70,8 @@ export function IntakeReview({
   >(intake.groupReceipt.decision);
   const [groupReceiptSelectedItems, setGroupReceiptSelectedItems] =
     useState<number[]>(intake.groupReceipt.selectedItems);
+  const [groupReceiptSelectedQuantities, setGroupReceiptSelectedQuantities] =
+    useState<number[]>(intake.groupReceipt.selectedQuantities);
   const confirmInFlight = useRef(false);
 
   const flagged = (field: string) => fieldFlagged(intake, field);
@@ -106,6 +109,7 @@ export function IntakeReview({
       tripLegId,
       groupReceiptDecision,
       groupReceiptSelectedItems,
+      groupReceiptSelectedQuantities,
     });
   }
 
@@ -119,6 +123,7 @@ export function IntakeReview({
     setGratuity(pounds(updated.gratuityPence));
     setGroupReceiptDecision(updated.groupReceipt.decision);
     setGroupReceiptSelectedItems(updated.groupReceipt.selectedItems);
+    setGroupReceiptSelectedQuantities(updated.groupReceipt.selectedQuantities);
     setTripDecision("unchanged");
   }
 
@@ -260,6 +265,18 @@ export function IntakeReview({
           onAlcoholReviewed={setAlcoholReviewed}
         />
 
+        <GroupReceiptReview
+          intake={intake}
+          decision={groupReceiptDecision}
+          locked={locked}
+          onDecision={setGroupReceiptDecision}
+          onEligibleAmount={(value, selectedItems, selectedQuantities) => {
+            setEligible(value);
+            setGroupReceiptSelectedItems(selectedItems);
+            setGroupReceiptSelectedQuantities(selectedQuantities);
+          }}
+        />
+
         <ReceiptFactSummary intake={intake} />
         <MultiReceiptSummary intake={intake} />
         <IntakeOriginFallback
@@ -347,12 +364,6 @@ export function IntakeReview({
           locked={locked}
           onReconciliationReviewed={setReconciliationReviewed}
           onDuplicateReviewed={setDuplicateReviewed}
-          groupReceiptDecision={groupReceiptDecision}
-          onGroupReceiptDecision={setGroupReceiptDecision}
-          onEligibleAmount={(value, selectedItems) => {
-            setEligible(value);
-            setGroupReceiptSelectedItems(selectedItems);
-          }}
         />
 
         <IntakeReviewFooter

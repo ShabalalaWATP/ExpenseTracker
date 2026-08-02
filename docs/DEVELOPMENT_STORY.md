@@ -487,3 +487,8 @@ This document records meaningful implementation milestones, decisions and verifi
   filters stay first, trip-date selection sits below them, and one unified
   previous/range/today/next strip now sits directly above the calendar grid on
   desktop and mobile.
+- Moved possible shared-receipt review directly below the receipt header so it
+  cannot be missed beneath routine facts. Repeated lines are now allocated by
+  quantity, for example one of four drinks and one of three burgers. The full
+  printed quantities and totals remain intact as evidence while the selected
+  share alone becomes the eligible amount.

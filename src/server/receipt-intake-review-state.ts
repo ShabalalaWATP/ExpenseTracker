@@ -1,5 +1,9 @@
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
 import {
+  allocatedReceiptLineTotal,
+  receiptLineQuantity,
+} from "@/src/domain/group-receipt";
+import {
   receiptGroupReview,
   type ReceiptIntakeRow,
 } from "./receipt-intake-model";
@@ -140,7 +144,8 @@ export function prepareReviewState(
     if (
       key === "duplicateReviewed" ||
       key === "groupReceiptDecision" ||
-      key === "groupReceiptSelectedItems"
+      key === "groupReceiptSelectedItems" ||
+      key === "groupReceiptSelectedQuantities"
     ) continue;
     const column = patchColumns[key];
     if (!column) continue;
@@ -163,6 +168,8 @@ export function prepareReviewState(
         status: appliedPatch.groupReceiptDecision,
         fingerprint: group.fingerprint,
         selectedItems: appliedPatch.groupReceiptSelectedItems ?? [],
+        selectedQuantities:
+          appliedPatch.groupReceiptSelectedQuantities ?? [],
       },
     });
     assignments.push("clarification_json = ?");
@@ -171,20 +178,63 @@ export function prepareReviewState(
   }
   if (
     appliedPatch.groupReceiptDecision === "shared" &&
-    appliedPatch.groupReceiptSelectedItems?.length
+    (appliedPatch.groupReceiptSelectedItems?.length ||
+      appliedPatch.groupReceiptSelectedQuantities?.some(Boolean))
   ) {
+    const lines = reviewJson<Array<Record<string, unknown>>>(
+      existing.line_items_json,
+      [],
+    );
+    const quantities = appliedPatch.groupReceiptSelectedQuantities ?? [];
     const selected = new Set(appliedPatch.groupReceiptSelectedItems);
+    lineItemsJson = JSON.stringify(
+      lines.map((line, index) => {
+        const originalEligible =
+          line.groupOriginalEligible ?? line.eligible;
+        const available = receiptLineQuantity({
+          description:
+            typeof line.description === "string" ? line.description : "",
+          quantity:
+            typeof line.quantity === "number" ? line.quantity : null,
+        });
+        const quantity =
+          quantities[index] ?? (selected.has(index) ? available : 0);
+        const claimedTotalPence = allocatedReceiptLineTotal(
+          typeof line.totalPence === "number" ? line.totalPence : null,
+          available,
+          quantity,
+        );
+        return {
+          ...line,
+          groupOriginalEligible: originalEligible,
+          claimedQuantity: quantity,
+          claimedTotalPence,
+          eligible:
+            quantity > 0 &&
+            line.alcoholSuspected !== true &&
+            originalEligible !== false,
+        };
+      }),
+    );
+    assignments.push("line_items_json = ?");
+    values.push(lineItemsJson);
+  } else if (appliedPatch.groupReceiptDecision === "single") {
     const lines = reviewJson<Array<Record<string, unknown>>>(
       existing.line_items_json,
       [],
     );
     lineItemsJson = JSON.stringify(
-      lines.map((line, index) => ({
-        ...line,
-        eligible:
-          selected.has(index) && line.alcoholSuspected !== true &&
-          line.eligible !== false,
-      })),
+      lines.map((entry) => {
+        const line = { ...entry };
+        const groupOriginalEligible = line.groupOriginalEligible;
+        delete line.groupOriginalEligible;
+        delete line.claimedQuantity;
+        delete line.claimedTotalPence;
+        return {
+          ...line,
+          eligible: groupOriginalEligible ?? line.eligible,
+        };
+      }),
     );
     assignments.push("line_items_json = ?");
     values.push(lineItemsJson);
