@@ -30,6 +30,8 @@ export function buildIntakePatch(input: {
   groupReceiptDecision: "single" | "shared" | null;
   groupReceiptSelectedItems: number[];
   groupReceiptSelectedQuantities: number[];
+  groupReceiptPeopleCount: number;
+  groupReceiptAllocationMethod: "items" | "equal";
 }): IntakePatch {
   const review: IntakePatch = {
     merchant: input.merchant.trim() || null,
@@ -53,6 +55,9 @@ export function buildIntakePatch(input: {
           groupReceiptSelectedItems: input.groupReceiptSelectedItems,
           groupReceiptSelectedQuantities:
             input.groupReceiptSelectedQuantities,
+          groupReceiptPeopleCount: input.groupReceiptPeopleCount,
+          groupReceiptAllocationMethod:
+            input.groupReceiptAllocationMethod,
         }
       : {}),
   };

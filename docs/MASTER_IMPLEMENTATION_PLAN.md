@@ -411,8 +411,9 @@ control and the development record contains verification evidence.
   boundary are deliberately blocked for manual review.
 - The trip UI creates trips but does not edit or delete them, although a server
   update route exists.
-- The custom eligible amount supports mixed receipts and the editor exposes a
-  separate service charge or tip amount, but there is no line-item allocation.
+- Mixed and shared receipts support a custom eligible amount, per-line quantity
+  allocation or an equal headcount split. The owner's share of a service charge
+  or tip is included without replacing the full original receipt evidence.
 - Receipt originals are stored as uploaded for evidence. The analysis copy is
   normalised in Safari, but the original is not metadata-stripped and no malware
   scanner is currently available.
@@ -581,6 +582,8 @@ control and the development record contains verification evidence.
   per-line quantity allocation without changing the original receipt evidence.
 - [x] Reconcile quantity-allocated line totals consistently during final
   confirmation so valid shared receipts are not blocked by their full values.
+- [x] Let the owner set the shared headcount, choose equal or item-based bill
+  allocation, and include the appropriate service-charge share in both paths.
 
 ### Priority 3: broader use only when justified
 

@@ -142,6 +142,8 @@ export interface ReceiptIntake extends OriginalReceiptFacts {
     decision: "single" | "shared" | null;
     selectedItems: number[];
     selectedQuantities: number[];
+    peopleCount: number;
+    allocationMethod: "items" | "equal";
     estimatedPeople: number;
     reason: string | null;
   };
@@ -207,4 +209,6 @@ export type IntakePatch = Partial<{
   groupReceiptDecision: "single" | "shared";
   groupReceiptSelectedItems: number[];
   groupReceiptSelectedQuantities: number[];
+  groupReceiptPeopleCount: number;
+  groupReceiptAllocationMethod: "items" | "equal";
 }>;

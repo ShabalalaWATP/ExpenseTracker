@@ -157,6 +157,12 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
               Number.isSafeInteger(quantity) && Number(quantity) >= 0,
           )
         : [],
+      peopleCount:
+        optionalInteger(groupReceiptValue.peopleCount) ??
+        optionalInteger(groupReceiptValue.estimatedPeople) ??
+        2,
+      allocationMethod:
+        groupReceiptValue.allocationMethod === "equal" ? "equal" : "items",
       estimatedPeople:
         optionalInteger(groupReceiptValue.estimatedPeople) ?? 1,
       reason: text(groupReceiptValue.reason) ?? null,

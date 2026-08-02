@@ -80,8 +80,12 @@ test("restores saved quantities and upgrades whole-line legacy selections", () =
     fingerprint: pending.fingerprint,
     selectedItems: [0, 1],
     selectedQuantities: [1, 1],
+    peopleCount: 3,
+    allocationMethod: "equal",
   });
   assert.deepEqual(selected.selectedQuantities, [1, 1]);
+  assert.equal(selected.peopleCount, 3);
+  assert.equal(selected.allocationMethod, "equal");
   const legacy = groupReceiptState(lines, {
     status: "shared",
     fingerprint: pending.fingerprint,

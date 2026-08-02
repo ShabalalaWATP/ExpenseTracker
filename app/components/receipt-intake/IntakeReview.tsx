@@ -21,6 +21,7 @@ import { confidenceLabel, fieldFlagged } from "./receipt-field-state";
 import { patchIntake } from "./receiptApi";
 import type { ReceiptIntake } from "./types";
 import { completeReceiptConfirmation } from "./manual-confirmation";
+import { useGroupReceiptReviewState } from "./useGroupReceiptReviewState";
 
 export function IntakeReview({
   intake,
@@ -65,13 +66,7 @@ export function IntakeReview({
   const [conversionReviewed, setConversionReviewed] = useState(false);
   const [busy, setBusy] = useState<"saving" | "confirming" | "">("");
   const [message, setMessage] = useState("");
-  const [groupReceiptDecision, setGroupReceiptDecision] = useState<
-    "single" | "shared" | null
-  >(intake.groupReceipt.decision);
-  const [groupReceiptSelectedItems, setGroupReceiptSelectedItems] =
-    useState<number[]>(intake.groupReceipt.selectedItems);
-  const [groupReceiptSelectedQuantities, setGroupReceiptSelectedQuantities] =
-    useState<number[]>(intake.groupReceipt.selectedQuantities);
+  const groupReceipt = useGroupReceiptReviewState(intake);
   const confirmInFlight = useRef(false);
 
   const flagged = (field: string) => fieldFlagged(intake, field);
@@ -107,9 +102,11 @@ export function IntakeReview({
       tripDecision,
       tripId,
       tripLegId,
-      groupReceiptDecision,
-      groupReceiptSelectedItems,
-      groupReceiptSelectedQuantities,
+      groupReceiptDecision: groupReceipt.decision,
+      groupReceiptSelectedItems: groupReceipt.selectedItems,
+      groupReceiptSelectedQuantities: groupReceipt.selectedQuantities,
+      groupReceiptPeopleCount: groupReceipt.peopleCount,
+      groupReceiptAllocationMethod: groupReceipt.allocationMethod,
     });
   }
 
@@ -121,9 +118,7 @@ export function IntakeReview({
     setTotal(pounds(updated.receiptTotalPence));
     setEligible(pounds(updated.eligiblePence));
     setGratuity(pounds(updated.gratuityPence));
-    setGroupReceiptDecision(updated.groupReceipt.decision);
-    setGroupReceiptSelectedItems(updated.groupReceipt.selectedItems);
-    setGroupReceiptSelectedQuantities(updated.groupReceipt.selectedQuantities);
+    groupReceipt.accept(updated);
     setTripDecision("unchanged");
   }
 
@@ -226,14 +221,22 @@ export function IntakeReview({
   const locked = intake.status === "confirmed";
   const reconciliation = reconcileReceipt(
     intake.lineItems,
-    intake.originalReceiptTotalMinor ?? parsePence(total),
-    intake.originalEligibleMinor ?? parsePence(eligible),
-    intake.originalGratuityMinor ?? parsePence(gratuity),
+    foreignReceipt
+      ? intake.originalReceiptTotalMinor ?? parsePence(total)
+      : parsePence(total),
+    foreignReceipt
+      ? intake.originalEligibleMinor ?? parsePence(eligible)
+      : parsePence(eligible),
+    foreignReceipt
+      ? intake.originalGratuityMinor ?? parsePence(gratuity)
+      : parsePence(gratuity),
   );
   const duplicateBlocked =
     intake.duplicateCandidates.length > 0 && !duplicateReviewed;
   const reconciliationBlocked =
-    reconciliation.status === "mismatch" && !reconciliationReviewed;
+    reconciliation.status === "mismatch" &&
+    !reconciliationReviewed &&
+    groupReceipt.decision !== "shared";
 
   return (
     <div className="intake-review">
@@ -267,13 +270,23 @@ export function IntakeReview({
 
         <GroupReceiptReview
           intake={intake}
-          decision={groupReceiptDecision}
+          decision={groupReceipt.decision}
           locked={locked}
-          onDecision={setGroupReceiptDecision}
-          onEligibleAmount={(value, selectedItems, selectedQuantities) => {
+          onDecision={groupReceipt.setDecision}
+          onAllocation={(
+            value,
+            gratuityValue,
+            selectedItems,
+            selectedQuantities,
+            peopleCount,
+            method,
+          ) => {
             setEligible(value);
-            setGroupReceiptSelectedItems(selectedItems);
-            setGroupReceiptSelectedQuantities(selectedQuantities);
+            setGratuity(gratuityValue);
+            groupReceipt.setSelectedItems(selectedItems);
+            groupReceipt.setSelectedQuantities(selectedQuantities);
+            groupReceipt.setPeopleCount(peopleCount);
+            groupReceipt.setAllocationMethod(method);
           }}
         />
 
@@ -377,7 +390,7 @@ export function IntakeReview({
             (intake.tripMatchStatus === "ambiguous" &&
               tripDecision === "unchanged") ||
             (intake.alcoholSuspected && !alcoholReviewed) ||
-            (intake.groupReceipt.pending && !groupReceiptDecision)
+            (intake.groupReceipt.pending && !groupReceipt.decision)
           }
           onConfirm={() => void confirm()}
         />

@@ -1,14 +1,11 @@
 import { decideTripReview } from "@/src/domain/receipt-trip-review";
-import {
-  allocatedReceiptLineTotal,
-  receiptLineQuantity,
-} from "@/src/domain/group-receipt";
 import { auditStatementAfterChange } from "./audit-repository";
 import { database } from "./db";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import { applyCorrectedCurrency } from "./receipt-currency-correction";
 import { duplicateCandidateState } from "./receipt-duplicates";
+import { validateGroupReceiptAllocation } from "./receipt-intake-group-allocation";
 import {
   publicIntake,
   receiptGroupReview,
@@ -162,73 +159,7 @@ export async function updateReceiptIntake(
       "Use Recheck for foreign receipt amounts. Manual GBP values are available only when no official rate exists.",
     );
   }
-  if (
-    patch.groupReceiptDecision === "shared" &&
-    existing.original_currency === "GBP"
-  ) {
-    const lines = reviewJson<Array<{
-      description?: unknown;
-      quantity?: unknown;
-      totalPence?: unknown;
-      eligible?: unknown;
-      groupOriginalEligible?: unknown;
-      alcoholSuspected?: unknown;
-    }>>(
-      existing.line_items_json,
-      [],
-    );
-    const selected = patch.groupReceiptSelectedItems ?? [];
-    const quantities = patch.groupReceiptSelectedQuantities ?? [];
-    const selectedTotal = lines.reduce((sum, line, index) => {
-      const available = receiptLineQuantity({
-        description:
-          typeof line.description === "string" ? line.description : "",
-        quantity: typeof line.quantity === "number" ? line.quantity : null,
-      });
-      const quantity =
-        quantities[index] ?? (selected.includes(index) ? available : 0);
-      const originallyEligible =
-        line.groupOriginalEligible ?? line.eligible;
-      return originallyEligible !== false &&
-        line.alcoholSuspected !== true &&
-        quantity <= available
-        ? sum +
-            allocatedReceiptLineTotal(
-              typeof line.totalPence === "number" ? line.totalPence : null,
-              available,
-              quantity,
-            )
-        : sum;
-    }, 0);
-    const selectedIndexes = quantities.flatMap((quantity, index) =>
-      quantity > 0 ? [index] : [],
-    );
-    if (
-      (selected.length === 0 && selectedIndexes.length === 0) ||
-      [...selected, ...selectedIndexes].some((index) => !lines[index]) ||
-      quantities.some((quantity, index) =>
-        quantity >
-        receiptLineQuantity({
-          description:
-            typeof lines[index]?.description === "string"
-              ? String(lines[index]?.description)
-              : "",
-          quantity:
-            typeof lines[index]?.quantity === "number"
-              ? Number(lines[index]?.quantity)
-              : null,
-        }),
-      ) ||
-      selectedTotal < 1 ||
-      selectedTotal !== patch.eligiblePence
-    ) {
-      throw new ApiError(
-        400,
-        "group_receipt_selection_invalid",
-        "Select the items you had before confirming this shared receipt.",
-      );
-    }
-  }
+  validateGroupReceiptAllocation(existing, patch);
   await requireOwnedTrip(principal, patch.tripId ?? existing.trip_id);
   const receiptTotal =
     patch.receiptTotalPence ?? existing.receipt_total_pence;

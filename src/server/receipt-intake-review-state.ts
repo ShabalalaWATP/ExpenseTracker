@@ -1,13 +1,10 @@
-import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
-import {
-  allocatedReceiptLineTotal,
-  receiptLineQuantity,
-} from "@/src/domain/group-receipt";
+import { allocateGroupReceipt } from "@/src/domain/group-receipt-allocation";
 import {
   receiptGroupReview,
   type ReceiptIntakeRow,
 } from "./receipt-intake-model";
 import type { IntakePatch } from "./receipt-intake-validation";
+import { reconcileReceiptIntake } from "./receipt-intake-reconciliation";
 
 export function reviewJson<T>(value: string, fallback: T): T {
   try {
@@ -71,16 +68,9 @@ export function reviewRowValues(row: ReceiptIntakeRow) {
 }
 
 export function reconciliationNeedsReview(row: ReceiptIntakeRow): boolean {
-  const lines = reviewJson<
-    Array<{ totalPence: number | null; eligible: boolean | null }>
-  >(row.line_items_json, []);
   return (
-    reconcileReceipt(
-      lines,
-      row.original_receipt_total_minor,
-      row.original_eligible_minor,
-      row.original_gratuity_minor,
-    ).status === "mismatch" && !Boolean(row.reconciliation_reviewed)
+    reconcileReceiptIntake(row).status === "mismatch" &&
+    !Boolean(row.reconciliation_reviewed)
   );
 }
 
@@ -145,7 +135,9 @@ export function prepareReviewState(
       key === "duplicateReviewed" ||
       key === "groupReceiptDecision" ||
       key === "groupReceiptSelectedItems" ||
-      key === "groupReceiptSelectedQuantities"
+      key === "groupReceiptSelectedQuantities" ||
+      key === "groupReceiptPeopleCount" ||
+      key === "groupReceiptAllocationMethod"
     ) continue;
     const column = patchColumns[key];
     if (!column) continue;
@@ -170,47 +162,56 @@ export function prepareReviewState(
         selectedItems: appliedPatch.groupReceiptSelectedItems ?? [],
         selectedQuantities:
           appliedPatch.groupReceiptSelectedQuantities ?? [],
+        peopleCount: appliedPatch.groupReceiptPeopleCount,
+        allocationMethod: appliedPatch.groupReceiptAllocationMethod,
       },
     });
     assignments.push("clarification_json = ?");
     values.push(clarificationJson);
     provenance.group_receipt = "owner";
   }
-  if (
-    appliedPatch.groupReceiptDecision === "shared" &&
-    (appliedPatch.groupReceiptSelectedItems?.length ||
-      appliedPatch.groupReceiptSelectedQuantities?.some(Boolean))
-  ) {
+  if (appliedPatch.groupReceiptDecision === "shared") {
     const lines = reviewJson<Array<Record<string, unknown>>>(
       existing.line_items_json,
       [],
     );
     const quantities = appliedPatch.groupReceiptSelectedQuantities ?? [];
-    const selected = new Set(appliedPatch.groupReceiptSelectedItems);
+    const group = receiptGroupReview(existing);
+    const allocation = allocateGroupReceipt({
+      lines: lines.map((line) => ({
+        description:
+          typeof line.description === "string" ? line.description : "",
+        quantity: typeof line.quantity === "number" ? line.quantity : null,
+        totalPence:
+          typeof line.totalPence === "number" ? line.totalPence : null,
+        eligible:
+          typeof line.eligible === "boolean" ? line.eligible : null,
+        groupOriginalEligible:
+          typeof line.groupOriginalEligible === "boolean"
+            ? line.groupOriginalEligible
+            : null,
+        alcoholSuspected: line.alcoholSuspected === true,
+      })),
+      selectedQuantities: quantities,
+      peopleCount:
+        appliedPatch.groupReceiptPeopleCount ?? group.peopleCount,
+      method:
+        appliedPatch.groupReceiptAllocationMethod ?? group.allocationMethod,
+      serviceChargePence:
+        existing.original_gratuity_minor ?? existing.gratuity_pence,
+    });
     lineItemsJson = JSON.stringify(
       lines.map((line, index) => {
         const originalEligible =
           line.groupOriginalEligible ?? line.eligible;
-        const available = receiptLineQuantity({
-          description:
-            typeof line.description === "string" ? line.description : "",
-          quantity:
-            typeof line.quantity === "number" ? line.quantity : null,
-        });
-        const quantity =
-          quantities[index] ?? (selected.has(index) ? available : 0);
-        const claimedTotalPence = allocatedReceiptLineTotal(
-          typeof line.totalPence === "number" ? line.totalPence : null,
-          available,
-          quantity,
-        );
+        const claimedTotalPence = allocation.lineClaimsPence[index] ?? 0;
         return {
           ...line,
           groupOriginalEligible: originalEligible,
-          claimedQuantity: quantity,
+          claimedQuantity: quantities[index] ?? 0,
           claimedTotalPence,
           eligible:
-            quantity > 0 &&
+            claimedTotalPence !== 0 &&
             line.alcoholSuspected !== true &&
             originalEligible !== false,
         };
@@ -330,10 +331,25 @@ export function prepareReviewState(
     !options.foreignReceipt &&
     (options.dateChanged || options.gbpValuesChanged)
   ) {
-    projected.original_receipt_total_minor = projected.receipt_total_pence;
-    projected.original_eligible_minor = projected.eligible_pence;
-    projected.original_gratuity_minor = projected.gratuity_pence;
-    projected.original_minor_unit_digits = 2;
+    const preserveSharedEvidence =
+      appliedPatch.groupReceiptDecision === "shared";
+    if (!preserveSharedEvidence) {
+      projected.original_receipt_total_minor = projected.receipt_total_pence;
+      projected.original_eligible_minor = projected.eligible_pence;
+      projected.original_gratuity_minor = projected.gratuity_pence;
+      projected.original_minor_unit_digits = 2;
+      assignments.push(
+        "original_receipt_total_minor = ?",
+        "original_eligible_minor = ?",
+        "original_gratuity_minor = ?",
+        "original_minor_unit_digits = 2",
+      );
+      values.push(
+        projected.original_receipt_total_minor,
+        projected.original_eligible_minor,
+        projected.original_gratuity_minor,
+      );
+    }
     projected.conversion_json = JSON.stringify({
       status: "converted",
       source: "identity",
@@ -348,20 +364,8 @@ export function prepareReviewState(
       eligiblePence: projected.eligible_pence,
       gratuityPence: projected.gratuity_pence,
     });
-    assignments.push(
-      "original_receipt_total_minor = ?",
-      "original_eligible_minor = ?",
-      "original_gratuity_minor = ?",
-      "original_minor_unit_digits = 2",
-      "conversion_json = ?",
-      "exchange_rate_quote_id = NULL",
-    );
-    values.push(
-      projected.original_receipt_total_minor,
-      projected.original_eligible_minor,
-      projected.original_gratuity_minor,
-      projected.conversion_json,
-    );
+    assignments.push("conversion_json = ?", "exchange_rate_quote_id = NULL");
+    values.push(projected.conversion_json);
   }
   return {
     appliedPatch,

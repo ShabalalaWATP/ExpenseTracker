@@ -1,5 +1,3 @@
-import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
-import { reconciliationLines } from "@/src/domain/receipt-reconciliation-lines";
 import { assertDateUnlocked } from "./claim-locks";
 import { database } from "./db";
 import { findExpense } from "./expense-repository";
@@ -13,6 +11,7 @@ import {
   unresolvedFields,
 } from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
+import { reconcileReceiptIntake } from "./receipt-intake-reconciliation";
 import { requireReceiptAttestation } from "./receipt-intake-validation";
 import { commitReceiptIntakeExpense } from "./receipt-intake-expense";
 import { resolveReceiptTripLink } from "./receipt-trip-link";
@@ -135,12 +134,7 @@ export async function confirmReceiptIntake(
         "Eligible amount and gratuity must fit within the receipt total.",
       );
     }
-    const reconciliation = reconcileReceipt(
-      reconciliationLines(row.line_items_json),
-      row.original_receipt_total_minor,
-      row.original_eligible_minor,
-      row.original_gratuity_minor,
-    );
+    const reconciliation = reconcileReceiptIntake(row);
     if (
       reconciliation.status === "mismatch" &&
       !Boolean(row.reconciliation_reviewed)

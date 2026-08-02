@@ -214,10 +214,12 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
   assert.match(confirmation, /initial\.status === "confirmed"/);
   assert.match(manualConfirmation, /CONFIRMATION_CONFLICTS/);
   assert.match(manualConfirmation, /settledConfirmation/);
-  assert.match(groupReceiptReview, /Which items were yours\?/);
+  assert.match(groupReceiptReview, /How should your share be worked out\?/);
   assert.match(groupReceiptReview, /Everything was mine/);
   assert.match(groupReceiptReview, /Your quantity of/);
   assert.match(groupReceiptReview, /quantity} of {available}/);
+  assert.match(groupReceiptReview, /Split equally/);
+  assert.match(groupReceiptReview, /Service charge/);
   assert.ok(
     intakeReview.indexOf("<GroupReceiptReview") <
       intakeReview.indexOf("<ReceiptFactSummary"),

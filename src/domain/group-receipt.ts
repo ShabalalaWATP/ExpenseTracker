@@ -125,6 +125,8 @@ export type StoredGroupReceiptReview = {
   fingerprint: string;
   selectedItems?: number[];
   selectedQuantities?: number[];
+  peopleCount?: number;
+  allocationMethod?: "items" | "equal";
 };
 
 export function groupReceiptState(
@@ -150,6 +152,12 @@ export function groupReceiptState(
     decision: reviewed ? stored!.status : null,
     selectedItems,
     selectedQuantities,
+    peopleCount:
+      reviewed && stored?.peopleCount
+        ? Math.min(20, Math.max(2, stored.peopleCount))
+        : assessment.estimatedPeople,
+    allocationMethod:
+      reviewed && stored?.allocationMethod === "equal" ? "equal" : "items",
     pending: assessment.likelyShared && !reviewed,
   };
 }

@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { reconcileReceipt } from "../src/domain/receipt-reconciliation.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
-import { reconciliationLines } from "../src/domain/receipt-reconciliation-lines.ts";
+import {
+  reconciliationLines,
+  sharedReceiptServiceAdjustment,
+} from "../src/domain/receipt-reconciliation-lines.ts";
 
 describe("receipt arithmetic reconciliation", () => {
   it("balances visible items including a signed discount", () => {
@@ -102,5 +105,27 @@ describe("receipt arithmetic reconciliation", () => {
     assert.equal(result.status, "balanced");
     assert.equal(result.knownEligibleLineTotalPence, 3_988);
     assert.equal(result.eligibleDifferencePence, 0);
+  });
+
+  it("reconciles an externally allocated service-charge share", () => {
+    const storedLines = JSON.stringify([
+      { totalPence: 2_800, eligible: true, claimedTotalPence: 1_200 },
+    ]);
+    const adjustment = sharedReceiptServiceAdjustment(
+      storedLines,
+      1_350,
+      150,
+      true,
+    );
+    const result = reconcileReceipt(
+      reconciliationLines(storedLines),
+      2_800,
+      1_350,
+      150,
+      adjustment,
+    );
+    assert.equal(adjustment, 150);
+    assert.equal(result.status, "balanced");
+    assert.equal(result.knownEligibleLineTotalPence, 1_350);
   });
 });

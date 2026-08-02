@@ -20,6 +20,7 @@ export function reconcileReceipt(
   receiptTotalPence: number | null,
   eligiblePence: number | null,
   gratuityPence = 0,
+  eligibleAdjustmentPence = 0,
 ): ReceiptReconciliation {
   const known = lines.filter(
     (line): line is ReconciliationLine & { totalPence: number } =>
@@ -29,16 +30,17 @@ export function reconcileReceipt(
     (sum, line) => sum + line.totalPence,
     0,
   );
-  const knownEligibleLineTotalPence = known
-    .filter((line) => line.eligible === true)
-    .reduce(
-      (sum, line) =>
-        sum +
-        (Number.isSafeInteger(line.claimedTotalPence)
-          ? Number(line.claimedTotalPence)
-          : line.totalPence),
-      0,
-    );
+  const knownEligibleLineTotalPence =
+    known
+      .filter((line) => line.eligible === true)
+      .reduce(
+        (sum, line) =>
+          sum +
+          (Number.isSafeInteger(line.claimedTotalPence)
+            ? Number(line.claimedTotalPence)
+            : line.totalPence),
+        0,
+      ) + eligibleAdjustmentPence;
   const unknownAmountCount = lines.length - known.length;
   const unknownEligibilityCount = known.filter(
     (line) => line.eligible === null,

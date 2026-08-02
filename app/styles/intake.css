@@ -255,64 +255,6 @@
 .duplicate-review li span { display: grid; }
 .duplicate-review li small { color: var(--muted); font-size: .68rem; }
 
-.group-receipt-review {
-  border-left: 3px solid var(--amber);
-  display: grid;
-  gap: 10px;
-}
-.group-receipt-review h4, .group-receipt-review p { margin: 0; }
-.group-receipt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.group-receipt-actions button, .use-group-total {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  padding: 9px 13px;
-  font-weight: 760;
-}
-.group-receipt-actions button.selected {
-  border-color: var(--teal);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 20%, transparent);
-}
-.group-receipt-items { display: grid; gap: 8px; }
-.group-receipt-items > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 10px;
-  min-width: 0;
-}
-.group-receipt-items > div.selected {
-  border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 8%, var(--paper-raised));
-}
-.group-item-name { min-width: 0; overflow-wrap: anywhere; }
-.quantity-stepper {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 38px minmax(72px, auto) 38px;
-  align-items: center;
-  justify-content: start;
-  gap: 7px;
-}
-.quantity-stepper button {
-  min-width: 38px;
-  min-height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 1.15rem;
-  font-weight: 800;
-}
-.quantity-stepper button:disabled { opacity: .4; }
-.quantity-stepper span { text-align: center; font-size: .75rem; font-weight: 760; }
-.use-group-total { justify-self: start; }
-.use-group-total:disabled { opacity: .48; }
-.group-receipt-foreign-note { color: var(--muted); }
 .correction-history summary { cursor: pointer; font-size: .75rem; font-weight: 760; }
 .correction-history dl { margin: 10px 0 0; }
 .correction-history dl div {

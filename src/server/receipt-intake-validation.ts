@@ -87,6 +87,8 @@ export type IntakePatch = {
   groupReceiptDecision?: "single" | "shared";
   groupReceiptSelectedItems?: number[];
   groupReceiptSelectedQuantities?: number[];
+  groupReceiptPeopleCount?: number;
+  groupReceiptAllocationMethod?: "items" | "equal";
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -323,9 +325,38 @@ export function parseIntakePatch(value: unknown): IntakePatch {
       ...(input.groupReceiptSelectedQuantities as number[]),
     ];
   }
+  if ("groupReceiptPeopleCount" in input) {
+    if (
+      !Number.isSafeInteger(input.groupReceiptPeopleCount) ||
+      Number(input.groupReceiptPeopleCount) < 2 ||
+      Number(input.groupReceiptPeopleCount) > 20
+    ) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "groupReceiptPeopleCount must be between 2 and 20.",
+      );
+    }
+    result.groupReceiptPeopleCount = Number(input.groupReceiptPeopleCount);
+  }
+  if ("groupReceiptAllocationMethod" in input) {
+    if (
+      input.groupReceiptAllocationMethod !== "items" &&
+      input.groupReceiptAllocationMethod !== "equal"
+    ) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "groupReceiptAllocationMethod must be items or equal.",
+      );
+    }
+    result.groupReceiptAllocationMethod = input.groupReceiptAllocationMethod;
+  }
   if (
     (result.groupReceiptSelectedItems ||
-      result.groupReceiptSelectedQuantities) &&
+      result.groupReceiptSelectedQuantities ||
+      result.groupReceiptPeopleCount ||
+      result.groupReceiptAllocationMethod) &&
     result.groupReceiptDecision !== "shared"
   ) {
     throw new ApiError(

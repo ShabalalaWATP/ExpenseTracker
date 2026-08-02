@@ -496,3 +496,8 @@ This document records meaningful implementation milestones, decisions and verifi
   check now reads each stored claimed line total instead of re-expanding the
   selected lines to their full receipt values, so a valid partial allocation
   can become an expense without weakening receipt arithmetic checks.
+- Extended shared-receipt allocation with an explicit 2-to-20-person count and
+  two methods: divide the complete eligible bill equally, or select the
+  owner's quantities. Both methods calculate and display the owner's equal
+  share of any service charge, store that share separately from the full
+  original charge, and verify the arithmetic again on the server.
