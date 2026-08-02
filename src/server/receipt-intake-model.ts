@@ -1,4 +1,9 @@
 import { clarificationQuestions, type ReceiptField } from "./receipt-extraction";
+import {
+  groupReceiptState,
+  type GroupReceiptLine,
+  type StoredGroupReceiptReview,
+} from "../domain/group-receipt";
 
 export type ReceiptIntakeStatus =
   | "uploaded"
@@ -105,8 +110,19 @@ export function unresolvedFields(row: ReceiptIntakeRow): ReceiptField[] {
   return [...unresolved];
 }
 
+export function receiptGroupReview(row: ReceiptIntakeRow) {
+  const clarification = json<{
+    groupReceipt?: StoredGroupReceiptReview;
+  }>(row.clarification_json, {});
+  return groupReceiptState(
+    json<GroupReceiptLine[]>(row.line_items_json, []),
+    clarification.groupReceipt ?? null,
+  );
+}
+
 export function publicIntake(row: ReceiptIntakeRow) {
   const unresolved = unresolvedFields(row);
+  const groupReceipt = receiptGroupReview(row);
   const provenance = json<Record<string, "ai" | "owner" | "auto">>(
     row.correction_provenance_json,
     {},
@@ -175,6 +191,15 @@ export function publicIntake(row: ReceiptIntakeRow) {
     reconciliationReviewed: Boolean(row.reconciliation_reviewed),
     imageEdits: json(row.image_edits_json, {}),
     clarificationQuestions: clarificationQuestions(unresolved),
+    groupReceipt: {
+      likelyShared: groupReceipt.likelyShared,
+      pending: groupReceipt.pending,
+      reviewed: groupReceipt.reviewed,
+      decision: groupReceipt.decision,
+      selectedItems: groupReceipt.selectedItems,
+      estimatedPeople: groupReceipt.estimatedPeople,
+      reason: groupReceipt.reason,
+    },
     aiModel: row.ai_model,
     hasAnalysisCopy: Boolean(row.analysis_object_key),
     expenseId: row.expense_id,

@@ -52,6 +52,7 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
   const item = record(value);
   const translationValue = record(item.translation);
   const conversionValue = record(item.conversion);
+  const groupReceiptValue = record(item.groupReceipt);
   const translation = {
     merchantEnglish: text(
       translationValue.merchantEnglish ?? translationValue.merchant,
@@ -124,6 +125,24 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
       ? conversion
       : undefined,
     tripLegId: text(item.tripLegId) ?? null,
+    groupReceipt: {
+      likelyShared: groupReceiptValue.likelyShared === true,
+      pending: groupReceiptValue.pending === true,
+      reviewed: groupReceiptValue.reviewed === true,
+      decision:
+        groupReceiptValue.decision === "single" ||
+        groupReceiptValue.decision === "shared"
+          ? groupReceiptValue.decision
+          : null,
+      selectedItems: Array.isArray(groupReceiptValue.selectedItems)
+        ? groupReceiptValue.selectedItems.filter(
+            (index): index is number => Number.isSafeInteger(index),
+          )
+        : [],
+      estimatedPeople:
+        optionalInteger(groupReceiptValue.estimatedPeople) ?? 1,
+      reason: text(groupReceiptValue.reason) ?? null,
+    },
   };
 }
 
@@ -199,6 +218,13 @@ export async function listIntakes(
     { signal },
   );
   return result.data.intakes.map(normaliseReceiptIntake);
+}
+
+export async function getIntake(id: string): Promise<ReceiptIntake> {
+  const result = await request<Envelope<{ intake: ReceiptIntake }>>(
+    `/api/receipt-intakes/${encodeURIComponent(id)}`,
+  );
+  return normaliseReceiptIntake(result.data.intake);
 }
 
 export async function getAiStatus(): Promise<AiStatus> {

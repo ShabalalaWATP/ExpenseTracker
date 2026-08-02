@@ -84,6 +84,8 @@ export type IntakePatch = {
   duplicateReviewed?: boolean;
   reconciliationReviewed?: boolean;
   conversionReviewed?: boolean;
+  groupReceiptDecision?: "single" | "shared";
+  groupReceiptSelectedItems?: number[];
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -267,6 +269,47 @@ export function parseIntakePatch(value: unknown): IntakePatch {
       );
     }
     result.conversionReviewed = input.conversionReviewed;
+  }
+  if ("groupReceiptDecision" in input) {
+    if (
+      input.groupReceiptDecision !== "single" &&
+      input.groupReceiptDecision !== "shared"
+    ) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "groupReceiptDecision must be single or shared.",
+      );
+    }
+    result.groupReceiptDecision = input.groupReceiptDecision;
+  }
+  if ("groupReceiptSelectedItems" in input) {
+    if (
+      !Array.isArray(input.groupReceiptSelectedItems) ||
+      input.groupReceiptSelectedItems.length > 100 ||
+      input.groupReceiptSelectedItems.some(
+        (index) => !Number.isSafeInteger(index) || Number(index) < 0,
+      )
+    ) {
+      throw new ApiError(
+        400,
+        "validation_failed",
+        "groupReceiptSelectedItems must contain valid receipt item numbers.",
+      );
+    }
+    result.groupReceiptSelectedItems = [
+      ...new Set(input.groupReceiptSelectedItems as number[]),
+    ];
+  }
+  if (
+    result.groupReceiptSelectedItems &&
+    result.groupReceiptDecision !== "shared"
+  ) {
+    throw new ApiError(
+      400,
+      "validation_failed",
+      "Selected group items require a shared receipt decision.",
+    );
   }
   if (Object.keys(result).length === 0) {
     throw new ApiError(400, "validation_failed", "No review fields were provided.");

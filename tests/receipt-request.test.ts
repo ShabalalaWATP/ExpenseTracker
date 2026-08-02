@@ -32,7 +32,7 @@ test("receipt requests use low reasoning for faster extraction", () => {
   assert.equal(body.reasoning.effort, "low");
   assert.equal(RECEIPT_REASONING_EFFORT, "low");
   assert.equal(RECEIPT_IMAGE_DETAIL, "original");
-  assert.equal(RECEIPT_VERIFICATION_IMAGE_DETAIL, "high");
+  assert.equal(RECEIPT_VERIFICATION_IMAGE_DETAIL, "original");
   assert.equal(body.input[0].content[1].detail, "original");
   assert.equal(
     body.prompt_cache_key,
@@ -46,6 +46,8 @@ test("receipt requests use low reasoning for faster extraction", () => {
   assert.match(body.instructions, /05:00-10:59 breakfast/);
   assert.match(body.instructions, /Return null for every non-food receipt/);
   assert.match(body.instructions, /Never invent duty, purpose, authorisation/);
+  assert.match(body.instructions, /Trust clear printed evidence/);
+  assert.match(body.instructions, /Preserve printed quantities exactly/);
   assert.match(body.instructions, /ISO 3166-1 alpha-2 country/);
   assert.match(body.instructions, /original Unicode script/);
   assert.equal(body.text.format.strict, true);

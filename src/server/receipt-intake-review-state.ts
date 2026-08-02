@@ -1,5 +1,8 @@
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
-import type { ReceiptIntakeRow } from "./receipt-intake-model";
+import {
+  receiptGroupReview,
+  type ReceiptIntakeRow,
+} from "./receipt-intake-model";
 import type { IntakePatch } from "./receipt-intake-validation";
 
 export function reviewJson<T>(value: string, fallback: T): T {
@@ -131,8 +134,14 @@ export function prepareReviewState(
   ][];
   const assignments: string[] = [];
   const values: unknown[] = [];
+  let clarificationJson = existing.clarification_json;
+  let lineItemsJson = existing.line_items_json;
   for (const [key, value] of entries) {
-    if (key === "duplicateReviewed") continue;
+    if (
+      key === "duplicateReviewed" ||
+      key === "groupReceiptDecision" ||
+      key === "groupReceiptSelectedItems"
+    ) continue;
     const column = patchColumns[key];
     if (!column) continue;
     assignments.push(`${column} = ?`);
@@ -141,6 +150,44 @@ export function prepareReviewState(
         ? Number(value)
         : value,
     );
+  }
+
+  if (appliedPatch.groupReceiptDecision) {
+    const group = receiptGroupReview(existing);
+    clarificationJson = JSON.stringify({
+      ...reviewJson<Record<string, unknown>>(
+        existing.clarification_json ?? "{}",
+        {},
+      ),
+      groupReceipt: {
+        status: appliedPatch.groupReceiptDecision,
+        fingerprint: group.fingerprint,
+        selectedItems: appliedPatch.groupReceiptSelectedItems ?? [],
+      },
+    });
+    assignments.push("clarification_json = ?");
+    values.push(clarificationJson);
+    provenance.group_receipt = "owner";
+  }
+  if (
+    appliedPatch.groupReceiptDecision === "shared" &&
+    appliedPatch.groupReceiptSelectedItems?.length
+  ) {
+    const selected = new Set(appliedPatch.groupReceiptSelectedItems);
+    const lines = reviewJson<Array<Record<string, unknown>>>(
+      existing.line_items_json,
+      [],
+    );
+    lineItemsJson = JSON.stringify(
+      lines.map((line, index) => ({
+        ...line,
+        eligible:
+          selected.has(index) && line.alcoholSuspected !== true &&
+          line.eligible !== false,
+      })),
+    );
+    assignments.push("line_items_json = ?");
+    values.push(lineItemsJson);
   }
 
   let conversionOverride: string | null = null;
@@ -224,6 +271,8 @@ export function prepareReviewState(
     missing_fields_json: JSON.stringify(missing),
     uncertain_fields_json: JSON.stringify(uncertain),
     correction_provenance_json: JSON.stringify(provenance),
+    clarification_json: clarificationJson,
+    line_items_json: lineItemsJson,
     conversion_json: conversionOverride ?? existing.conversion_json,
   } satisfies ReceiptIntakeRow;
 

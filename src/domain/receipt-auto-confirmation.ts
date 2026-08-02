@@ -1,24 +1,24 @@
 export const AUTO_CONFIRM_CONFIDENCE = {
-  merchant: 0.9,
-  serviceDate: 0.95,
-  receiptTotal: 0.95,
-  eligibleAmount: 0.95,
-  location: 0.9,
-  businessReason: 0.85,
-  category: 0.9,
-  transactionTime: 0.85,
-  mealContext: 0.85,
-  gratuity: 0.9,
-  lineItems: 0.9,
+  merchant: 0.88,
+  serviceDate: 0.9,
+  receiptTotal: 0.9,
+  eligibleAmount: 0.9,
+  location: 0.85,
+  businessReason: 0.8,
+  category: 0.85,
+  transactionTime: 0.8,
+  mealContext: 0.8,
+  gratuity: 0.85,
+  lineItems: 0.88,
 } as const;
 
 export const AUTO_VERIFY_CONFIDENCE = {
-  serviceDate: 0.98,
-  receiptTotal: 0.98,
-  eligibleAmount: 0.98,
-  currency: 0.98,
-  country: 0.98,
-  receiptEvidence: 0.98,
+  serviceDate: 0.95,
+  receiptTotal: 0.95,
+  eligibleAmount: 0.95,
+  currency: 0.95,
+  country: 0.95,
+  receiptEvidence: 0.95,
 } as const;
 
 export type ReceiptAutoVerification = {
@@ -62,7 +62,8 @@ export type AutomaticConfirmationReason =
   | "verification_unavailable"
   | "verification_mismatch"
   | "verification_evidence"
-  | "verification_unsafe";
+  | "verification_unsafe"
+  | "group_receipt";
 
 export type AutomaticConfirmationInput = {
   merchant: string | null;
@@ -105,6 +106,7 @@ export type AutomaticConfirmationInput = {
     | "invalid";
   provenance: Readonly<Record<string, "ai" | "owner" | "auto">>;
   verification: ReceiptAutoVerification | null;
+  groupReceiptPending: boolean;
 };
 
 function present(value: string | null): boolean {
@@ -222,6 +224,7 @@ export function automaticConfirmationReasons(
     reasons.add("alcohol");
   }
   if (input.duplicateCount !== 0) reasons.add("duplicate");
+  if (input.groupReceiptPending) reasons.add("group_receipt");
   if (
     input.acknowledgements.alcohol ||
     input.acknowledgements.duplicate ||

@@ -4,6 +4,8 @@ const REVIEW_MESSAGE: Record<string, string> = {
   arithmetic: "The printed items and totals need an arithmetic check.",
   alcohol: "Possible alcohol must be reviewed by the owner.",
   duplicate: "A possible duplicate receipt needs review.",
+  group_receipt:
+    "This looks like a shared receipt. Say which items were yours before it is added.",
   acknowledgement: "This receipt needs owner confirmation after review.",
   currency: "The receipt currency could not be confirmed.",
   country: "The purchase country could not be confirmed.",

@@ -1,11 +1,16 @@
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
 import { assertDateUnlocked } from "./claim-locks";
 import { database } from "./db";
+import { findExpense } from "./expense-repository";
 import { ApiError } from "./http";
 import type { Principal } from "./principal";
 import { assertDuplicatesReviewed } from "./receipt-duplicates";
 import { safeJson, type Provenance } from "./receipt-analysis-merge";
-import { unresolvedFields } from "./receipt-intake-model";
+import {
+  publicIntake,
+  receiptGroupReview,
+  unresolvedFields,
+} from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
 import { requireReceiptAttestation } from "./receipt-intake-validation";
 import { commitReceiptIntakeExpense } from "./receipt-intake-expense";
@@ -59,8 +64,11 @@ export async function confirmReceiptIntake(
 ) {
   requireReceiptAttestation(confirmation);
   const initial = await requireIntake(principal, id);
-  if (initial.status === "confirmed") {
-    throw new ApiError(409, "receipt_confirmed", "This receipt is already confirmed.");
+  if (initial.status === "confirmed" && initial.expense_id) {
+    return {
+      intake: publicIntake(initial),
+      expense: await findExpense(principal, initial.expense_id),
+    };
   }
   if (initial.status === "analysing") {
     throw new ApiError(
@@ -80,6 +88,13 @@ export async function confirmReceiptIntake(
     .bind(principal.ownerId, id, initial.status, initial.updated_at)
     .first<{ id: string }>();
   if (!locked) {
+    const current = await requireIntake(principal, id);
+    if (current.status === "confirmed" && current.expense_id) {
+      return {
+        intake: publicIntake(current),
+        expense: await findExpense(principal, current.expense_id),
+      };
+    }
     throw new ApiError(
       409,
       "receipt_changed",
@@ -96,6 +111,13 @@ export async function confirmReceiptIntake(
         "receipt_needs_review",
         "Resolve the highlighted receipt details before confirming.",
         { fields: unresolved },
+      );
+    }
+    if (receiptGroupReview(row).pending) {
+      throw new ApiError(
+        409,
+        "receipt_group_review_required",
+        "This looks like a shared receipt. Confirm which items were yours first.",
       );
     }
     if (

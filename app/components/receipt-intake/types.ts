@@ -109,6 +109,15 @@ export interface ReceiptIntake extends OriginalReceiptFacts {
   reconciliationReviewed: boolean;
   imageEdits: Partial<ImageEdits>;
   clarificationQuestions: string[];
+  groupReceipt: {
+    likelyShared: boolean;
+    pending: boolean;
+    reviewed: boolean;
+    decision: "single" | "shared" | null;
+    selectedItems: number[];
+    estimatedPeople: number;
+    reason: string | null;
+  };
   aiModel: string | null;
   hasAnalysisCopy: boolean;
   errorCode: string | null;
@@ -168,4 +177,6 @@ export type IntakePatch = Partial<{
   duplicateReviewed: boolean;
   reconciliationReviewed: boolean;
   conversionReviewed: boolean;
+  groupReceiptDecision: "single" | "shared";
+  groupReceiptSelectedItems: number[];
 }>;

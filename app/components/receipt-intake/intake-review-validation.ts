@@ -27,6 +27,8 @@ export function buildIntakePatch(input: {
   tripDecision: "unchanged" | "selected" | "leave_unlinked";
   tripId: string;
   tripLegId: string;
+  groupReceiptDecision: "single" | "shared" | null;
+  groupReceiptSelectedItems: number[];
 }): IntakePatch {
   const review: IntakePatch = {
     merchant: input.merchant.trim() || null,
@@ -42,6 +44,12 @@ export function buildIntakePatch(input: {
     duplicateReviewed: input.duplicateReviewed,
     reconciliationReviewed: input.reconciliationReviewed,
     conversionReviewed: input.conversionReviewed,
+    ...(input.groupReceiptDecision
+      ? { groupReceiptDecision: input.groupReceiptDecision }
+      : {}),
+    ...(input.groupReceiptDecision === "shared"
+      ? { groupReceiptSelectedItems: input.groupReceiptSelectedItems }
+      : {}),
   };
   if (input.originalCurrency !== input.initialCurrency) {
     review.originalCurrency = input.originalCurrency;

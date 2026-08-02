@@ -68,6 +68,7 @@ function cleanInput(): Input {
       },
       confidence: { ...policy.AUTO_VERIFY_CONFIDENCE },
     },
+    groupReceiptPending: false,
   };
   return input;
 }
@@ -108,6 +109,14 @@ describe("strict receipt automatic confirmation policy", () => {
       "duplicate",
       "acknowledgement",
     ]);
+  });
+
+  it("requires an owner answer when a receipt looks shared", () => {
+    const input = cleanInput();
+    input.groupReceiptPending = true;
+    assert.ok(
+      policy.automaticConfirmationReasons(input).includes("group_receipt"),
+    );
   });
 
   it("does not mistake the automatic no-duplicate marker for owner review", () => {

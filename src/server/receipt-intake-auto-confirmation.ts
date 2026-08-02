@@ -24,7 +24,11 @@ import {
   recoverStaleTokenlessAnalysis,
 } from "./receipt-intake-auto-confirm-lease";
 import { commitReceiptIntakeExpense } from "./receipt-intake-expense";
-import { publicIntake, unresolvedFields } from "./receipt-intake-model";
+import {
+  publicIntake,
+  receiptGroupReview,
+  unresolvedFields,
+} from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
 import { resolveReceiptTripLink } from "./receipt-trip-link";
 
@@ -267,6 +271,7 @@ export async function attemptAutoConfirmReceiptIntake(
       tripStatus,
       provenance,
       verification: verified.verification,
+      groupReceiptPending: receiptGroupReview(row).pending,
     });
     if (reasons.length) {
       return {

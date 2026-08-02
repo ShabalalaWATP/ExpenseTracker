@@ -51,6 +51,7 @@ export async function verifyReceiptForAutoConfirmation(
         "Preserve original-script evidence. Supply a separate faithful English translation without replacing the original text.",
         "The eligible amount must be supported by visible purchased lines and arithmetic. Exclude suspected alcohol. Do not apply an allowance cap.",
         "Use UNKNOWN, null, false or low confidence whenever evidence is incomplete.",
+        "Read the full-resolution image carefully and trust unambiguous printed dates, totals, quantities, merchant identity, addresses, postcodes and tax details. Do not lower confidence merely because the receipt uses a common abbreviation.",
       ].join(" "),
       input: [
         {

@@ -186,6 +186,8 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     editableFacts,
     locationMap,
     appShell,
+    manualConfirmation,
+    groupReceiptReview,
   ] = await Promise.all([
     readFile(new URL("../app/components/receipt-intake/IntakeReview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/receipt-intake/ReceiptImageAdjuster.tsx", import.meta.url), "utf8"),
@@ -196,6 +198,8 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     readFile(new URL("../app/components/receipt-intake/IntakeEditableFacts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/DetailedLocationMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/AppShell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/receipt-intake/manual-confirmation.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/receipt-intake/GroupReceiptReview.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(intakeReview, /<IntakeEditableFacts/);
@@ -207,6 +211,11 @@ test("guards manual review, concurrent confirmation and multipart evidence", asy
     confirmation,
     /status = 'analysing'[\s\S]+expense_id IS NULL/,
   );
+  assert.match(confirmation, /initial\.status === "confirmed"/);
+  assert.match(manualConfirmation, /CONFIRMATION_CONFLICTS/);
+  assert.match(manualConfirmation, /settledConfirmation/);
+  assert.match(groupReceiptReview, /Which items were yours\?/);
+  assert.match(groupReceiptReview, /Everything was mine/);
   assert.match(
     processing,
     /if \(!current \|\| current\.analysis_object_key !== analysisObjectKey\)/,

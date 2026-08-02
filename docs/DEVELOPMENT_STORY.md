@@ -461,3 +461,18 @@ This document records meaningful implementation milestones, decisions and verifi
 - Corrected Calendar entry so ordinary navigation starts on the dashboard's
   current UK date instead of the first day of the claim month. Explicit date
   links still take precedence for receipt and readiness workflows.
+- Made owner confirmation idempotent across delayed Safari requests. A repeated
+  confirmation now returns the one existing expense, late review patches
+  converge on the confirmed intake, and the client polls an in-flight conflict
+  instead of asking the owner to press Confirm expense again.
+- Improved first-pass receipt reading with original-detail vision for both
+  extraction and independent verification, clearer quantity and line-total
+  instructions, and less brittle confidence thresholds. Exact date, amount,
+  currency and country agreement, alcohol exclusion, arithmetic, duplicate and
+  genuine-receipt checks remain mandatory for unattended confirmation.
+- Added deterministic shared-receipt review. Repeated meal sets, several mains
+  or an unusually large order trigger an immediate “Which items were yours?”
+  prompt with selectable GBP line items. A plausible single-person burger,
+  fries, chicken-strips and drink order is deliberately not flagged. The owner
+  answer is bound to the exact extracted line-item fingerprint and is invalidated
+  if those lines change.

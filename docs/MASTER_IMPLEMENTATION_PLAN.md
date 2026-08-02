@@ -563,6 +563,15 @@ control and the development record contains verification evidence.
 - [x] Make IndexedDB file/state persistence atomic and sequential per selected
   batch, preserve a secured-evidence retry path, and reject hostile oversized
   JPEG/PNG dimensions before browser decode.
+- [x] Make manual receipt confirmation idempotent across overlapping Safari
+  requests, returning the existing confirmed expense and settling in-flight
+  conflicts without repeated button presses.
+- [x] Detect strong shared-order patterns from extracted quantities and meal
+  composition, ask which items belong to the owner, and avoid flagging an
+  ordinary one-person meal with sides and a drink.
+- [x] Use original-detail vision for extraction and verification, strengthen
+  quantity instructions and reduce unnecessary confidence-only review while
+  retaining exact verification, arithmetic, alcohol and duplicate safeguards.
 
 ### Priority 3: broader use only when justified
 
@@ -580,6 +589,8 @@ decisions remain out of scope.
 
 Verify the automated date, location, duty-reason and meal-context suggestions
 against a non-sensitive receipt set, including weak or missing receipt fields.
+Include paired meal sets, a ten-item shared order and a one-person meal with
+several sides to measure shared-receipt precision and false positives.
 Measure low-reasoning, 5 MP receipt latency and accuracy against the same set
 before deciding whether difficult receipts need an automatic higher-reasoning
 or larger-image retry.

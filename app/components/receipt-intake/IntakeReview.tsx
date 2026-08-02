@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
 import { parsePence } from "../format";
 import type { ExpenseCategory, MealContext } from "../types";
@@ -16,8 +16,10 @@ import { buildIntakePatch, pounds, validateIntakeReview } from "./intake-review-
 import type { IntakeReviewProps } from "./intake-review-props";
 import { buildPreRecheckPatch, currentIntakePatch } from "./pre-recheck-patch";
 import { confidenceLabel, fieldFlagged } from "./receipt-field-state";
-import { confirmIntake, patchIntake } from "./receiptApi";
+import { patchIntake } from "./receiptApi";
 import type { ReceiptIntake } from "./types";
+import { completeReceiptConfirmation } from "./manual-confirmation";
+
 export function IntakeReview({
   intake,
   data,
@@ -61,6 +63,12 @@ export function IntakeReview({
   const [conversionReviewed, setConversionReviewed] = useState(false);
   const [busy, setBusy] = useState<"saving" | "confirming" | "">("");
   const [message, setMessage] = useState("");
+  const [groupReceiptDecision, setGroupReceiptDecision] = useState<
+    "single" | "shared" | null
+  >(intake.groupReceipt.decision);
+  const [groupReceiptSelectedItems, setGroupReceiptSelectedItems] =
+    useState<number[]>(intake.groupReceipt.selectedItems);
+  const confirmInFlight = useRef(false);
 
   const flagged = (field: string) => fieldFlagged(intake, field);
   const confidence = (field: string) => confidenceLabel(intake, field);
@@ -95,6 +103,8 @@ export function IntakeReview({
       tripDecision,
       tripId,
       tripLegId,
+      groupReceiptDecision,
+      groupReceiptSelectedItems,
     });
   }
 
@@ -106,6 +116,8 @@ export function IntakeReview({
     setTotal(pounds(updated.receiptTotalPence));
     setEligible(pounds(updated.eligiblePence));
     setGratuity(pounds(updated.gratuityPence));
+    setGroupReceiptDecision(updated.groupReceipt.decision);
+    setGroupReceiptSelectedItems(updated.groupReceipt.selectedItems);
     setTripDecision("unchanged");
   }
 
@@ -148,24 +160,29 @@ export function IntakeReview({
   }
 
   async function confirm() {
+    if (confirmInFlight.current) return;
     const issue = validate();
     if (issue) {
       setMessage(issue);
       return;
     }
+    confirmInFlight.current = true;
     setBusy("confirming");
     setMessage("");
     try {
-      const saved = await patchIntake(intake.id, fields());
+      const { saved, confirmed } = await completeReceiptConfirmation(
+        intake.id,
+        fields(),
+      );
       onUpdate(saved);
       acceptSaved(saved);
-      const updated = await confirmIntake(intake.id, true);
-      onUpdate(updated);
+      onUpdate(confirmed);
       await onConfirmed();
       setMessage("Expense confirmed and added to your ledger.");
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "Expense could not be confirmed.");
     } finally {
+      confirmInFlight.current = false;
       setBusy("");
     }
   }
@@ -328,6 +345,12 @@ export function IntakeReview({
           locked={locked}
           onReconciliationReviewed={setReconciliationReviewed}
           onDuplicateReviewed={setDuplicateReviewed}
+          groupReceiptDecision={groupReceiptDecision}
+          onGroupReceiptDecision={setGroupReceiptDecision}
+          onEligibleAmount={(value, selectedItems) => {
+            setEligible(value);
+            setGroupReceiptSelectedItems(selectedItems);
+          }}
         />
 
         <IntakeReviewFooter
@@ -340,7 +363,8 @@ export function IntakeReview({
             (manualConversion && !conversionReviewed) ||
             (intake.tripMatchStatus === "ambiguous" &&
               tripDecision === "unchanged") ||
-            (intake.alcoholSuspected && !alcoholReviewed)
+            (intake.alcoholSuspected && !alcoholReviewed) ||
+            (intake.groupReceipt.pending && !groupReceiptDecision)
           }
           onConfirm={() => void confirm()}
         />

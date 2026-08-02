@@ -7,6 +7,7 @@ import { applyCorrectedCurrency } from "./receipt-currency-correction";
 import { duplicateCandidateState } from "./receipt-duplicates";
 import {
   publicIntake,
+  receiptGroupReview,
   unresolvedFields,
 } from "./receipt-intake-model";
 import { requireIntake } from "./receipt-intake-repository";
@@ -87,7 +88,7 @@ export async function updateReceiptIntake(
     patch = { ...patch, mealContext: null };
   }
   if (existing.status === "confirmed") {
-    throw new ApiError(409, "receipt_confirmed", "This receipt is already confirmed.");
+    return publicIntake(existing);
   }
   if (existing.status === "analysing") {
     throw new ApiError(
@@ -156,6 +157,40 @@ export async function updateReceiptIntake(
       "foreign_receipt_reanalysis_required",
       "Use Recheck for foreign receipt amounts. Manual GBP values are available only when no official rate exists.",
     );
+  }
+  if (
+    patch.groupReceiptDecision === "shared" &&
+    existing.original_currency === "GBP"
+  ) {
+    const lines = reviewJson<Array<{
+      totalPence?: unknown;
+      eligible?: unknown;
+      alcoholSuspected?: unknown;
+    }>>(
+      existing.line_items_json,
+      [],
+    );
+    const selected = patch.groupReceiptSelectedItems ?? [];
+    const selectedTotal = selected.reduce((sum, index) => {
+      const amount = lines[index]?.totalPence;
+      return Number.isSafeInteger(amount) &&
+        lines[index]?.eligible !== false &&
+        lines[index]?.alcoholSuspected !== true
+        ? sum + Number(amount)
+        : sum;
+    }, 0);
+    if (
+      selected.length === 0 ||
+      selected.some((index) => !lines[index]) ||
+      selectedTotal < 1 ||
+      selectedTotal !== patch.eligiblePence
+    ) {
+      throw new ApiError(
+        400,
+        "group_receipt_selection_invalid",
+        "Select the items you had before confirming this shared receipt.",
+      );
+    }
   }
   await requireOwnedTrip(principal, patch.tripId ?? existing.trip_id);
   const receiptTotal =
@@ -267,6 +302,7 @@ export async function updateReceiptIntake(
     : null;
   const status =
     unresolvedFields(projected).length ||
+    receiptGroupReview(projected).pending ||
     (duplicates.candidates.length > 0 && !duplicateReviewed) ||
     reconciliationNeedsReview(projected) ||
     Boolean(tripLink.errorCode)

@@ -26,6 +26,10 @@ import {
   convertReceiptToGbp,
   type ReceiptConversion,
 } from "./fx-conversion";
+import {
+  groupReceiptState,
+  type StoredGroupReceiptReview,
+} from "../domain/group-receipt";
 export async function persistReceiptExtraction(
   principal: Principal,
   row: ReceiptIntakeRow,
@@ -316,11 +320,22 @@ export async function persistReceiptExtraction(
   );
   const history = appendAnalysisHistory(row, extraction, model, targeted);
   const tripMatchAmbiguous = Boolean(tripLink.errorCode);
+  const persistedLines = targeted.size
+    ? safeJson(row.line_items_json, extraction.lineItems)
+    : extraction.lineItems;
+  const storedClarification = safeJson<{
+    groupReceipt?: StoredGroupReceiptReview;
+  }>(row.clarification_json, {});
+  const groupReview = groupReceiptState(
+    persistedLines,
+    storedClarification.groupReceipt ?? null,
+  );
   const unresolvedCount =
     missing.size +
     uncertain.size +
     Number(alcoholSuspected) +
-    Number(tripMatchAmbiguous);
+    Number(tripMatchAmbiguous) +
+    Number(groupReview.pending);
 
   const results = await database().batch<{ id: string }>([
     database()
@@ -377,7 +392,7 @@ export async function persistReceiptExtraction(
         tripLegId,
         targeted.size
           ? row.line_items_json
-          : JSON.stringify(extraction.lineItems),
+          : JSON.stringify(persistedLines),
         JSON.stringify(confidence),
         JSON.stringify([...missing]),
         JSON.stringify([...uncertain]),
