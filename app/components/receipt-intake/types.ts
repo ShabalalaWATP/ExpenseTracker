@@ -33,9 +33,25 @@ export interface ReceiptLineItem {
   quantity: number | null;
   totalPence: number | null;
   originalTotalMinor?: number | null;
+  documentIndex: number;
   eligible: boolean | null;
   alcoholSuspected: boolean;
   confidence?: number;
+}
+
+export interface ReceiptDocument {
+  documentIndex: number;
+  merchant: string | null;
+  serviceDate: string | null;
+  transactionTime: string | null;
+  receiptTotalPence: number | null;
+  eligiblePence: number | null;
+  gratuityPence: number;
+  currency: string;
+  country: string;
+  locationHint: string | null;
+  duplicateOfDocumentIndex: number | null;
+  lineItemIndexes: number[];
 }
 
 export interface DuplicateCandidate {
@@ -97,6 +113,13 @@ export interface ReceiptIntake extends OriginalReceiptFacts {
   tripMatchStatus: "none" | "automatic" | "explicit" | "ambiguous";
   tripMatchException: string | null;
   lineItems: ReceiptLineItem[];
+  receiptDocuments: ReceiptDocument[];
+  multiReceipt: {
+    detected: boolean;
+    sameMeal: boolean | null;
+    confidence: number;
+    reason: string | null;
+  };
   confidence: Record<string, number>;
   missingFields: string[];
   uncertainFields: string[];

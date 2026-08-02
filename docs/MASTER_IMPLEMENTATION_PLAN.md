@@ -572,6 +572,9 @@ control and the development record contains verification evidence.
 - [x] Use original-detail vision for extraction and verification, strengthen
   quantity instructions and reduce unnecessary confidence-only review while
   retaining exact verification, arithmetic, alcohol and duplicate safeguards.
+- [x] Detect multiple physical receipts in one photo, preserve per-document
+  facts and the complete original evidence, aggregate independently verified
+  same-meal transactions, and exclude duplicate copies from the total.
 
 ### Priority 3: broader use only when justified
 
@@ -588,7 +591,9 @@ decisions remain out of scope.
 ## 10. Current next step
 
 Verify the automated date, location, duty-reason and meal-context suggestions
-against a non-sensitive receipt set, including weak or missing receipt fields.
+against a non-sensitive receipt set, including weak or missing receipt fields
+and photos containing two same-meal receipts, two unrelated receipts and a
+customer/merchant copy pair.
 Include paired meal sets, a ten-item shared order and a one-person meal with
 several sides to measure shared-receipt precision and false positives.
 Measure low-reasoning, 5 MP receipt latency and accuracy against the same set

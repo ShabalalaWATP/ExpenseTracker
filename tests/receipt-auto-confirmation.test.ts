@@ -54,6 +54,9 @@ function cleanInput(): Input {
       serviceDate: "2026-07-30",
       receiptTotalPence: 1_250,
       eligiblePence: 1_250,
+      receiptDocumentCount: 1,
+      distinctTransactionCount: 1,
+      sameMeal: null,
       currency: "GBP",
       country: "GB",
       isReceipt: true,
@@ -65,10 +68,14 @@ function cleanInput(): Input {
         currencyVisible: true,
         countryVisible: true,
         merchantOrTaxIdentityVisible: true,
+        documentsSeparated: true,
       },
       confidence: { ...policy.AUTO_VERIFY_CONFIDENCE },
     },
     groupReceiptPending: false,
+    receiptDocumentCount: 1,
+    distinctTransactionCount: 1,
+    sameMeal: null,
   };
   return input;
 }
@@ -116,6 +123,34 @@ describe("strict receipt automatic confirmation policy", () => {
     input.groupReceiptPending = true;
     assert.ok(
       policy.automaticConfirmationReasons(input).includes("group_receipt"),
+    );
+  });
+
+  it("allows verified same-meal receipts but blocks unrelated documents", () => {
+    const sameMeal = cleanInput();
+    sameMeal.receiptDocumentCount = 2;
+    sameMeal.distinctTransactionCount = 2;
+    sameMeal.sameMeal = true;
+    sameMeal.verification = {
+      ...sameMeal.verification!,
+      receiptDocumentCount: 2,
+      distinctTransactionCount: 2,
+      sameMeal: true,
+    };
+    assert.equal(policy.canAutomaticallyConfirm(sameMeal), true);
+
+    const unrelated = cleanInput();
+    unrelated.receiptDocumentCount = 2;
+    unrelated.distinctTransactionCount = 2;
+    unrelated.sameMeal = false;
+    unrelated.verification = {
+      ...unrelated.verification!,
+      receiptDocumentCount: 2,
+      distinctTransactionCount: 2,
+      sameMeal: false,
+    };
+    assert.ok(
+      policy.automaticConfirmationReasons(unrelated).includes("multi_receipt"),
     );
   });
 

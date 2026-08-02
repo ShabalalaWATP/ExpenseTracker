@@ -11,6 +11,7 @@ import { IntakeReviewEvidence } from "./IntakeReviewEvidence";
 import { IntakeReviewFooter } from "./IntakeReviewFooter";
 import { IntakeReviewHeader } from "./IntakeReviewHeader";
 import { ReceiptFactSummary } from "./ReceiptFactSummary";
+import { MultiReceiptSummary } from "./MultiReceiptSummary";
 import { ReceiptImageAdjuster } from "./ReceiptImageAdjuster";
 import { buildIntakePatch, pounds, validateIntakeReview } from "./intake-review-validation";
 import type { IntakeReviewProps } from "./intake-review-props";
@@ -260,6 +261,7 @@ export function IntakeReview({
         />
 
         <ReceiptFactSummary intake={intake} />
+        <MultiReceiptSummary intake={intake} />
         <IntakeOriginFallback
           intake={intake}
           currency={originalCurrency}

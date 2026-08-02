@@ -476,3 +476,10 @@ This document records meaningful implementation milestones, decisions and verifi
   fries, chicken-strips and drink order is deliberately not flagged. The owner
   answer is bound to the exact extracted line-item fingerprint and is invalidated
   if those lines change.
+- Added multi-receipt photo understanding. One upload can now describe every
+  physical receipt visible in the image, assign line items to each document and
+  retain the complete original photo as evidence. Distinct transactions that
+  the extraction and independent verifier both identify as one meal are added
+  together deterministically from their subtotals. Customer, merchant and card
+  terminal copies remain visible but are counted once. Unrelated or ambiguous
+  receipt combinations cannot be confirmed automatically.

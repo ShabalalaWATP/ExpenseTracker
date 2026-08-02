@@ -15,6 +15,101 @@ describe("receipt extraction normalisation", () => {
     assert.ok(
       RECEIPT_EXTRACTION_SCHEMA.required.includes("location_coordinates"),
     );
+    assert.ok(
+      RECEIPT_EXTRACTION_SCHEMA.required.includes("receipt_documents"),
+    );
+    assert.ok(lineItems.required.includes("document_index"));
+  });
+
+  it("adds two same-meal receipts from one photo using document subtotals", () => {
+    const result = normaliseExtraction({
+      receipt_total_minor: 999,
+      eligible_minor: 999,
+      gratuity_minor: 0,
+      currency: "GBP",
+      country: "GB",
+      receipt_documents: [
+        {
+          document_index: 1,
+          merchant: "Main Kitchen",
+          service_date: "2026-08-02",
+          transaction_time: "19:10",
+          receipt_total_minor: 1_200,
+          eligible_minor: 1_200,
+          gratuity_minor: 0,
+          currency: "GBP",
+          country: "GB",
+          location_hint: "Portsmouth",
+          duplicate_of_document_index: null,
+          line_item_indexes: [0],
+        },
+        {
+          document_index: 2,
+          merchant: "Dessert Counter",
+          service_date: "2026-08-02",
+          transaction_time: "19:22",
+          receipt_total_minor: 800,
+          eligible_minor: 800,
+          gratuity_minor: 0,
+          currency: "GBP",
+          country: "GB",
+          location_hint: "Portsmouth",
+          duplicate_of_document_index: null,
+          line_item_indexes: [1],
+        },
+      ],
+      multi_receipt: {
+        detected: true,
+        same_meal: true,
+        confidence: 0.97,
+        reason: "Nearby times and complementary courses at the same venue.",
+      },
+      line_items: [
+        { description: "Dinner", document_index: 1, total_minor: 1_200 },
+        { description: "Dessert", document_index: 2, total_minor: 800 },
+      ],
+    });
+
+    assert.equal(result.receiptTotalPence, 2_000);
+    assert.equal(result.eligiblePence, 2_000);
+    assert.equal(result.multiReceipt.sameMeal, true);
+    assert.equal(result.receiptDocuments.length, 2);
+    assert.equal(result.lineItems[1]?.documentIndex, 2);
+  });
+
+  it("keeps duplicate receipt copies but does not count them twice", () => {
+    const document = {
+      merchant: "Field Kitchen",
+      service_date: "2026-08-02",
+      transaction_time: "12:10",
+      receipt_total_minor: 1_250,
+      eligible_minor: 1_250,
+      gratuity_minor: 0,
+      currency: "GBP",
+      country: "GB",
+      location_hint: "London",
+      line_item_indexes: [0],
+    };
+    const result = normaliseExtraction({
+      receipt_total_minor: 2_500,
+      eligible_minor: 2_500,
+      currency: "GBP",
+      country: "GB",
+      receipt_documents: [
+        { ...document, document_index: 1, duplicate_of_document_index: null },
+        { ...document, document_index: 2, duplicate_of_document_index: 1 },
+      ],
+      multi_receipt: {
+        detected: true,
+        same_meal: true,
+        confidence: 0.99,
+        reason: "Customer and merchant copies of one transaction.",
+      },
+    });
+
+    assert.equal(result.receiptTotalPence, 1_250);
+    assert.equal(result.eligiblePence, 1_250);
+    assert.equal(result.receiptDocuments[1]?.duplicateOfDocumentIndex, 1);
   });
 
   it("normalises a complete GBP receipt without changing integer pence", () => {

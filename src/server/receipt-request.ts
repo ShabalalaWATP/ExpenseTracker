@@ -2,9 +2,9 @@ export const RECEIPT_REASONING_EFFORT = "low";
 export const RECEIPT_IMAGE_DETAIL = "original";
 export const RECEIPT_VERIFICATION_IMAGE_DETAIL = "original";
 export const RECEIPT_EXTRACTION_PROMPT_CACHE_KEY =
-  "expense-tracker-receipt-extraction-v1";
+  "expense-tracker-receipt-extraction-v2";
 export const RECEIPT_VERIFICATION_PROMPT_CACHE_KEY =
-  "expense-tracker-receipt-verification-v1";
+  "expense-tracker-receipt-verification-v2";
 
 export function receiptRequestBody(
   model: string,
@@ -27,6 +27,11 @@ export function receiptRequestBody(
       "Transcribe every visible purchased line item. Do not invent missing facts.",
       "Read the full-resolution image carefully before returning null or marking a field uncertain. Trust clear printed evidence, including common receipt abbreviations, and use high confidence when the text and arithmetic are legible. Do not request human confirmation merely because a value was inferred from an unambiguous printed label.",
       "Preserve printed quantities exactly. A line such as '2 x Burger' must have quantity 2. Treat a printed line total as the total for that whole line, not as a per-item price, unless the receipt explicitly labels it otherwise. Keep mains, sides and drinks as separate line items so the app can recognise a shared order.",
+      "First identify every distinct physical receipt document visible in the image. Return one receipt_documents entry per visible document, even when two receipts are side by side, overlap, or are from the same merchant. Assign each flattened line item to its 1-based document_index and list its zero-based index in that document's line_item_indexes.",
+      "Distinguish a second transaction from a customer, merchant or card-terminal copy of the same transaction. Set duplicate_of_document_index for a duplicate copy and never add a duplicate copy's total twice. Reuse the original transaction's line_item_indexes and do not repeat its purchased lines in the flattened line_items array.",
+      "When multiple distinct transactions have compatible dates, nearby times and the same or nearby venue, or contain complementary parts of one meal, set multi_receipt.same_meal true. Aggregate their non-duplicate totals, eligible amounts and gratuities into the root fields. Preserve every document separately in receipt_documents.",
+      "When multiple documents appear unrelated or the same-meal relationship is unclear, still transcribe every document, set multi_receipt.same_meal false or null, explain why briefly, and mark receipt_total and eligible_amount uncertain so the app does not silently confirm the combination.",
+      "For one visible receipt document, return one receipt_documents entry, set multi_receipt.detected false and same_meal null.",
       "Amounts are integer minor currency units, never decimal major units. Use the ISO 4217 minor-unit precision for the identified currency. Reconcile items, discounts, service charges and the final total.",
       "Return the canonical ISO 4217 currency and ISO 3166-1 alpha-2 country only when visibly supported, otherwise UNKNOWN. Return the receipt language as a canonical BCP 47 tag when identifiable.",
       "Preserve merchant names and every line-item description exactly in the original Unicode script. Supply a faithful English translation separately. Never replace the original transcription with its translation.",

@@ -19,12 +19,16 @@ export const AUTO_VERIFY_CONFIDENCE = {
   currency: 0.95,
   country: 0.95,
   receiptEvidence: 0.95,
+  documentSeparation: 0.95,
 } as const;
 
 export type ReceiptAutoVerification = {
   serviceDate: string | null;
   receiptTotalPence: number | null;
   eligiblePence: number | null;
+  receiptDocumentCount: number;
+  distinctTransactionCount: number;
+  sameMeal: boolean | null;
   currency: string;
   country: string;
   language?: string | null;
@@ -42,6 +46,7 @@ export type ReceiptAutoVerification = {
     currencyVisible: boolean;
     countryVisible: boolean;
     merchantOrTaxIdentityVisible: boolean;
+    documentsSeparated: boolean;
   };
   confidence: Record<keyof typeof AUTO_VERIFY_CONFIDENCE, number>;
 };
@@ -63,7 +68,8 @@ export type AutomaticConfirmationReason =
   | "verification_mismatch"
   | "verification_evidence"
   | "verification_unsafe"
-  | "group_receipt";
+  | "group_receipt"
+  | "multi_receipt";
 
 export type AutomaticConfirmationInput = {
   merchant: string | null;
@@ -107,6 +113,9 @@ export type AutomaticConfirmationInput = {
   provenance: Readonly<Record<string, "ai" | "owner" | "auto">>;
   verification: ReceiptAutoVerification | null;
   groupReceiptPending: boolean;
+  receiptDocumentCount: number;
+  distinctTransactionCount: number;
+  sameMeal: boolean | null;
 };
 
 function present(value: string | null): boolean {
@@ -165,7 +174,10 @@ function verificationReasons(
     verification.eligiblePence !==
       (input.originalEligibleMinor ?? input.eligiblePence) ||
     verification.currency !== input.extractedCurrency ||
-    verification.country !== input.extractedCountry
+    verification.country !== input.extractedCountry ||
+    verification.receiptDocumentCount !== input.receiptDocumentCount ||
+    verification.distinctTransactionCount !== input.distinctTransactionCount ||
+    verification.sameMeal !== input.sameMeal
   ) {
     reasons.push("verification_mismatch");
   }
@@ -225,6 +237,9 @@ export function automaticConfirmationReasons(
   }
   if (input.duplicateCount !== 0) reasons.add("duplicate");
   if (input.groupReceiptPending) reasons.add("group_receipt");
+  if (input.distinctTransactionCount > 1 && input.sameMeal !== true) {
+    reasons.add("multi_receipt");
+  }
   if (
     input.acknowledgements.alcohol ||
     input.acknowledgements.duplicate ||

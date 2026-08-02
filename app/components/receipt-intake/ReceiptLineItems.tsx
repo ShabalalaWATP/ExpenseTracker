@@ -11,6 +11,7 @@ export function ReceiptLineItems({
   minorUnitDigits?: number;
 }) {
   if (!items.length) return null;
+  const multipleDocuments = items.some((item) => item.documentIndex > 1);
   return (
     <details className="line-items">
       <summary>{items.length} receipt items</summary>
@@ -22,6 +23,9 @@ export function ReceiptLineItems({
                 {(item.quantity ?? 0) > 1 ? `${item.quantity} × ` : ""}
                 {item.originalDescription || item.description}
               </span>
+              {multipleDocuments ? (
+                <small>Receipt {item.documentIndex}</small>
+              ) : null}
               {item.descriptionEnglish &&
               item.descriptionEnglish !==
                 (item.originalDescription || item.description) ? (

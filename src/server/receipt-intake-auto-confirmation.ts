@@ -215,6 +215,16 @@ export async function attemptAutoConfirmReceiptIntake(
       row.extraction_json,
       {},
     );
+    const receiptDocuments = Array.isArray(extraction.receiptDocuments)
+      ? extraction.receiptDocuments
+      : [];
+    const receiptDocumentCount = Math.max(1, receiptDocuments.length);
+    const distinctTransactionCount = Math.max(
+      1,
+      receiptDocuments.filter(
+        (document) => document.duplicateOfDocumentIndex === null,
+      ).length,
+    );
     const provenance = safeJson<Provenance>(
       row.correction_provenance_json,
       {},
@@ -272,6 +282,9 @@ export async function attemptAutoConfirmReceiptIntake(
       provenance,
       verification: verified.verification,
       groupReceiptPending: receiptGroupReview(row).pending,
+      receiptDocumentCount,
+      distinctTransactionCount,
+      sameMeal: extraction.multiReceipt?.sameMeal ?? null,
     });
     if (reasons.length) {
       return {

@@ -50,6 +50,9 @@ test("receipt requests use low reasoning for faster extraction", () => {
   assert.match(body.instructions, /Preserve printed quantities exactly/);
   assert.match(body.instructions, /ISO 3166-1 alpha-2 country/);
   assert.match(body.instructions, /original Unicode script/);
+  assert.match(body.instructions, /every distinct physical receipt document/);
+  assert.match(body.instructions, /never add a duplicate copy's total twice/);
+  assert.match(body.instructions, /Aggregate their non-duplicate totals/);
   assert.equal(body.text.format.strict, true);
 });
 

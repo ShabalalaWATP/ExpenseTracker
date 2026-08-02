@@ -4,9 +4,26 @@ import { RECEIPT_FIELDS, type ReceiptExtraction, type ReceiptField, type Receipt
 import { EXPENSE_CATEGORIES } from "../domain/expense-categories.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
 import { normaliseFoodStyleTags } from "../domain/food-style.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+import {
+  aggregateDistinctReceipts,
+  normaliseMultiReceipt,
+  normaliseReceiptDocuments,
+} from "./receipt-extraction-documents.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
+export { clarificationQuestions } from "./receipt-clarification-questions.ts";
 
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
-export { RECEIPT_EXTRACTION_SCHEMA, RECEIPT_FIELDS, type ExtractedLineItem, type ReceiptExtraction, type ReceiptField, type ReceiptLocationCoordinates } from "./receipt-extraction-schema.ts";
+export {
+  RECEIPT_EXTRACTION_SCHEMA,
+  RECEIPT_FIELDS,
+  type ExtractedLineItem,
+  type MultiReceiptAssessment,
+  type ReceiptDocument,
+  type ReceiptExtraction,
+  type ReceiptField,
+  type ReceiptLocationCoordinates,
+} from "./receipt-extraction-schema.ts";
 // @ts-expect-error Node's TypeScript stripping requires the source extension in direct tests.
 export { FOOD_STYLE_TAGS, type FoodStyleTag } from "../domain/food-style.ts";
 
@@ -217,15 +234,37 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
         .map(optionalText)
         .filter((item): item is string => Boolean(item))
     : [];
+  const receiptDocuments = normaliseReceiptDocuments(
+    value.receipt_documents,
+    currency,
+    canonicalCountry(value.country),
+  );
+  const multiReceipt = normaliseMultiReceipt(
+    value.multi_receipt,
+    receiptDocuments,
+  );
+  const aggregate = aggregateDistinctReceipts(
+    receiptDocuments,
+    multiReceipt.sameMeal,
+  );
+  const uncertainFields = Array.isArray(value.uncertain_fields)
+    ? value.uncertain_fields.filter(isReceiptField)
+    : [];
+  if (multiReceipt.detected && multiReceipt.sameMeal !== true) {
+    uncertainFields.push("receipt_total", "eligible_amount");
+  }
   return {
     merchant: optionalText(value.merchant),
     serviceDate: validDate(value.service_date),
     transactionTime,
-    receiptTotalPence: money(
-      value.receipt_total_minor ?? value.receipt_total_pence,
-    ),
-    eligiblePence: money(value.eligible_minor ?? value.eligible_pence),
+    receiptTotalPence:
+      aggregate?.receiptTotalPence ??
+      money(value.receipt_total_minor ?? value.receipt_total_pence),
+    eligiblePence:
+      aggregate?.eligiblePence ??
+      money(value.eligible_minor ?? value.eligible_pence),
     gratuityPence:
+      aggregate?.gratuityPence ??
       money(value.gratuity_minor ?? value.gratuity_pence) ?? 0,
     currency,
     country: canonicalCountry(value.country),
@@ -267,19 +306,25 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
             ? item.quantity
             : null,
         totalPence: signedMoney(item.total_minor ?? item.total_pence),
+        documentIndex:
+          Number.isSafeInteger(item.document_index) &&
+          Number(item.document_index) >= 1 &&
+          Number(item.document_index) <= 10
+            ? Number(item.document_index)
+            : 1,
         eligible:
           typeof item.eligible === "boolean" ? item.eligible : null,
         alcoholSuspected: item.alcohol_suspected === true,
         confidence: confidence(item.confidence),
       };
     }),
+    receiptDocuments,
+    multiReceipt,
     alcoholSuspected: value.alcohol_suspected === true,
     missingFields: Array.isArray(value.missing_fields)
       ? value.missing_fields.filter(isReceiptField)
       : [],
-    uncertainFields: Array.isArray(value.uncertain_fields)
-      ? value.uncertain_fields.filter(isReceiptField)
-      : [],
+    uncertainFields: [...new Set(uncertainFields)],
     confidence: {
       merchant: confidence(rawConfidence.merchant),
       serviceDate: confidence(rawConfidence.service_date),
@@ -294,27 +339,4 @@ export function normaliseExtraction(input: unknown): ReceiptExtraction {
       category: confidence(rawConfidence.category),
     },
   };
-}
-
-export function clarificationQuestions(fields: readonly string[]): string[] {
-  const unique = [...new Set(fields)];
-  const questions: Partial<Record<ReceiptField, string>> = {
-    merchant: "What was the name of the place on this receipt?",
-    service_date: "What date was this purchase made?",
-    transaction_time: "What time was this purchase made?",
-    receipt_total: "What was the full receipt total?",
-    eligible_amount:
-      "How much was for your food and non-alcoholic drink only?",
-    location: "Where were you when this expense was incurred?",
-    business_reason: "Why was this expense necessary for duty?",
-    meal_context: "Was this breakfast, lunch, an evening meal or a snack?",
-    alcohol:
-      "Does this receipt contain alcohol, and what amount must be excluded?",
-    category:
-      "What kind of expense is this: food and drink, taxi, public transport, parking, or something else?",
-  };
-  return unique
-    .filter(isReceiptField)
-    .map((field) => questions[field])
-    .filter((question): question is string => Boolean(question));
 }

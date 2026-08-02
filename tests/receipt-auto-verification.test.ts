@@ -8,6 +8,9 @@ function verifierOutput(): Record<string, unknown> {
     service_date: "2026-07-30",
     receipt_total_minor: 1_250,
     eligible_minor: 1_250,
+    receipt_document_count: 1,
+    distinct_transaction_count: 1,
+    same_meal: null,
     currency: "GBP",
     country: "GB",
     language: "en",
@@ -25,6 +28,7 @@ function verifierOutput(): Record<string, unknown> {
       currency_visible: true,
       country_visible: true,
       merchant_or_tax_identity_visible: true,
+      documents_separated: true,
     },
     confidence: {
       service_date: 0.99,
@@ -33,6 +37,7 @@ function verifierOutput(): Record<string, unknown> {
       currency: 0.99,
       country: 0.99,
       receipt_evidence: 0.99,
+      document_separation: 0.99,
     },
   };
 }
@@ -41,6 +46,7 @@ describe("receipt auto-verifier output validation", () => {
   it("accepts only the isolated strict output shape", () => {
     const result = normaliseReceiptAutoVerification(verifierOutput());
     assert.equal(result.receiptTotalPence, 1_250);
+    assert.equal(result.receiptDocumentCount, 1);
     assert.equal(result.evidence.countryVisible, true);
   });
 

@@ -1,4 +1,9 @@
-import { clarificationQuestions, type ReceiptField } from "./receipt-extraction";
+import {
+  clarificationQuestions,
+  type MultiReceiptAssessment,
+  type ReceiptDocument,
+  type ReceiptField,
+} from "./receipt-extraction";
 import {
   groupReceiptState,
   type GroupReceiptLine,
@@ -127,10 +132,17 @@ export function publicIntake(row: ReceiptIntakeRow) {
     row.correction_provenance_json,
     {},
   );
-  const extraction = json<{ transactionTime?: unknown }>(
+  const extraction = json<{
+    transactionTime?: unknown;
+    receiptDocuments?: ReceiptDocument[];
+    multiReceipt?: MultiReceiptAssessment;
+  }>(
     row.extraction_json,
     {},
   );
+  const receiptDocuments = Array.isArray(extraction.receiptDocuments)
+    ? extraction.receiptDocuments
+    : [];
   const tripMatchStatus =
     row.error_code?.startsWith("receipt_trip_")
       ? "ambiguous"
@@ -179,6 +191,13 @@ export function publicIntake(row: ReceiptIntakeRow) {
         ? row.error_message
         : null,
     lineItems: json(row.line_items_json, []),
+    receiptDocuments,
+    multiReceipt: extraction.multiReceipt ?? {
+      detected: false,
+      sameMeal: null,
+      confidence: 0,
+      reason: null,
+    },
     confidence: json(row.confidence_json, {}),
     missingFields: json(row.missing_fields_json, []),
     uncertainFields: json(row.uncertain_fields_json, []),

@@ -15,11 +15,52 @@ test("normalises missing receipt collections from older API records", () => {
   assert.deepEqual(intake.clarificationQuestions, []);
   assert.deepEqual(intake.duplicateCandidates, []);
   assert.deepEqual(intake.lineItems, []);
+  assert.deepEqual(intake.receiptDocuments, []);
+  assert.equal(intake.multiReceipt.detected, false);
   assert.deepEqual(intake.missingFields, []);
   assert.deepEqual(intake.uncertainFields, []);
   assert.deepEqual(intake.confidence, {});
   assert.deepEqual(intake.correctionProvenance, {});
   assert.deepEqual(intake.imageEdits, {});
+});
+
+test("normalises multi-receipt evidence for review", () => {
+  const intake = normaliseReceiptIntake({
+    receiptDocuments: [
+      {
+        documentIndex: 1,
+        merchant: "Cafe",
+        receiptTotalPence: 800,
+        eligiblePence: 800,
+        gratuityPence: 0,
+        currency: "GBP",
+        country: "GB",
+        duplicateOfDocumentIndex: null,
+        lineItemIndexes: [0],
+      },
+      {
+        documentIndex: 2,
+        merchant: "Dessert bar",
+        receiptTotalPence: 450,
+        eligiblePence: 450,
+        gratuityPence: 0,
+        currency: "GBP",
+        country: "GB",
+        duplicateOfDocumentIndex: null,
+        lineItemIndexes: [1],
+      },
+    ],
+    multiReceipt: {
+      detected: true,
+      sameMeal: true,
+      confidence: 0.96,
+      reason: "Same place and time",
+    },
+  });
+
+  assert.equal(intake.receiptDocuments.length, 2);
+  assert.equal(intake.multiReceipt.detected, true);
+  assert.equal(intake.multiReceipt.sameMeal, true);
 });
 
 test("normalises the typed receipt failure code", () => {

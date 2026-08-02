@@ -54,6 +54,9 @@ export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
     service_date: { type: ["string", "null"], format: "date" },
     receipt_total_minor: nullableInteger,
     eligible_minor: nullableInteger,
+    receipt_document_count: { type: "integer", minimum: 1, maximum: 10 },
+    distinct_transaction_count: { type: "integer", minimum: 1, maximum: 10 },
+    same_meal: { type: ["boolean", "null"] },
     currency: { type: "string", pattern: "^(?:[A-Z]{3}|UNKNOWN)$" },
     country: { type: "string", pattern: "^(?:[A-Z]{2}|UNKNOWN)$" },
     language: {
@@ -86,6 +89,7 @@ export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
         currency_visible: { type: "boolean" },
         country_visible: { type: "boolean" },
         merchant_or_tax_identity_visible: { type: "boolean" },
+        documents_separated: { type: "boolean" },
       },
       required: [
         "service_date_visible",
@@ -94,6 +98,7 @@ export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
         "currency_visible",
         "country_visible",
         "merchant_or_tax_identity_visible",
+        "documents_separated",
       ],
     },
     confidence: {
@@ -106,6 +111,7 @@ export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
         currency: confidence,
         country: confidence,
         receipt_evidence: confidence,
+        document_separation: confidence,
       },
       required: [
         "service_date",
@@ -114,6 +120,7 @@ export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
         "currency",
         "country",
         "receipt_evidence",
+        "document_separation",
       ],
     },
   },
@@ -121,6 +128,9 @@ export const RECEIPT_AUTO_VERIFICATION_SCHEMA = {
     "service_date",
     "receipt_total_minor",
     "eligible_minor",
+    "receipt_document_count",
+    "distinct_transaction_count",
+    "same_meal",
     "currency",
     "country",
     "language",
@@ -182,6 +192,7 @@ function confidenceRecord(value: unknown) {
     currency: "currency",
     country: "country",
     receiptEvidence: "receipt_evidence",
+    documentSeparation: "document_separation",
   } as const;
   exactKeys(input, Object.values(keys), "confidence");
   for (const [target, source] of Object.entries(keys)) {
@@ -205,6 +216,9 @@ export function normaliseReceiptAutoVerification(
       "service_date",
       "receipt_total_minor",
       "eligible_minor",
+      "receipt_document_count",
+      "distinct_transaction_count",
+      "same_meal",
       "currency",
       "country",
       "language",
@@ -225,6 +239,7 @@ export function normaliseReceiptAutoVerification(
       "currency_visible",
       "country_visible",
       "merchant_or_tax_identity_visible",
+      "documents_separated",
     ],
     "evidence",
   );
@@ -241,6 +256,17 @@ export function normaliseReceiptAutoVerification(
       !validIsoDate(input.service_date))
   ) {
     throw new Error("invalid verification date");
+  }
+  if (
+    !Number.isSafeInteger(input.receipt_document_count) ||
+    Number(input.receipt_document_count) < 1 ||
+    Number(input.receipt_document_count) > 10 ||
+    !Number.isSafeInteger(input.distinct_transaction_count) ||
+    Number(input.distinct_transaction_count) < 1 ||
+    Number(input.distinct_transaction_count) > Number(input.receipt_document_count) ||
+    (input.same_meal !== null && typeof input.same_meal !== "boolean")
+  ) {
+    throw new Error("invalid verification receipt documents");
   }
   const currency = canonicalCurrency(input.currency);
   if (currency !== input.currency) {
@@ -288,6 +314,9 @@ export function normaliseReceiptAutoVerification(
     serviceDate: input.service_date,
     receiptTotalPence: parseNullableInteger(input.receipt_total_minor),
     eligiblePence: parseNullableInteger(input.eligible_minor),
+    receiptDocumentCount: Number(input.receipt_document_count),
+    distinctTransactionCount: Number(input.distinct_transaction_count),
+    sameMeal: input.same_meal as boolean | null,
     currency,
     country,
     language,
@@ -307,6 +336,7 @@ export function normaliseReceiptAutoVerification(
       merchantOrTaxIdentityVisible: boolean(
         "merchant_or_tax_identity_visible",
       ),
+      documentsSeparated: boolean("documents_separated"),
     },
     confidence: confidenceRecord(input.confidence),
   };

@@ -309,6 +309,43 @@
   overflow: hidden; margin: 3px 0 0; font-size: .77rem; font-weight: 740;
   text-overflow: ellipsis; white-space: nowrap;
 }
+
+.multi-receipt-summary {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--line));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--teal) 7%, var(--paper-raised));
+}
+.multi-receipt-summary p,
+.multi-receipt-summary h4 { margin: 0; }
+.multi-receipt-heading,
+.multi-receipt-documents li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.multi-receipt-heading > span,
+.multi-receipt-reason { color: var(--muted); }
+.multi-receipt-documents {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.multi-receipt-documents li {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper-raised);
+}
+.multi-receipt-documents li span,
+.multi-receipt-documents li small { color: var(--muted); }
 .intake-fact-details { margin-top: 16px; border-top: 1px solid var(--line); }
 .intake-fact-details > summary {
   min-height: 46px; padding-top: 13px; cursor: pointer;

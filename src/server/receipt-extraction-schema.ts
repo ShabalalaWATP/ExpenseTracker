@@ -22,9 +22,32 @@ export type ExtractedLineItem = {
   description: string;
   quantity: number | null;
   totalPence: number | null;
+  documentIndex: number;
   eligible: boolean | null;
   alcoholSuspected: boolean;
   confidence: number;
+};
+
+export type ReceiptDocument = {
+  documentIndex: number;
+  merchant: string | null;
+  serviceDate: string | null;
+  transactionTime: string | null;
+  receiptTotalPence: number | null;
+  eligiblePence: number | null;
+  gratuityPence: number;
+  currency: string;
+  country: string;
+  locationHint: string | null;
+  duplicateOfDocumentIndex: number | null;
+  lineItemIndexes: number[];
+};
+
+export type MultiReceiptAssessment = {
+  detected: boolean;
+  sameMeal: boolean | null;
+  confidence: number;
+  reason: string | null;
 };
 
 export type ReceiptLocationCoordinates = {
@@ -58,6 +81,8 @@ export type ReceiptExtraction = {
   category: string | null;
   foodStyleTags: FoodStyleTag[];
   lineItems: ExtractedLineItem[];
+  receiptDocuments: ReceiptDocument[];
+  multiReceipt: MultiReceiptAssessment;
   alcoholSuspected: boolean;
   missingFields: ReceiptField[];
   uncertainFields: ReceiptField[];
@@ -159,6 +184,7 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
           description: { type: "string" },
           quantity: { type: ["number", "null"], minimum: 0 },
           total_minor: nullableSignedInteger,
+          document_index: { type: "integer", minimum: 1, maximum: 10 },
           eligible: { type: ["boolean", "null"] },
           alcohol_suspected: { type: "boolean" },
           confidence: { type: "number", minimum: 0, maximum: 1 },
@@ -167,11 +193,71 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
           "description",
           "quantity",
           "total_minor",
+          "document_index",
           "eligible",
           "alcohol_suspected",
           "confidence",
         ],
       },
+    },
+    receipt_documents: {
+      type: "array",
+      minItems: 1,
+      maxItems: 10,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          document_index: { type: "integer", minimum: 1, maximum: 10 },
+          merchant: nullableString,
+          service_date: { type: ["string", "null"], format: "date" },
+          transaction_time: {
+            type: ["string", "null"],
+            pattern: "^([01]\\d|2[0-3]):[0-5]\\d$",
+          },
+          receipt_total_minor: nullableInteger,
+          eligible_minor: nullableInteger,
+          gratuity_minor: { type: "integer", minimum: 0 },
+          currency: { type: "string", pattern: "^(?:[A-Z]{3}|UNKNOWN)$" },
+          country: { type: "string", pattern: "^(?:[A-Z]{2}|UNKNOWN)$" },
+          location_hint: nullableString,
+          duplicate_of_document_index: {
+            type: ["integer", "null"],
+            minimum: 1,
+            maximum: 10,
+          },
+          line_item_indexes: {
+            type: "array",
+            maxItems: 100,
+            items: { type: "integer", minimum: 0, maximum: 99 },
+          },
+        },
+        required: [
+          "document_index",
+          "merchant",
+          "service_date",
+          "transaction_time",
+          "receipt_total_minor",
+          "eligible_minor",
+          "gratuity_minor",
+          "currency",
+          "country",
+          "location_hint",
+          "duplicate_of_document_index",
+          "line_item_indexes",
+        ],
+      },
+    },
+    multi_receipt: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        detected: { type: "boolean" },
+        same_meal: { type: ["boolean", "null"] },
+        confidence: { type: "number", minimum: 0, maximum: 1 },
+        reason: nullableString,
+      },
+      required: ["detected", "same_meal", "confidence", "reason"],
     },
     alcohol_suspected: { type: "boolean" },
     missing_fields: {
@@ -232,6 +318,8 @@ export const RECEIPT_EXTRACTION_SCHEMA = {
     "category",
     "food_style_tags",
     "line_items",
+    "receipt_documents",
+    "multi_receipt",
     "alcohol_suspected",
     "missing_fields",
     "uncertain_fields",

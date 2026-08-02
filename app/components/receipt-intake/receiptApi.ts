@@ -7,6 +7,11 @@ import type {
   ReceiptIntake,
   ReceiptRecheckField,
 } from "./types";
+// @ts-expect-error Direct Node tests require the source extension.
+import {
+  normaliseMultiReceipt,
+  normaliseReceiptDocuments,
+} from "./multi-receipt-normalisation.ts";
 
 type Envelope<T> = { data: T };
 type RecordValue = Record<string, unknown>;
@@ -53,6 +58,7 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
   const translationValue = record(item.translation);
   const conversionValue = record(item.conversion);
   const groupReceiptValue = record(item.groupReceipt);
+  const receiptDocuments = normaliseReceiptDocuments(item.receiptDocuments);
   const translation = {
     merchantEnglish: text(
       translationValue.merchantEnglish ?? translationValue.merchant,
@@ -92,12 +98,18 @@ export function normaliseReceiptIntake(value: unknown): ReceiptIntake {
             optionalInteger(entry.originalTotalMinor) ??
             optionalInteger(entry.totalMinor) ??
             optionalInteger(entry.totalPence),
+          documentIndex: optionalInteger(entry.documentIndex) ?? 1,
         };
       })
     : [];
   return {
     ...(item as unknown as ReceiptIntake),
     lineItems: lineItems as ReceiptIntake["lineItems"],
+    receiptDocuments,
+    multiReceipt: normaliseMultiReceipt(
+      item.multiReceipt,
+      receiptDocuments.length,
+    ),
     analysisHistory: analysisHistory(item.analysisHistory),
     clarificationQuestions: stringArray(item.clarificationQuestions),
     duplicateCandidates: Array.isArray(item.duplicateCandidates)
