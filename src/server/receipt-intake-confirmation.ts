@@ -1,4 +1,5 @@
 import { reconcileReceipt } from "@/src/domain/receipt-reconciliation";
+import { reconciliationLines } from "@/src/domain/receipt-reconciliation-lines";
 import { assertDateUnlocked } from "./claim-locks";
 import { database } from "./db";
 import { findExpense } from "./expense-repository";
@@ -15,30 +16,6 @@ import { requireIntake } from "./receipt-intake-repository";
 import { requireReceiptAttestation } from "./receipt-intake-validation";
 import { commitReceiptIntakeExpense } from "./receipt-intake-expense";
 import { resolveReceiptTripLink } from "./receipt-trip-link";
-
-function reconciliationLines(value: string) {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(
-        (item): item is Record<string, unknown> =>
-          Boolean(item) && typeof item === "object",
-      )
-      .map((item) => ({
-        totalPence: Number.isSafeInteger(item.totalPence)
-          ? (item.totalPence as number)
-          : null,
-        eligible:
-          typeof item.eligible === "boolean" ? item.eligible : null,
-        alcoholSuspected: item.alcoholSuspected === true,
-        confidence:
-          typeof item.confidence === "number" ? item.confidence : undefined,
-      }));
-  } catch {
-    return [];
-  }
-}
 
 async function releaseLock(
   principal: Principal,

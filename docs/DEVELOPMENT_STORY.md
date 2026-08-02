@@ -492,3 +492,7 @@ This document records meaningful implementation milestones, decisions and verifi
   quantity, for example one of four drinks and one of three burgers. The full
   printed quantities and totals remain intact as evidence while the selected
   share alone becomes the eligible amount.
+- Fixed confirmation of quantity-allocated shared receipts. The final server
+  check now reads each stored claimed line total instead of re-expanding the
+  selected lines to their full receipt values, so a valid partial allocation
+  can become an expense without weakening receipt arithmetic checks.

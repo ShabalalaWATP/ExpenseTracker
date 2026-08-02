@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 // @ts-expect-error Node's TypeScript stripping requires the source extension.
 import { reconcileReceipt } from "../src/domain/receipt-reconciliation.ts";
+// @ts-expect-error Node's TypeScript stripping requires the source extension.
+import { reconciliationLines } from "../src/domain/receipt-reconciliation-lines.ts";
 
 describe("receipt arithmetic reconciliation", () => {
   it("balances visible items including a signed discount", () => {
@@ -72,5 +74,33 @@ describe("receipt arithmetic reconciliation", () => {
     assert.equal(result.status, "balanced");
     assert.equal(result.knownLineTotalPence, 800);
     assert.equal(result.knownEligibleLineTotalPence, 200);
+  });
+
+  it("preserves claimed line totals when confirmation reads stored JSON", () => {
+    const lines = reconciliationLines(JSON.stringify([
+      {
+        totalPence: 600,
+        eligible: true,
+        claimedQuantity: 2,
+        claimedTotalPence: 200,
+      },
+      {
+        totalPence: 1_795,
+        eligible: true,
+        claimedQuantity: 1,
+        claimedTotalPence: 598,
+      },
+      {
+        totalPence: 3_190,
+        eligible: true,
+        claimedQuantity: 1,
+        claimedTotalPence: 3_190,
+      },
+      { totalPence: 5_170, eligible: false, claimedTotalPence: 0 },
+    ]));
+    const result = reconcileReceipt(lines, 10_755, 3_988, 1_185);
+    assert.equal(result.status, "balanced");
+    assert.equal(result.knownEligibleLineTotalPence, 3_988);
+    assert.equal(result.eligibleDifferencePence, 0);
   });
 });

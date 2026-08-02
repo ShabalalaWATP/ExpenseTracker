@@ -579,6 +579,8 @@ control and the development record contains verification evidence.
   placed immediately above the calendar grid on desktop and mobile.
 - [x] Surface shared-receipt review near the top of receipt review and support
   per-line quantity allocation without changing the original receipt evidence.
+- [x] Reconcile quantity-allocated line totals consistently during final
+  confirmation so valid shared receipts are not blocked by their full values.
 
 ### Priority 3: broader use only when justified
 
